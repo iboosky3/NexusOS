@@ -1,11 +1,15 @@
-site_name: AgentOS-Lab
-site_description: 面向复杂任务的多智能体协作基础设施研究工程
+site_name: NexusOS · 纽带
+site_url: https://nexusos.net.cn
+site_description: 面向可扩展自主智能的多智能体编排与 Skill 智能基础设施
 docs_dir: docs
 site_dir: site
 
 theme:
   name: material
   language: zh
+
+extra:
+  homepage: https://nexusos.net.cn
 
 nav:
   - 首页: index.md
