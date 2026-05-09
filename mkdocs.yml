@@ -14,4 +14,10 @@ extra:
 nav:
   - 首页: index.md
   - 快速了解: getting-started/introduction.md
-  - 架构方案与演进: architecture/architecture-evolution.md
+  - 架构:
+      - 总览: architecture/overview.md
+      - 系统上下文: architecture/system-context.md
+      - 方案与演进: architecture/architecture-evolution.md
+  - 架构决策:
+      - 索引: adr/index.md
+      - Contract First: adr/0001-contract-first.md
