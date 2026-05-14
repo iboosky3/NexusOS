@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=75", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "nexusos"
+version = "0.1.0.dev0"
+description = "Contract-first multi-agent orchestration and skill intelligence infrastructure"
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "Apache-2.0" }
+authors = [{ name = "NexusOS Maintainers" }]
+dependencies = []
+
+[project.optional-dependencies]
+api = ["fastapi>=0.115", "pydantic>=2.9", "uvicorn>=0.30"]
+docs = ["mkdocs-material>=9.5"]
+dev = ["pytest>=8.3", "pytest-asyncio>=0.24", "ruff>=0.8", "mypy>=1.13"]
+
+[tool.setuptools]
+package-dir = { "" = "packages/nexusos-python/src" }
+
+[tool.setuptools.packages.find]
+where = ["packages/nexusos-python/src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
