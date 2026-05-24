@@ -1,0 +1,27 @@
+apiVersion: nexusos/v1
+kind: Skill
+metadata:
+  name: requirement-analysis
+  version: 1.0.0
+spec:
+  description: 将模糊产品想法整理为目标、用户、问题、范围与验收标准
+  domains: [product]
+  capabilities: [requirement_analysis, product_strategy]
+  routing:
+    keywords: [需求, 产品目标, 用户问题, requirement, product intent]
+  requirements:
+    tools: []
+  cost:
+    level: low
+    estimated_tokens: 900
+  risk:
+    level: low
+  quality:
+    success_rate: 0.88
+  performance:
+    average_latency_ms: 750
+  instructions: instructions.md
+  input_schema:
+    product_idea: string
+  output_schema:
+    product_brief: object

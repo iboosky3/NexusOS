@@ -1,0 +1,27 @@
+apiVersion: nexusos/v1
+kind: Skill
+metadata:
+  name: prd-writing
+  version: 1.0.0
+spec:
+  description: 将研究、需求、体验和技术结论汇总为结构化产品需求文档
+  domains: [product, writing]
+  capabilities: [prd_generation, structured_writing]
+  routing:
+    keywords: [PRD, 产品需求文档, 文档生成, product requirements]
+  requirements:
+    tools: [file.write]
+  cost:
+    level: high
+    estimated_tokens: 2600
+  risk:
+    level: low
+  quality:
+    success_rate: 0.9
+  performance:
+    average_latency_ms: 2400
+  instructions: instructions.md
+  input_schema:
+    task_results: array
+  output_schema:
+    prd_markdown: string

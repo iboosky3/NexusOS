@@ -1,0 +1,27 @@
+apiVersion: nexusos/v1
+kind: Skill
+metadata:
+  name: architecture-review
+  version: 1.0.0
+spec:
+  description: 评估产品需求的技术边界、数据模型、接口、风险与交付路径
+  domains: [engineering, architecture]
+  capabilities: [technical_design, api_design, risk_analysis]
+  routing:
+    keywords: [技术方案, 架构, API, 数据模型, architecture, feasibility]
+  requirements:
+    tools: [knowledge.query]
+  cost:
+    level: high
+    estimated_tokens: 1800
+  risk:
+    level: medium
+  quality:
+    success_rate: 0.82
+  performance:
+    average_latency_ms: 2100
+  instructions: instructions.md
+  input_schema:
+    requirements: array
+  output_schema:
+    technical_assessment: object

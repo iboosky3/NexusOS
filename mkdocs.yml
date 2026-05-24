@@ -21,3 +21,5 @@ nav:
   - 架构决策:
       - 索引: adr/index.md
       - Contract First: adr/0001-contract-first.md
+  - 核心概念:
+      - Skill 与渐进加载: concepts/skill.md

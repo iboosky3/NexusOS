@@ -1,0 +1,28 @@
+apiVersion: nexusos/v1
+kind: Skill
+metadata:
+  name: competitor-analysis
+  version: 1.0.0
+spec:
+  description: 分析竞品定位、目标用户、能力、优势、风险与差异化机会
+  domains: [product, research]
+  capabilities: [competitor_research, feature_comparison, positioning_analysis]
+  routing:
+    keywords: [竞品, 市场对比, competitor, competitive analysis, positioning]
+  requirements:
+    tools: [web.search]
+  cost:
+    level: medium
+    estimated_tokens: 1600
+  risk:
+    level: low
+  quality:
+    success_rate: 0.84
+  performance:
+    average_latency_ms: 1800
+  instructions: instructions.md
+  input_schema:
+    product_description: string
+    competitors: array
+  output_schema:
+    competitor_matrix: object

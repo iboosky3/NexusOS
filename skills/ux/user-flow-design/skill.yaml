@@ -1,0 +1,28 @@
+apiVersion: nexusos/v1
+kind: Skill
+metadata:
+  name: user-flow-design
+  version: 1.0.0
+spec:
+  description: 根据目标用户和核心任务设计端到端用户流程与异常路径
+  domains: [design, ux]
+  capabilities: [user_flow, information_architecture]
+  routing:
+    keywords: [用户流程, 信息架构, user flow, ux, journey]
+  requirements:
+    tools: []
+  cost:
+    level: medium
+    estimated_tokens: 1200
+  risk:
+    level: low
+  quality:
+    success_rate: 0.86
+  performance:
+    average_latency_ms: 1100
+  instructions: instructions.md
+  input_schema:
+    user_profile: object
+    requirements: array
+  output_schema:
+    user_flows: array

@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.12"
 license = { text = "Apache-2.0" }
 authors = [{ name = "NexusOS Maintainers" }]
-dependencies = []
+dependencies = ["PyYAML>=6.0"]
 
 [project.optional-dependencies]
 api = ["fastapi>=0.115", "pydantic>=2.9", "uvicorn>=0.30"]
