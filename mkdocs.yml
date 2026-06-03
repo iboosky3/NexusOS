@@ -23,3 +23,5 @@ nav:
       - Contract First: adr/0001-contract-first.md
   - 核心概念:
       - Skill 与渐进加载: concepts/skill.md
+  - Skill 智能:
+      - 路由与排序: skill-intelligence/routing.md
