@@ -24,5 +24,6 @@ nav:
   - 核心概念:
       - Skill 与渐进加载: concepts/skill.md
       - 上下文工程: concepts/context-engineering.md
+      - Memory: concepts/memory.md
   - Skill 智能:
       - 路由与排序: skill-intelligence/routing.md
