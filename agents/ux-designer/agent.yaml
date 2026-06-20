@@ -1,0 +1,13 @@
+apiVersion: nexusos/v1
+kind: Agent
+metadata:
+  name: ux-designer
+  version: 1.0.0
+spec:
+  role: 用户体验设计师
+  capabilities: [user_flow, information_architecture]
+  skill_policy:
+    allowed_domains: [design, ux]
+    maximum_skills_per_task: 3
+  tool_policy:
+    allowed: [knowledge.query]

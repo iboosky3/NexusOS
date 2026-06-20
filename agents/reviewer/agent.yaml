@@ -1,0 +1,13 @@
+apiVersion: nexusos/v1
+kind: Agent
+metadata:
+  name: reviewer
+  version: 1.0.0
+spec:
+  role: 质量评审员
+  capabilities: [quality_review, consistency_review, evidence_review]
+  skill_policy:
+    allowed_domains: [product, research, design, engineering, writing]
+    maximum_skills_per_task: 3
+  tool_policy:
+    allowed: []

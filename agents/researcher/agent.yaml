@@ -1,0 +1,13 @@
+apiVersion: nexusos/v1
+kind: Agent
+metadata:
+  name: researcher
+  version: 1.0.0
+spec:
+  role: 市场研究员
+  capabilities: [market_research, competitor_research, evidence_synthesis]
+  skill_policy:
+    allowed_domains: [research, product]
+    maximum_skills_per_task: 4
+  tool_policy:
+    allowed: [web.search, knowledge.query]

@@ -1,0 +1,13 @@
+apiVersion: nexusos/v1
+kind: Agent
+metadata:
+  name: writer
+  version: 1.0.0
+spec:
+  role: 技术文档作者
+  capabilities: [prd_generation, structured_writing]
+  skill_policy:
+    allowed_domains: [product, writing]
+    maximum_skills_per_task: 2
+  tool_policy:
+    allowed: [file.write]

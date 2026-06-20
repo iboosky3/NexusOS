@@ -1,0 +1,13 @@
+apiVersion: nexusos/v1
+kind: Agent
+metadata:
+  name: product-manager
+  version: 1.0.0
+spec:
+  role: 产品经理
+  capabilities: [intake, requirement_analysis, prioritization]
+  skill_policy:
+    allowed_domains: [product, research]
+    maximum_skills_per_task: 4
+  tool_policy:
+    allowed: [web.search, knowledge.query]

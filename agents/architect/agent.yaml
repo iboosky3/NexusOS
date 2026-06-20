@@ -1,0 +1,13 @@
+apiVersion: nexusos/v1
+kind: Agent
+metadata:
+  name: architect
+  version: 1.0.0
+spec:
+  role: 系统架构师
+  capabilities: [technical_design, api_design, risk_analysis]
+  skill_policy:
+    allowed_domains: [engineering, architecture]
+    maximum_skills_per_task: 3
+  tool_policy:
+    allowed: [knowledge.query, github.search]
