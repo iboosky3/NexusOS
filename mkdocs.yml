@@ -28,3 +28,7 @@ nav:
       - Memory: concepts/memory.md
   - Skill 智能:
       - 路由与排序: skill-intelligence/routing.md
+  - 编排器:
+      - Planner 与任务图: orchestrator/planner.md
+  - 参考应用:
+      - Nexus PRD 工作流: reference-apps/nexus-prd/workflow.md

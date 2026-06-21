@@ -93,3 +93,10 @@
 - 修改原因：固定 `PM -> UX -> Tech -> Writer` 链条无法根据任务复杂度增减专家，也会把角色、Skill 和 Tool 权限混在一起。
 - 影响范围：Planner 只声明任务所需能力；Resolver 选择 Agent；随后 Router 必须在 Agent 的 Skill 与 Tool 策略内选能力。
 - 安全收益：Agent 的工具白名单由 Manifest 声明，后续 Policy 层可以在执行前进行独立复核。
+
+### 2026-06-21 · v0.10 · PRD 流程从固定顺序改为能力导向 DAG
+
+- 修改内容：Planner 生成只声明依赖与所需能力的任务 DAG；标准需求并行执行 UX 与技术评估，复杂需求额外并行行业研究。
+- 修改原因：固定 Agent 链既浪费并行机会，又把规划结果与当前角色目录绑定，无法验证动态组队。
+- 影响范围：Agent Resolver 成为 Planner 与 Runtime 之间的必经步骤；运行时按拓扑层调度；工作流必须先通过 DAG 不变量校验。
+- 应用边界：PRD 任务模板位于 Reference Application，通用核心只保留 Goal、Task 与 TaskGraph。
