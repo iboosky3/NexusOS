@@ -11,7 +11,7 @@ class FileSkillRepositoryTests(unittest.TestCase):
 
         summaries = repository.list_summaries()
 
-        self.assertEqual(len(summaries), 5)
+        self.assertEqual(len(summaries), 7)
         self.assertEqual(summaries[0].id, "architecture-review")
         self.assertEqual(repository.load("competitor-analysis").summary.cost_level, "medium")
         self.assertIn("公开事实", repository.load("competitor-analysis").instructions)

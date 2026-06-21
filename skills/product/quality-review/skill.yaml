@@ -1,0 +1,27 @@
+apiVersion: nexusos/v1
+kind: Skill
+metadata:
+  name: quality-review
+  version: 1.0.0
+spec:
+  description: 按清晰度、完整性、可行性、一致性与证据覆盖评审 PRD
+  domains: [product, writing]
+  capabilities: [quality_review, consistency_review, evidence_review]
+  routing:
+    keywords: [评审, 质量, 完整性, review, quality, consistency]
+  requirements:
+    tools: []
+  cost:
+    level: low
+    estimated_tokens: 800
+  risk:
+    level: low
+  quality:
+    success_rate: 0.91
+  performance:
+    average_latency_ms: 900
+  instructions: instructions.md
+  input_schema:
+    prd_markdown: string
+  output_schema:
+    review_result: object

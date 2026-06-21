@@ -100,3 +100,10 @@
 - 修改原因：固定 Agent 链既浪费并行机会，又把规划结果与当前角色目录绑定，无法验证动态组队。
 - 影响范围：Agent Resolver 成为 Planner 与 Runtime 之间的必经步骤；运行时按拓扑层调度；工作流必须先通过 DAG 不变量校验。
 - 应用边界：PRD 任务模板位于 Reference Application，通用核心只保留 Goal、Task 与 TaskGraph。
+
+### 2026-06-21 · v0.11 · 建立可离线验证的进程内 Runtime
+
+- 修改内容：把 Planner、Agent Resolver、Skill Router、Context Builder、Memory 与 `AgentRuntime` 端口串成完整执行闭环，并按 DAG 拓扑层并发执行。
+- 修改原因：只有可重复的端到端运行才能暴露模块边界问题；早期直接依赖在线模型会让测试受网络、费用和模型漂移影响。
+- 影响范围：新增确定性 Local Runtime 作为测试适配器；任务级记录 Agent、Skill、预算、Token、产物和生命周期事件；失败任务停止当前运行。
+- 后续替换：Local Runtime 不作为生产推理方案，下一阶段在同一端口后接 LangGraph 和模型网关。

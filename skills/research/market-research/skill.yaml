@@ -1,0 +1,27 @@
+apiVersion: nexusos/v1
+kind: Skill
+metadata:
+  name: market-research
+  version: 1.0.0
+spec:
+  description: 分析行业结构、市场趋势、约束、进入风险和待验证假设
+  domains: [research, product]
+  capabilities: [market_research, evidence_synthesis]
+  routing:
+    keywords: [行业研究, 市场趋势, market research, industry, trend]
+  requirements:
+    tools: [web.search]
+  cost:
+    level: medium
+    estimated_tokens: 1500
+  risk:
+    level: low
+  quality:
+    success_rate: 0.83
+  performance:
+    average_latency_ms: 1900
+  instructions: instructions.md
+  input_schema:
+    product_brief: object
+  output_schema:
+    market_findings: object
