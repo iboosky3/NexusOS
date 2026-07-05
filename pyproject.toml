@@ -12,6 +12,9 @@ license = { text = "Apache-2.0" }
 authors = [{ name = "NexusOS Maintainers" }]
 dependencies = ["PyYAML>=6.0"]
 
+[project.scripts]
+nexus = "nexusos.cli:main"
+
 [project.optional-dependencies]
 api = ["fastapi>=0.115", "pydantic>=2.9", "uvicorn>=0.30"]
 docs = ["mkdocs-material>=9.5"]

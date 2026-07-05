@@ -17,7 +17,15 @@ PYTHONPATH=packages/nexusos-python/src \
 python -m unittest discover -s tests -p 'test_*.py' -v
 ```
 
-## 3. 启动 API
+## 3. 使用 CLI
+
+```bash
+nexus prd "面向大学生的 AI 学习笔记产品" --output artifacts
+```
+
+命令会生成 `PRD.md` 与 `run.json`，可在完全离线的 Local Runtime 中验证完整链路。
+
+## 4. 启动 API
 
 ```bash
 pip install -e '.[api]'
