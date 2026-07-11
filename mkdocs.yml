@@ -27,6 +27,7 @@ nav:
       - Skill 与渐进加载: concepts/skill.md
       - 上下文工程: concepts/context-engineering.md
       - Memory: concepts/memory.md
+      - Model Gateway: concepts/model-gateway.md
   - Skill 智能:
       - 路由与排序: skill-intelligence/routing.md
   - 编排器:
