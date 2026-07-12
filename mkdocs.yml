@@ -22,6 +22,7 @@ nav:
   - 架构决策:
       - 索引: adr/index.md
       - Contract First: adr/0001-contract-first.md
+      - Runtime 职责边界: adr/0002-runtime-boundaries.md
   - 核心概念:
       - Agent 与动态发现: concepts/agent.md
       - Skill 与渐进加载: concepts/skill.md
@@ -32,6 +33,8 @@ nav:
       - 路由与排序: skill-intelligence/routing.md
   - 编排器:
       - Planner 与任务图: orchestrator/planner.md
+  - Agent Runtime:
+      - Runtime 抽象: agent-runtime/runtime-abstraction.md
   - 参考应用:
       - Nexus PRD 工作流: reference-apps/nexus-prd/workflow.md
   - 协议:

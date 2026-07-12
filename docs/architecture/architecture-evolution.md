@@ -121,3 +121,10 @@
 - 修改原因：Agent 直接持有供应商 SDK 会让模型切换、成本统计、降级和数据策略分散在各个节点，无法统一治理。
 - 影响范围：Runtime 只依赖 `ModelGateway.complete`；供应商模型名、鉴权和响应格式由适配器处理；Token 用量必须映射到核心模型。
 - 后续能力：模型选择、fallback、限流和内容策略将在 Gateway 上层独立演进。
+
+### 2026-07-12 · v0.14 · 明确 LangGraph 与 Temporal 的分层职责
+
+- 修改内容：`AgentRuntime` 增加可选 LangGraph 实现；LangGraph 管理单个 Agent 的推理图，Temporal 被限定为未来跨服务、长时间业务流程的外层编排。
+- 修改原因：两套框架都提供恢复与重试，如果不先划定状态和失败所有权，会出现重复执行、双重 Checkpoint 与不可预测的重试叠加。
+- 影响范围：LangGraph 状态必须在适配器内转换；Temporal Activity 未来只调用 Nexus Task 边界；同一业务状态只能有一个主数据源。
+- 实施顺序：当前启用 Local 与 LangGraph Runtime，Temporal 在远程 Worker 契约和幂等语义完成后接入。
