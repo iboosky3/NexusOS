@@ -37,6 +37,7 @@ nav:
       - Planner 与任务图: orchestrator/planner.md
   - Agent Runtime:
       - Runtime 抽象: agent-runtime/runtime-abstraction.md
+      - Go Task Runtime: agent-runtime/go-runtime.md
   - 参考应用:
       - Nexus PRD 工作流: reference-apps/nexus-prd/workflow.md
   - 协议:
