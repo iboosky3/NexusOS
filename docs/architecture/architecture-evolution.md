@@ -128,3 +128,10 @@
 - 修改原因：两套框架都提供恢复与重试，如果不先划定状态和失败所有权，会出现重复执行、双重 Checkpoint 与不可预测的重试叠加。
 - 影响范围：LangGraph 状态必须在适配器内转换；Temporal Activity 未来只调用 Nexus Task 边界；同一业务状态只能有一个主数据源。
 - 实施顺序：当前启用 Local 与 LangGraph Runtime，Temporal 在远程 Worker 契约和幂等语义完成后接入。
+
+### 2026-07-18 · v0.15 · 从全 Python 规划演进为按负载拆分的多语言架构
+
+- 修改内容：Python 保留智能平面；Go 承担 Task Runtime、Scheduler 与 MCP Gateway；Rust 承担低延迟 Skill 排序；TypeScript 构建 Studio；C++/CUDA 仅通过外部模型推理服务使用。
+- 修改原因：Agent 逻辑需要 Python 生态，但高并发 IO、调度和批量排序具有不同运行特征；同时不能为了技术展示过早全面微服务化。
+- 影响范围：Monorepo 增加跨语言服务；JSON v1 契约成为首个互操作边界；本地 Python 实现继续作为规范与降级路径。
+- 拆分准入：只有基准证明远程实现收益覆盖网络、部署和运维成本时，生产配置才启用对应服务。

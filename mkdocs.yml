@@ -18,11 +18,13 @@ nav:
   - 架构:
       - 总览: architecture/overview.md
       - 系统上下文: architecture/system-context.md
+      - 多语言架构: architecture/polyglot-design.md
       - 方案与演进: architecture/architecture-evolution.md
   - 架构决策:
       - 索引: adr/index.md
       - Contract First: adr/0001-contract-first.md
       - Runtime 职责边界: adr/0002-runtime-boundaries.md
+      - 多语言服务边界: adr/0003-polyglot-boundaries.md
   - 核心概念:
       - Agent 与动态发现: concepts/agent.md
       - Skill 与渐进加载: concepts/skill.md
