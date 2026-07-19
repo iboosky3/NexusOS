@@ -25,6 +25,7 @@ nav:
       - Contract First: adr/0001-contract-first.md
       - Runtime 职责边界: adr/0002-runtime-boundaries.md
       - 多语言服务边界: adr/0003-polyglot-boundaries.md
+      - MCP 与 A2A 分离: adr/0004-protocol-separation.md
   - 核心概念:
       - Agent 与动态发现: concepts/agent.md
       - Skill 与渐进加载: concepts/skill.md
@@ -43,3 +44,5 @@ nav:
       - Nexus PRD 工作流: reference-apps/nexus-prd/workflow.md
   - 协议:
       - HTTP API: protocols/http-api.md
+      - MCP: protocols/mcp.md
+      - A2A: protocols/a2a.md

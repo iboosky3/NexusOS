@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nexusos.net.cn/contracts/mcp/v1/invocation.schema.json",
+  "title": "NexusOS Tool Invocation",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["request_id", "idempotency_key", "tool_name", "arguments", "principal"],
+  "properties": {
+    "request_id": {"type": "string", "minLength": 1},
+    "idempotency_key": {"type": "string", "minLength": 1},
+    "tool_name": {"type": "string", "minLength": 1},
+    "arguments": {"type": "object"},
+    "principal": {
+      "type": "object",
+      "required": ["tenant_id", "subject_id"],
+      "properties": {
+        "tenant_id": {"type": "string", "minLength": 1},
+        "subject_id": {"type": "string", "minLength": 1}
+      }
+    }
+  }
+}
