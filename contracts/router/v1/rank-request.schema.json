@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nexusos.net.cn/contracts/router/v1/rank-request.schema.json",
+  "title": "NexusOS Router Rank Request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["candidates", "policy", "maximum_results", "token_budget"],
+  "properties": {
+    "candidates": {"type": "array", "items": {"type": "object"}},
+    "policy": {"type": "object"},
+    "maximum_results": {"type": "integer", "minimum": 1, "maximum": 20},
+    "token_budget": {"type": "integer", "minimum": 0}
+  }
+}

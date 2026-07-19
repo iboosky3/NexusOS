@@ -1,0 +1,10 @@
+[package]
+name = "nexus-router"
+version = "0.1.0"
+edition = "2024"
+license = "Apache-2.0"
+description = "Low-latency policy-aware skill reranking for NexusOS"
+
+[lib]
+name = "nexus_router"
+path = "src/lib.rs"

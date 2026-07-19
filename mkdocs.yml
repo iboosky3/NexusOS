@@ -33,6 +33,7 @@ nav:
       - Model Gateway: concepts/model-gateway.md
   - Skill 智能:
       - 路由与排序: skill-intelligence/routing.md
+      - Rust Router: skill-intelligence/rust-router.md
   - 编排器:
       - Planner 与任务图: orchestrator/planner.md
   - Agent Runtime:
