@@ -46,3 +46,6 @@ nav:
       - HTTP API: protocols/http-api.md
       - MCP: protocols/mcp.md
       - A2A: protocols/a2a.md
+  - 可观测性:
+      - Trace 与事件: observability/tracing.md
+      - 指标与成本: observability/metrics.md

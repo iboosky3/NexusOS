@@ -76,6 +76,10 @@ class PrdOrchestrator:
         for layer in plan.graph.topological_layers():
             for task in layer:
                 state.task_status[task.id] = TaskStatus.RUNNING
+                self._events.emit(
+                    "nexus.task.started",
+                    {"run_id": state.run_id, "task_id": task.id},
+                )
             executions = await asyncio.gather(
                 *(self._execute_task(state, task) for task in layer), return_exceptions=True
             )
