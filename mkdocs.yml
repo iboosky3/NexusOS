@@ -51,3 +51,4 @@ nav:
       - 指标与成本: observability/metrics.md
   - 评估:
       - Skill 路由基准: evaluation/skill-routing.md
+      - PRD 质量评估: evaluation/prd.md

@@ -9,8 +9,9 @@ from typing import Any, Mapping
 
 from nexusos.agents import AgentResolver
 from nexusos.context import BudgetReport, ContextBudgetManager, ContextFragment
-from nexusos.core.models import NexusState, ReviewResult, Task, TaskStatus, TokenUsage
+from nexusos.core.models import NexusState, Task, TaskStatus, TokenUsage
 from nexusos.core.ports import AgentRuntime, EventSink, MemoryStore
+from nexusos.evaluation import evaluate_prd
 from nexusos.orchestrator.planner import ReferencePrdPlanner
 from nexusos.router import HybridSkillRouter, RouteRequest, RoutingPolicy
 from nexusos.skills import FileSkillRepository
@@ -113,15 +114,12 @@ class PrdOrchestrator:
                     },
                 )
 
-        state.review = ReviewResult(
-            overall_score=88,
-            dimensions={
-                "clarity": 90,
-                "completeness": 88,
-                "feasibility": 87,
-                "consistency": 91,
-                "evidence": 84,
-            },
+        prd_artifact = next(
+            (artifact for artifact in state.artifacts if artifact.name == "PRD.md"), None
+        )
+        state.review = evaluate_prd(
+            prd_artifact.content if prd_artifact else "",
+            evidence_count=len(state.evidence),
         )
         await self._memory.append(
             state.run_id,

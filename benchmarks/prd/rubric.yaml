@@ -1,0 +1,15 @@
+version: 1
+pass_score: 85
+dimensions:
+  clarity:
+    description: 结构和表达是否清晰
+  completeness:
+    description: 是否包含需求范围、用户流程、技术方案和成功指标
+  feasibility:
+    description: 是否包含 MVP、技术可行性和风险
+  consistency:
+    description: 范围、术语与约束是否一致
+  evidence:
+    description: 关键结论是否有来源或明确标记为假设
+blocking_rules:
+  - 核心章节缺失超过一项
