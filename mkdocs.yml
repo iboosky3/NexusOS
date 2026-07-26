@@ -49,3 +49,5 @@ nav:
   - 可观测性:
       - Trace 与事件: observability/tracing.md
       - 指标与成本: observability/metrics.md
+  - 评估:
+      - Skill 路由基准: evaluation/skill-routing.md

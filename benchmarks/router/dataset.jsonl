@@ -1,0 +1,10 @@
+{"id":"prd-001","query":"把产品想法整理成目标用户、问题和验收标准","relevant_skill_ids":["requirement-analysis"]}
+{"id":"prd-002","query":"分析 AI 设计助手的竞品定位与功能差异","relevant_skill_ids":["competitor-analysis"]}
+{"id":"prd-003","query":"研究企业协作软件的市场趋势和进入风险","relevant_skill_ids":["market-research"]}
+{"id":"prd-004","query":"为大学生学习产品设计主流程和异常路径","relevant_skill_ids":["user-flow-design"]}
+{"id":"prd-005","query":"评估系统架构、API、数据模型与技术风险","relevant_skill_ids":["architecture-review"]}
+{"id":"prd-006","query":"把研究和需求汇总为一份结构化 PRD","relevant_skill_ids":["prd-writing"]}
+{"id":"prd-007","query":"检查 PRD 的完整性、一致性、证据和可行性","relevant_skill_ids":["quality-review"]}
+{"id":"prd-008","query":"compare competitor positioning and feature differentiation","relevant_skill_ids":["competitor-analysis"]}
+{"id":"prd-009","query":"design the end-to-end user flow and information architecture","relevant_skill_ids":["user-flow-design"]}
+{"id":"prd-010","query":"review API feasibility and architecture risks","relevant_skill_ids":["architecture-review"]}
