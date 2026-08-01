@@ -1,0 +1,127 @@
+name: nexusos
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: deploy/docker/api.Dockerfile
+    env_file: .env
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+      nats:
+        condition: service_healthy
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp
+
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: nexusos
+      POSTGRES_USER: nexusos
+      POSTGRES_PASSWORD: nexusos
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nexusos -d nexusos"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:8-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  qdrant:
+    image: qdrant/qdrant:v1.15.4
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant-data:/qdrant/storage
+
+  minio:
+    image: minio/minio:RELEASE.2025-07-23T15-54-02Z
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: nexusos
+      MINIO_ROOT_PASSWORD: nexusos-development-only
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio-data:/data
+
+  nats:
+    image: nats:2.11-alpine
+    command: ["--jetstream", "--store_dir=/data", "--http_port=8222"]
+    ports:
+      - "4222:4222"
+      - "8222:8222"
+    volumes:
+      - nats-data:/data
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8222/healthz"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.132.0
+    command: ["--config=/etc/otelcol/config.yaml"]
+    volumes:
+      - ./deploy/compose/otel-collector.yaml:/etc/otelcol/config.yaml:ro
+    ports:
+      - "4317:4317"
+      - "4318:4318"
+      - "8889:8889"
+    profiles: ["observability"]
+
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    command: ["--config.file=/etc/prometheus/prometheus.yml"]
+    volumes:
+      - ./deploy/compose/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "9090:9090"
+    profiles: ["observability"]
+
+  grafana:
+    image: grafana/grafana:12.1.0
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: nexusos-development-only
+    volumes:
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "3000:3000"
+    profiles: ["observability"]
+
+volumes:
+  postgres-data:
+  redis-data:
+  qdrant-data:
+  minio-data:
+  nats-data:
+  prometheus-data:
+  grafana-data:

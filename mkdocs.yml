@@ -52,3 +52,6 @@ nav:
   - 评估:
       - Skill 路由基准: evaluation/skill-routing.md
       - PRD 质量评估: evaluation/prd.md
+  - 部署:
+      - 本地虚拟机: deployment/local-vm.md
+      - Docker Compose: deployment/docker.md
