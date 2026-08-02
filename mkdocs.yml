@@ -18,6 +18,9 @@ nav:
   - 架构:
       - 总览: architecture/overview.md
       - 系统上下文: architecture/system-context.md
+      - 容器架构: architecture/container-architecture.md
+      - 组件设计: architecture/component-design.md
+      - 数据流: architecture/data-flow.md
       - 多语言架构: architecture/polyglot-design.md
       - 数据模型: architecture/data-model.md
       - 方案与演进: architecture/architecture-evolution.md
@@ -56,3 +59,4 @@ nav:
   - 部署:
       - 本地虚拟机: deployment/local-vm.md
       - Docker Compose: deployment/docker.md
+      - 生产部署目标: deployment/production.md
