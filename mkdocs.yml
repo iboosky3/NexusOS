@@ -55,6 +55,7 @@ nav:
       - 指标与成本: observability/metrics.md
   - 评估:
       - Skill 路由基准: evaluation/skill-routing.md
+      - 规模基准: evaluation/scale.md
       - PRD 质量评估: evaluation/prd.md
   - 部署:
       - 本地虚拟机: deployment/local-vm.md
