@@ -13,6 +13,7 @@ from nexusos.core.models import NexusState, Task, TaskStatus, TokenUsage
 from nexusos.core.ports import AgentRuntime, EventSink, MemoryStore
 from nexusos.evaluation import evaluate_prd
 from nexusos.orchestrator.planner import ReferencePrdPlanner
+from nexusos.orchestrator.replanner import RevisionPlanner
 from nexusos.router import HybridSkillRouter, RouteRequest, RoutingPolicy
 from nexusos.skills import FileSkillRepository
 
@@ -54,6 +55,7 @@ class PrdOrchestrator:
         memory: MemoryStore,
         events: EventSink | None = None,
         maximum_context_tokens: int = 16_000,
+        maximum_iterations: int = 2,
     ) -> None:
         self._planner = planner
         self._resolver = resolver
@@ -64,6 +66,8 @@ class PrdOrchestrator:
         self._memory = memory
         self._events = events or ListEventSink()
         self._maximum_context_tokens = maximum_context_tokens
+        self._maximum_iterations = maximum_iterations
+        self._replanner = RevisionPlanner()
 
     async def run(self, user_request: str) -> RunRecord:
         plan = self._planner.plan(user_request)
@@ -74,7 +78,43 @@ class PrdOrchestrator:
             {"run_id": state.run_id, "tasks": len(plan.graph.tasks), "complexity": plan.complexity},
         )
 
-        for layer in plan.graph.topological_layers():
+        await self._execute_graph(state, plan.graph, budgets)
+        self._review_latest_artifact(state)
+        while state.review and not state.review.passed and state.iteration < self._maximum_iterations:
+            state.iteration += 1
+            self._events.emit(
+                "nexus.run.revision.started",
+                {
+                    "run_id": state.run_id,
+                    "iteration": state.iteration,
+                    "revision_tasks": state.review.revision_tasks,
+                },
+            )
+            revision_graph = self._replanner.plan(state.review, state.iteration)
+            await self._execute_graph(state, revision_graph, budgets)
+            self._review_latest_artifact(state)
+
+        await self._memory.append(
+            state.run_id,
+            tuple(result.content for result in state.completed_tasks.values()),
+        )
+        event_name = "nexus.run.succeeded" if state.review and state.review.passed else "nexus.run.blocked"
+        self._events.emit(
+            event_name,
+            {
+                "run_id": state.run_id,
+                "score": state.review.overall_score if state.review else 0,
+                "tokens": state.token_usage.total_tokens,
+                "iterations": state.iteration,
+            },
+        )
+        events = tuple(getattr(self._events, "events", ()))
+        return RunRecord(state=state, budgets=budgets, events=events)
+
+    async def _execute_graph(
+        self, state: NexusState, graph: Any, budgets: dict[str, BudgetReport]
+    ) -> None:
+        for layer in graph.topological_layers():
             for task in layer:
                 state.task_status[task.id] = TaskStatus.RUNNING
                 self._events.emit(
@@ -114,27 +154,15 @@ class PrdOrchestrator:
                     },
                 )
 
+    @staticmethod
+    def _review_latest_artifact(state: NexusState) -> None:
         prd_artifact = next(
-            (artifact for artifact in state.artifacts if artifact.name == "PRD.md"), None
+            (artifact for artifact in reversed(state.artifacts) if artifact.name == "PRD.md"), None
         )
         state.review = evaluate_prd(
             prd_artifact.content if prd_artifact else "",
             evidence_count=len(state.evidence),
         )
-        await self._memory.append(
-            state.run_id,
-            tuple(result.content for result in state.completed_tasks.values()),
-        )
-        self._events.emit(
-            "nexus.run.succeeded",
-            {
-                "run_id": state.run_id,
-                "score": state.review.overall_score,
-                "tokens": state.token_usage.total_tokens,
-            },
-        )
-        events = tuple(getattr(self._events, "events", ()))
-        return RunRecord(state=state, budgets=budgets, events=events)
 
     async def _execute_task(self, state: NexusState, task: Task) -> tuple[Any, ...]:
         agent = self._resolver.resolve(task)

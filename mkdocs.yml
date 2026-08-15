@@ -41,6 +41,7 @@ nav:
       - Rust Router: skill-intelligence/rust-router.md
   - 编排器:
       - Planner 与任务图: orchestrator/planner.md
+      - 结构化重规划: orchestrator/replanning.md
   - Agent Runtime:
       - Runtime 抽象: agent-runtime/runtime-abstraction.md
       - Go Task Runtime: agent-runtime/go-runtime.md

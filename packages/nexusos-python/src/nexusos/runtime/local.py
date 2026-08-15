@@ -10,10 +10,11 @@ class LocalAgentRuntime:
     """Produce inspectable reference outputs without calling an external model."""
 
     async def execute(self, agent_id: str, task: Task, context: AgentContext) -> AgentResult:
-        handler = getattr(self, f"_execute_{task.id}", self._execute_generic)
+        handler_key = str(task.metadata.get("handler", task.id))
+        handler = getattr(self, f"_execute_{handler_key}", self._execute_generic)
         content = handler(task, context)
         artifacts: tuple[Artifact, ...] = ()
-        if task.id == "write":
+        if handler_key == "write":
             artifacts = (Artifact("PRD.md", "text/markdown", content),)
         input_tokens = sum(
             estimate_tokens(value)

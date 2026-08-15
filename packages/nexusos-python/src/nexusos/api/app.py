@@ -14,7 +14,7 @@ def serialize_run_record(record: RunRecord) -> dict[str, Any]:
     state = record.state
     return {
         "run_id": state.run_id,
-        "status": "succeeded",
+        "status": "succeeded" if state.review and state.review.passed else "blocked",
         "review": {
             "overall_score": state.review.overall_score if state.review else None,
             "passed": state.review.passed if state.review else False,
@@ -27,12 +27,12 @@ def serialize_run_record(record: RunRecord) -> dict[str, Any]:
         },
         "tasks": [
             {
-                "task_id": task.id,
-                "status": state.task_status[task.id],
-                "agent_id": state.selected_agents.get(task.id),
-                "skill_ids": state.selected_skills.get(task.id, ()),
+                "task_id": task_id,
+                "status": status,
+                "agent_id": state.selected_agents.get(task_id),
+                "skill_ids": state.selected_skills.get(task_id, ()),
             }
-            for task in state.plan.tasks
+            for task_id, status in state.task_status.items()
         ],
         "artifacts": [
             {"name": item.name, "media_type": item.media_type, "content": item.content}
