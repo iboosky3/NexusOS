@@ -30,6 +30,7 @@ nav:
       - Runtime 职责边界: adr/0002-runtime-boundaries.md
       - 多语言服务边界: adr/0003-polyglot-boundaries.md
       - MCP 与 A2A 分离: adr/0004-protocol-separation.md
+      - 服务端策略: adr/0005-server-side-policy.md
   - 核心概念:
       - Agent 与动态发现: concepts/agent.md
       - Skill 与渐进加载: concepts/skill.md
@@ -62,3 +63,6 @@ nav:
       - 本地虚拟机: deployment/local-vm.md
       - Docker Compose: deployment/docker.md
       - 生产部署目标: deployment/production.md
+  - 安全:
+      - 策略与人工审批: security/policy.md
+      - 初始威胁模型: security/threat-model.md
