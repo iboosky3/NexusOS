@@ -66,3 +66,5 @@ nav:
   - 安全:
       - 策略与人工审批: security/policy.md
       - 初始威胁模型: security/threat-model.md
+  - 开发记录:
+      - 问题与解决: development/problem-log.md

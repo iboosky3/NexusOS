@@ -18,6 +18,10 @@ NexusOS 是一套开源 Agent 基础设施，探索当系统拥有上万个 Skil
 
 项目采用 Docs-as-Code。架构决策、设计变更及原因均与代码一同版本化。
 
+- [架构方案与演进](docs/architecture/architecture-evolution.md)
+- [开发与使用问题解决记录](docs/development/problem-log.md)
+- [参与贡献](CONTRIBUTING.md)
+
 文档站规划地址：[https://nexusos.net.cn](https://nexusos.net.cn)。
 
 ## 许可证
