@@ -34,6 +34,22 @@ class SqlSchemaTests(unittest.TestCase):
 
         self.assertIn("UNIQUE (tenant_id, idempotency_key)", schema)
 
+    def test_row_level_security_covers_every_tenant_table(self) -> None:
+        schema = Path("deploy/postgres/migrations/0001_core.sql").read_text(encoding="utf-8")
+        policies = Path("deploy/postgres/migrations/0003_row_level_security.sql").read_text(
+            encoding="utf-8"
+        )
+        tenant_tables = re.findall(
+            r"CREATE TABLE (\w+) \((?:(?!\n\);).)*tenant_id",
+            schema,
+            flags=re.DOTALL,
+        )
+
+        for table in tenant_tables:
+            self.assertIn(f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY", policies)
+            self.assertIn(f"CREATE POLICY tenant_isolation ON {table}", policies)
+            self.assertIn(f"ALTER TABLE {table} FORCE ROW LEVEL SECURITY", policies)
+
 
 if __name__ == "__main__":
     unittest.main()
