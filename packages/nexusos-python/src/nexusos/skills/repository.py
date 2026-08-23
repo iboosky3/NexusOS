@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any
 
 import yaml
 
@@ -112,9 +113,7 @@ class FileSkillRepository:
             raise SkillManifestError(f"invalid manifest fields: {path}: {exc}") from exc
 
     @staticmethod
-    def _mapping(
-        value: Mapping[str, Any], key: str, *, required: bool = True
-    ) -> Mapping[str, Any]:
+    def _mapping(value: Mapping[str, Any], key: str, *, required: bool = True) -> Mapping[str, Any]:
         item = value.get(key)
         if item is None and not required:
             return {}
@@ -133,7 +132,5 @@ class FileSkillRepository:
         if not path.is_dir():
             return ()
         return tuple(
-            item.read_text(encoding="utf-8")
-            for item in sorted(path.iterdir())
-            if item.is_file()
+            item.read_text(encoding="utf-8") for item in sorted(path.iterdir()) if item.is_file()
         )

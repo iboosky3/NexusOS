@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import math
 import re
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from types import MappingProxyType
-from typing import Mapping, Sequence
 
 from nexusos.core.models import AgentContext, Goal, Task
 

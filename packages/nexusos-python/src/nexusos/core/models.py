@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from enum import StrEnum
 from types import MappingProxyType
-from typing import Any, Mapping, Sequence
+from typing import Any
 from uuid import uuid4
 
 
@@ -185,4 +186,6 @@ class NexusState:
     def results_for(self, dependencies: Sequence[str]) -> tuple[AgentResult, ...]:
         """Return dependency results in caller-provided order."""
 
-        return tuple(self.completed_tasks[item] for item in dependencies if item in self.completed_tasks)
+        return tuple(
+            self.completed_tasks[item] for item in dependencies if item in self.completed_tasks
+        )

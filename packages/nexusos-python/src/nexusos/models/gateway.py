@@ -5,9 +5,10 @@ from __future__ import annotations
 import asyncio
 import json
 import urllib.request
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from types import MappingProxyType
-from typing import Any, Mapping, Protocol
+from typing import Any, Protocol
 
 from nexusos.core.models import TokenUsage
 

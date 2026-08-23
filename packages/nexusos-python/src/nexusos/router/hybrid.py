@@ -83,9 +83,7 @@ class HybridSkillRouter:
             if inferred_domains
             else 0.5
         )
-        capability = (
-            _coverage(required_tokens, capability_tokens) if required_tokens else semantic
-        )
+        capability = _coverage(required_tokens, capability_tokens) if required_tokens else semantic
         cost = {"low": 1.0, "medium": 0.65, "high": 0.3}.get(skill.cost_level, 0.2)
         latency = max(0.0, 1.0 - skill.average_latency_ms / 5000)
         return {
@@ -104,13 +102,9 @@ class HybridSkillRouter:
             return False
         if _COST_ORDER.get(skill.cost_level, 99) > _COST_ORDER.get(policy.maximum_cost_level, 2):
             return False
-        if _RISK_ORDER.get(skill.risk_level, 99) > _RISK_ORDER.get(
-            policy.maximum_risk_level, 1
-        ):
+        if _RISK_ORDER.get(skill.risk_level, 99) > _RISK_ORDER.get(policy.maximum_risk_level, 1):
             return False
-        if skill.required_tools and not set(skill.required_tools) <= set(policy.allowed_tools):
-            return False
-        return True
+        return not skill.required_tools or set(skill.required_tools) <= set(policy.allowed_tools)
 
     @staticmethod
     def _infer_domains(query: str) -> set[str]:

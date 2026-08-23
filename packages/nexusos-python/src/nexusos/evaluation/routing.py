@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import math
+from collections.abc import Sequence
 from dataclasses import dataclass
 from statistics import fmean
-from typing import Sequence
 
 
 @dataclass(frozen=True, slots=True)

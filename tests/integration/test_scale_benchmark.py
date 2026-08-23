@@ -1,7 +1,8 @@
 import unittest
 
-from benchmarks.scale.run import generate_catalog, run
 from nexusos.skills import FileSkillRepository
+
+from benchmarks.scale.run import generate_catalog, run
 
 
 class ScaleBenchmarkTests(unittest.TestCase):

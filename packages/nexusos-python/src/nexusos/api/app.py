@@ -91,7 +91,7 @@ def create_app(
     """Create the optional FastAPI application without coupling core imports to FastAPI."""
 
     try:
-        from fastapi import Body, FastAPI, HTTPException
+        from fastapi import FastAPI, HTTPException
     except ImportError as exc:
         raise RuntimeError("install nexusos with the 'api' extra to run the HTTP service") from exc
 
@@ -107,7 +107,7 @@ def create_app(
         return {"status": "ok"}
 
     @app.post("/v1/prd/runs")
-    async def create_prd_run(payload: dict[str, Any] = Body(...)) -> dict[str, Any]:
+    async def create_prd_run(payload: dict[str, Any]) -> dict[str, Any]:
         request = payload.get("request")
         if not isinstance(request, str) or not request.strip():
             raise HTTPException(status_code=422, detail="request must be a non-empty string")

@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 from collections import Counter
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from types import MappingProxyType
-from typing import Any, Mapping
+from typing import Any
 
 _SENSITIVE_PARTS = ("password", "secret", "api_key", "authorization", "token_value")
 
@@ -65,8 +66,8 @@ def _sanitize(key: str, value: Any) -> Any:
         return "[REDACTED]"
     if isinstance(value, str) and len(value) > 512:
         return value[:509] + "..."
-    if isinstance(value, (str, int, float, bool)) or value is None:
+    if isinstance(value, str | int | float | bool) or value is None:
         return value
-    if isinstance(value, (tuple, list)):
+    if isinstance(value, tuple | list):
         return tuple(_sanitize(key, item) for item in value[:20])
     return str(value)

@@ -5,8 +5,8 @@ from __future__ import annotations
 import argparse
 import json
 import re
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Sequence
 
 from nexusos.evaluation import RoutingExample, evaluate_rankings
 from nexusos.router import HybridSkillRouter, RouteRequest, RoutingPolicy
@@ -85,8 +85,7 @@ def _result(examples, rankings, summaries) -> dict[str, object]:
     metrics = evaluate_rankings(examples, rankings)
     token_by_id = {skill.id: skill.estimated_tokens for skill in summaries}
     average_tokens = sum(
-        sum(token_by_id.get(identifier, 0) for identifier in ranking)
-        for ranking in rankings
+        sum(token_by_id.get(identifier, 0) for identifier in ranking) for ranking in rankings
     ) / len(rankings)
     return {
         "top1_accuracy": round(metrics.top1_accuracy, 6),

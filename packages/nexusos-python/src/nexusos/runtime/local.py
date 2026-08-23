@@ -17,9 +17,7 @@ class LocalAgentRuntime:
         if handler_key == "write":
             artifacts = (Artifact("PRD.md", "text/markdown", content),)
         input_tokens = sum(
-            estimate_tokens(value)
-            for values in context.sections.values()
-            for value in values
+            estimate_tokens(value) for values in context.sections.values() for value in values
         )
         return AgentResult(
             task_id=task.id,

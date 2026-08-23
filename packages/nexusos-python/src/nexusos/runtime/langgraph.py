@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from importlib import import_module
-from typing import Any, TypedDict
+from typing import TypedDict
 
 from nexusos.core.models import AgentContext, AgentResult, Artifact, Task
 from nexusos.models import ChatMessage, ModelGateway, ModelRequest, ModelResponse
@@ -30,9 +30,7 @@ class LangGraphRuntime:
             raise RuntimeError("install nexusos with the 'runtime' extra to use LangGraph") from exc
 
         async def invoke_model(state: _RuntimeState) -> _RuntimeState:
-            request = self._build_request(
-                state["agent_id"], state["task"], state["context"]
-            )
+            request = self._build_request(state["agent_id"], state["task"], state["context"])
             return {"response": await self._model_gateway.complete(request)}
 
         builder = graph_api.StateGraph(_RuntimeState)
@@ -40,9 +38,7 @@ class LangGraphRuntime:
         builder.add_edge(graph_api.START, "invoke_model")
         builder.add_edge("invoke_model", graph_api.END)
         graph = builder.compile()
-        outcome = await graph.ainvoke(
-            {"agent_id": agent_id, "task": task, "context": context}
-        )
+        outcome = await graph.ainvoke({"agent_id": agent_id, "task": task, "context": context})
         response: ModelResponse = outcome["response"]
         artifacts: tuple[Artifact, ...] = ()
         if task.id == "write":
@@ -55,18 +51,16 @@ class LangGraphRuntime:
             token_usage=response.usage,
         )
 
-    def _build_request(
-        self, agent_id: str, task: Task, context: AgentContext
-    ) -> ModelRequest:
+    def _build_request(self, agent_id: str, task: Task, context: AgentContext) -> ModelRequest:
         sections = "\n\n".join(
-            f"[{name}]\n" + "\n".join(values)
-            for name, values in context.sections.items()
+            f"[{name}]\n" + "\n".join(values) for name, values in context.sections.items()
         )
         return ModelRequest(
             messages=(
                 ChatMessage(
                     "system",
-                    f"You are NexusOS agent {agent_id}. Follow the selected skills and constraints.",
+                    f"You are NexusOS agent {agent_id}. "
+                    "Follow the selected skills and constraints.",
                 ),
                 ChatMessage(
                     "user",

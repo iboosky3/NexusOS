@@ -5,8 +5,8 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Sequence
 
 from nexusos.api import serialize_run_record
 from nexusos.bootstrap import build_reference_orchestrator

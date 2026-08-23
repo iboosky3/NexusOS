@@ -7,9 +7,7 @@ from nexusos.bootstrap import build_reference_orchestrator
 
 class ApiContractTests(unittest.TestCase):
     def test_serializes_a_stable_run_summary(self) -> None:
-        record = asyncio.run(
-            build_reference_orchestrator().run("面向大学生的 AI 学习笔记产品")
-        )
+        record = asyncio.run(build_reference_orchestrator().run("面向大学生的 AI 学习笔记产品"))
 
         payload = serialize_run_record(record)
 

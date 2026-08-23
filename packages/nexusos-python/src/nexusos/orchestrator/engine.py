@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from types import MappingProxyType
-from typing import Any, Mapping
+from typing import Any
 
 from nexusos.agents import AgentResolver
 from nexusos.context import BudgetReport, ContextBudgetManager, ContextFragment
@@ -96,7 +97,9 @@ class PrdOrchestrator:
 
         await self._execute_graph(state, plan.graph, tasks, routes, budgets)
         self._review_latest_artifact(state)
-        while state.review and not state.review.passed and state.iteration < self._maximum_iterations:
+        while (
+            state.review and not state.review.passed and state.iteration < self._maximum_iterations
+        ):
             state.iteration += 1
             self._events.emit(
                 "nexus.run.revision.started",
@@ -114,7 +117,9 @@ class PrdOrchestrator:
             state.run_id,
             tuple(result.content for result in state.completed_tasks.values()),
         )
-        event_name = "nexus.run.succeeded" if state.review and state.review.passed else "nexus.run.blocked"
+        event_name = (
+            "nexus.run.succeeded" if state.review and state.review.passed else "nexus.run.blocked"
+        )
         self._events.emit(
             event_name,
             {
@@ -213,7 +218,9 @@ class PrdOrchestrator:
             )
         )
         fragments = [
-            ContextFragment("system", f"当前 Agent 角色：{agent.role}", required=True, priority=100),
+            ContextFragment(
+                "system", f"当前 Agent 角色：{agent.role}", required=True, priority=100
+            ),
             ContextFragment("task", task.objective, required=True, priority=100),
         ]
         for candidate in candidates:
@@ -227,7 +234,9 @@ class PrdOrchestrator:
                 )
             )
         for result in state.results_for(task.dependencies):
-            fragments.append(ContextFragment("retrieval", result.content, priority=75, relevance=0.9))
+            fragments.append(
+                ContextFragment("retrieval", result.content, priority=75, relevance=0.9)
+            )
         for value in await self._memory.search(task.objective, limit=3):
             fragments.append(ContextFragment("memory", value, priority=40, relevance=0.6))
 

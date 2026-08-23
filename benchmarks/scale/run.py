@@ -9,10 +9,11 @@ import time
 import tracemalloc
 from pathlib import Path
 
-from benchmarks.router.run import load_examples
 from nexusos.evaluation import evaluate_rankings
 from nexusos.router import HybridSkillRouter, RouteRequest, RoutingPolicy
 from nexusos.skills import FileSkillRepository, SkillSummary
+
+from benchmarks.router.run import load_examples
 
 _DOMAINS = ("finance", "healthcare", "operations", "legal", "sales", "support")
 

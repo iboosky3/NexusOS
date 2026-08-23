@@ -1,0 +1,123 @@
+name: Continuous Integration
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  python:
+    name: Python reference kernel
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install project and quality tools
+        run: python -m pip install --upgrade pip && python -m pip install -e ".[dev,api]"
+      - name: Validate repository contracts
+        run: python scripts/validate_repository.py
+      - name: Check formatting and lint
+        run: python -m ruff format --check . && python -m ruff check .
+      - name: Run Python tests
+        env:
+          PYTHONPATH: packages/nexusos-python/src
+        run: python -m unittest discover -s tests -v
+      - name: Compile Python sources
+        run: python -m compileall -q packages/nexusos-python/src
+
+  go-runtime:
+    name: Go task runtime
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/runtime-go
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24.x"
+          cache-dependency-path: services/runtime-go/go.mod
+      - name: Check formatting
+        run: test -z "$(gofmt -l .)"
+      - name: Run race-enabled tests
+        run: go test -race ./...
+
+  go-mcp-gateway:
+    name: Go MCP gateway
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/mcp-gateway-go
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24.x"
+          cache-dependency-path: services/mcp-gateway-go/go.mod
+      - name: Check formatting
+        run: test -z "$(gofmt -l .)"
+      - name: Run race-enabled tests
+        run: go test -race ./...
+
+  rust-router:
+    name: Rust routing kernel
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/router-rs
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Check formatting
+        run: cargo fmt --check
+      - name: Reject compiler and Clippy warnings
+        run: cargo clippy --all-targets -- -D warnings
+      - name: Run tests
+        run: cargo test --all-targets
+
+  studio:
+    name: TypeScript Studio
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/studio
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Check types
+        run: npm run typecheck
+      - name: Build production bundle
+        run: npm run build
+
+  docs-and-compose:
+    name: Documentation and Compose
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install documentation dependencies
+        run: python -m pip install -e ".[docs]"
+      - name: Build strict documentation
+        run: mkdocs build --strict
+      - name: Validate Compose expansion
+        run: docker compose config --quiet

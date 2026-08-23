@@ -11,7 +11,9 @@ class ReferencePrdPlannerTests(unittest.TestCase):
 
     def test_standard_plan_exposes_parallel_design_and_technical_work(self) -> None:
         plan = self.planner.plan("面向大学生的 AI 学习笔记产品")
-        layers = tuple(tuple(task.id for task in layer) for layer in plan.graph.topological_layers())
+        layers = tuple(
+            tuple(task.id for task in layer) for layer in plan.graph.topological_layers()
+        )
 
         self.assertEqual(plan.complexity, "standard")
         self.assertIn(("technical", "ux"), layers)
