@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nexusos.net.cn/contracts/a2a/v1/task.schema.json",
+  "title": "NexusOS A2A Task Projection",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "context_id",
+    "tenant_id",
+    "agent_name",
+    "skill_id",
+    "state",
+    "created_at",
+    "updated_at",
+    "messages",
+    "artifacts"
+  ],
+  "properties": {
+    "id": { "type": "string", "minLength": 1 },
+    "context_id": { "type": "string", "minLength": 1 },
+    "tenant_id": { "type": "string", "minLength": 1 },
+    "agent_name": { "type": "string", "minLength": 1 },
+    "skill_id": { "type": "string", "minLength": 1 },
+    "state": {
+      "enum": [
+        "submitted",
+        "working",
+        "input_required",
+        "auth_required",
+        "completed",
+        "failed",
+        "canceled",
+        "rejected"
+      ]
+    },
+    "created_at": { "type": "string", "format": "date-time" },
+    "updated_at": { "type": "string", "format": "date-time" },
+    "correlation_id": { "type": ["string", "null"] },
+    "failure_code": { "type": ["string", "null"] },
+    "messages": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "role", "text", "metadata"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "role": { "enum": ["user", "agent"] },
+          "text": { "type": "string", "minLength": 1 },
+          "metadata": { "type": "object" }
+        }
+      }
+    },
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "name", "media_type", "content"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "name": { "type": "string", "minLength": 1 },
+          "media_type": { "type": "string", "minLength": 1 },
+          "content": { "type": "string" }
+        }
+      }
+    }
+  }
+}

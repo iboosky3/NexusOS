@@ -7,4 +7,31 @@ MCP：Agent -> Tool / Resource
 A2A：Agent System <-> Agent System
 ```
 
-第一阶段只冻结边界，不实现远程 A2A Server。后续接入必须支持能力卡版本、任务关联 ID、身份与租户传播、超时、取消、状态映射和结果来源审计。
+当前实现提供协议无关的本地规范内核，负责：
+
+- 校验外部 Agent Card 的名称、HTTPS 地址、协议版本和唯一能力；
+- 使用 `task_id`、`context_id`、`tenant_id` 和 `correlation_id` 关联外部委派；
+- 保存用户与 Agent 消息以及带媒体类型的产物；
+- 强制单调状态迁移，并把重复状态事件作为幂等事件处理；
+- 阻止终态回退、非完成态携带产物和无错误码的失败状态。
+
+## 生命周期
+
+```text
+submitted -> working -> input_required -> working -> completed
+    |           |             |             |
+    +---------> auth_required +-----------> failed / canceled
+    +---------> rejected
+```
+
+`completed`、`failed`、`canceled` 和 `rejected` 是终态。终态之后收到的旧事件必须拒绝，不能让已完成的 Nexus Task 回退为运行中。
+
+## 安全与所有权
+
+- 外部非回环 Agent Card 必须使用 HTTPS；
+- 租户和主体来自可信调用上下文，不能接受模型生成值；
+- A2A Task ID 不能替代 MCP 幂等键；
+- 外部状态先进入 A2A Gateway，再映射为 Nexus Task 状态；
+- 每次委派、消息、授权、取消和终态都需要保留关联 ID 和审计事件。
+
+当前尚未实现远程 HTTP Client/Server、流式推送和 Agent Card 信任缓存。它们必须复用 `contracts/a2a/v1/task.schema.json` 的规范投影，并在连接真实外部 Agent 后增加乱序、断线重连与取消竞态测试。
