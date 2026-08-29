@@ -1,11 +1,11 @@
 import Link from "next/link";
 
 import { StatusPill } from "@/components/status-pill";
-import { runDetail } from "@/lib/sample-data";
+import { loadRunDetail } from "@/lib/data-source";
 
 export default async function RunDetailPage({ params }: { params: Promise<{ runId: string }> }) {
   const { runId } = await params;
-  const run = { ...runDetail, id: runId };
+  const { data: run, source, warning } = await loadRunDetail(runId);
 
   return (
     <>
@@ -17,11 +17,16 @@ export default async function RunDetailPage({ params }: { params: Promise<{ runI
           <p className="request-copy">{run.request}</p>
         </div>
         <div className="run-summary-status">
+          <span className={source === "api" ? "source-label source-api" : "source-label"}>
+            {source === "api" ? "实时 API" : "演示快照"}
+          </span>
           <StatusPill status={run.status} />
           <strong>{run.quality?.toFixed(1)}</strong>
           <small>质量总分</small>
         </div>
       </header>
+
+      {warning && <div className="data-warning" role="status">{warning}，当前显示演示数据。</div>}
 
       <section className="detail-metadata" aria-label="运行元数据">
         <div><span>项目</span><strong>{run.project}</strong></div>

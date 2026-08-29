@@ -10,7 +10,7 @@ Studio 是 NexusOS 的运行控制台，不是通用聊天页面。首个界面�
 - 桌面与移动端响应式布局；
 - 明确标记的演示快照数据。
 
-当前页面使用 `lib/sample-data.ts` 中的类型化快照，目的是先冻结信息架构。接入真实 API 前，不把样例指标解释成运行监控数据。
+页面优先从 `NEXUS_API_URL` 读取 `/v1/runs` 和运行详情。未配置 API 或请求在 2.5 秒内失败时，会降级到 `lib/sample-data.ts` 的类型化快照，并在界面显示黄色“演示快照”标记和失败原因，避免把样例指标解释成真实监控数据。
 
 ## 本地运行
 
@@ -18,6 +18,7 @@ Studio 是 NexusOS 的运行控制台，不是通用聊天页面。首个界面�
 
 ```bash
 cd apps/studio
+copy .env.example .env.local
 npm install
 npm run dev
 ```

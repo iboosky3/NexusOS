@@ -2,11 +2,13 @@ import Link from "next/link";
 
 import { MetricCard } from "@/components/metric-card";
 import { StatusPill } from "@/components/status-pill";
-import { runs } from "@/lib/sample-data";
+import { loadRunSummaries } from "@/lib/data-source";
 
 const number = new Intl.NumberFormat("zh-CN");
 
-export default function DashboardPage() {
+export default async function DashboardPage() {
+  const { data: runs, source, warning } = await loadRunSummaries();
+
   return (
     <>
       <header className="page-header">
@@ -16,10 +18,14 @@ export default function DashboardPage() {
           <p>观察每次编排的任务图、Skill 决策、质量门与 Token 成本。</p>
         </div>
         <div className="header-actions">
-          <span className="snapshot-label">演示快照 · 10:04 更新</span>
+          <span className={source === "api" ? "source-label source-api" : "source-label"}>
+            {source === "api" ? "实时 API" : "演示快照"}
+          </span>
           <button type="button">创建 PRD 运行</button>
         </div>
       </header>
+
+      {warning && <div className="data-warning" role="status">{warning}，当前显示演示数据。</div>}
 
       <section className="metric-grid" aria-label="关键指标">
         <MetricCard label="今日运行" value="24" detail="较昨日 +18%" />
