@@ -38,6 +38,7 @@ class BudgetReport:
     consumed_tokens: int
     reserved_tokens: int
     section_tokens: Mapping[str, int]
+    borrowed_tokens: int
     omitted_fragments: int
 
     def __post_init__(self) -> None:
@@ -93,11 +94,12 @@ class ContextBudgetManager:
             cost = estimate_tokens(fragment.content)
             current_section = section_tokens.get(fragment.section, 0)
             section_limit = section_limits.get(fragment.section, input_budget)
-            fits = consumed + cost <= input_budget and current_section + cost <= section_limit
-            if not fits and not fragment.required:
+            fits_global = consumed + cost <= input_budget
+            fits_section = current_section + cost <= section_limit
+            if (not fits_global or not fits_section) and not fragment.required:
                 omitted += 1
                 continue
-            if not fits:
+            if not fits_global:
                 raise ValueError(f"required context does not fit budget: {fragment.section}")
             selected.setdefault(fragment.section, []).append(fragment.content)
             section_tokens[fragment.section] = current_section + cost
@@ -110,11 +112,16 @@ class ContextBudgetManager:
             sections={key: tuple(values) for key, values in selected.items()},
             token_budget=input_budget,
         )
+        borrowed = sum(
+            max(0, used - section_limits.get(section, input_budget))
+            for section, used in section_tokens.items()
+        )
         report = BudgetReport(
             maximum_tokens=maximum_tokens,
             consumed_tokens=consumed,
             reserved_tokens=reserve,
             section_tokens=section_tokens,
+            borrowed_tokens=borrowed,
             omitted_fragments=omitted,
         )
         return context, report

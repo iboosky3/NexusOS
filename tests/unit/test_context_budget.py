@@ -37,6 +37,27 @@ class ContextBudgetManagerTests(unittest.TestCase):
                 maximum_tokens=20,
             )
 
+    def test_allows_required_fragment_to_borrow_unused_section_budget(self) -> None:
+        manager = ContextBudgetManager(reserve_share=0.2)
+        required_content = "x" * 60
+
+        context, report = manager.build(
+            run_id="run-1",
+            goal=Goal("Create a PRD"),
+            task=Task("write", "Write", "Write the PRD"),
+            fragments=(
+                ContextFragment("task", required_content, required=True),
+                ContextFragment("task", "optional details", priority=10),
+            ),
+            maximum_tokens=100,
+        )
+
+        self.assertEqual(context.sections["task"], (required_content,))
+        self.assertEqual(report.section_tokens["task"], 15)
+        self.assertEqual(report.borrowed_tokens, 7)
+        self.assertEqual(report.omitted_fragments, 1)
+        self.assertLessEqual(report.consumed_tokens, 80)
+
 
 if __name__ == "__main__":
     unittest.main()

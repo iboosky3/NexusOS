@@ -66,6 +66,7 @@ def serialize_run_record(record: RunRecord) -> dict[str, Any]:
                 "maximum_tokens": budget.maximum_tokens,
                 "consumed_tokens": budget.consumed_tokens,
                 "reserved_tokens": budget.reserved_tokens,
+                "borrowed_tokens": budget.borrowed_tokens,
                 "omitted_fragments": budget.omitted_fragments,
                 "section_tokens": dict(budget.section_tokens),
             }
