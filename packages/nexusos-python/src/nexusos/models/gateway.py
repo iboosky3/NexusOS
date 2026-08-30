@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import asyncio
 import json
+import urllib.error
 import urllib.request
 from collections.abc import Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from types import MappingProxyType
 from typing import Any, Protocol
 
@@ -35,6 +36,7 @@ class ModelRequest:
     model: str
     temperature: float = 0.1
     maximum_output_tokens: int = 2048
+    data_classification: str = "internal"
     metadata: Mapping[str, str] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
@@ -42,6 +44,8 @@ class ModelRequest:
             raise ValueError("model and at least one message are required")
         if not 0 <= self.temperature <= 2 or self.maximum_output_tokens < 1:
             raise ValueError("model sampling configuration is invalid")
+        if self.data_classification not in {"public", "internal", "confidential", "restricted"}:
+            raise ValueError("unsupported model data classification")
         object.__setattr__(self, "metadata", MappingProxyType(dict(self.metadata)))
 
 
@@ -60,6 +64,64 @@ class ModelGateway(Protocol):
     """Complete one normalized model request."""
 
     async def complete(self, request: ModelRequest) -> ModelResponse: ...
+
+
+class ModelGatewayUnavailable(RuntimeError):
+    """Signal a transient backend failure that allows a policy-approved failover."""
+
+
+class ModelGatewayRejected(RuntimeError):
+    """Signal a permanent request or protocol failure that must fail closed."""
+
+
+@dataclass(frozen=True, slots=True)
+class ModelTarget:
+    """One ordered model backend and its data-placement boundary."""
+
+    name: str
+    gateway: ModelGateway
+    model: str
+    allowed_data_classifications: tuple[str, ...] = ("public", "internal")
+
+    def __post_init__(self) -> None:
+        if not self.name.strip() or not self.model.strip():
+            raise ValueError("model target name and model are required")
+        if not self.allowed_data_classifications:
+            raise ValueError("model target must allow at least one data classification")
+
+
+class FallbackModelGateway:
+    """Fail over transient calls across ordered, data-compatible model targets."""
+
+    def __init__(self, targets: tuple[ModelTarget, ...]) -> None:
+        if not targets:
+            raise ValueError("at least one model target is required")
+        names = [target.name for target in targets]
+        if len(names) != len(set(names)):
+            raise ValueError("model target names must be unique")
+        self._targets = targets
+
+    async def complete(self, request: ModelRequest) -> ModelResponse:
+        eligible = tuple(
+            target
+            for target in self._targets
+            if request.data_classification in target.allowed_data_classifications
+        )
+        if not eligible:
+            raise ModelGatewayRejected(
+                f"no model target permits {request.data_classification!r} data"
+            )
+
+        failures: list[str] = []
+        for target in eligible:
+            routed_request = replace(request, model=target.model)
+            try:
+                return await target.gateway.complete(routed_request)
+            except ModelGatewayUnavailable as exc:
+                failures.append(f"{target.name}: {exc}")
+        raise ModelGatewayUnavailable(
+            "all eligible model targets unavailable: " + "; ".join(failures)
+        )
 
 
 class DeterministicModelGateway:
@@ -111,10 +173,19 @@ class OpenAICompatibleGateway:
             },
             method="POST",
         )
-        with urllib.request.urlopen(http_request, timeout=self._timeout_seconds) as response:
-            payload: Mapping[str, Any] = json.loads(response.read().decode("utf-8"))
-        usage = payload.get("usage", {})
-        choice = payload["choices"][0]
+        try:
+            with urllib.request.urlopen(http_request, timeout=self._timeout_seconds) as response:
+                payload: Mapping[str, Any] = json.loads(response.read().decode("utf-8"))
+            usage = payload.get("usage", {})
+            choice = payload["choices"][0]
+        except urllib.error.HTTPError as exc:
+            if exc.code == 429 or exc.code >= 500:
+                raise ModelGatewayUnavailable(f"provider returned HTTP {exc.code}") from exc
+            raise ModelGatewayRejected(f"provider rejected request with HTTP {exc.code}") from exc
+        except (TimeoutError, urllib.error.URLError) as exc:
+            raise ModelGatewayUnavailable("provider connection failed or timed out") from exc
+        except (json.JSONDecodeError, KeyError, IndexError, TypeError, ValueError) as exc:
+            raise ModelGatewayRejected("provider returned an invalid completion response") from exc
         return ModelResponse(
             content=str(choice["message"]["content"]),
             provider="openai-compatible",

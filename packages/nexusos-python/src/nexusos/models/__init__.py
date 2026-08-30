@@ -3,17 +3,25 @@
 from nexusos.models.gateway import (
     ChatMessage,
     DeterministicModelGateway,
+    FallbackModelGateway,
     ModelGateway,
+    ModelGatewayRejected,
+    ModelGatewayUnavailable,
     ModelRequest,
     ModelResponse,
+    ModelTarget,
     OpenAICompatibleGateway,
 )
 
 __all__ = [
     "ChatMessage",
     "DeterministicModelGateway",
+    "FallbackModelGateway",
     "ModelGateway",
+    "ModelGatewayRejected",
+    "ModelGatewayUnavailable",
     "ModelRequest",
     "ModelResponse",
+    "ModelTarget",
     "OpenAICompatibleGateway",
 ]
