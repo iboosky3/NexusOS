@@ -83,7 +83,9 @@ class PrdOrchestrator:
         self._maximum_iterations = maximum_iterations
         self._replanner = RevisionPlanner()
 
-    async def run(self, user_request: str) -> RunRecord:
+    async def run(self, user_request: str, *, tenant_id: str = "local") -> RunRecord:
+        if not tenant_id.strip():
+            raise ValueError("tenant id cannot be empty")
         started_at = datetime.now(UTC)
         plan = self._planner.plan(user_request)
         state = NexusState(user_request=user_request, goal=plan.goal, plan=plan.graph)
@@ -95,7 +97,7 @@ class PrdOrchestrator:
             {"run_id": state.run_id, "tasks": len(plan.graph.tasks), "complexity": plan.complexity},
         )
 
-        await self._execute_graph(state, plan.graph, tasks, routes, budgets)
+        await self._execute_graph(state, plan.graph, tenant_id, tasks, routes, budgets)
         self._review_latest_artifact(state)
         while (
             state.review and not state.review.passed and state.iteration < self._maximum_iterations
@@ -110,12 +112,13 @@ class PrdOrchestrator:
                 },
             )
             revision_graph = self._replanner.plan(state.review, state.iteration)
-            await self._execute_graph(state, revision_graph, tasks, routes, budgets)
+            await self._execute_graph(state, revision_graph, tenant_id, tasks, routes, budgets)
             self._review_latest_artifact(state)
 
         await self._memory.append(
             state.run_id,
             tuple(result.content for result in state.completed_tasks.values()),
+            tenant_id=tenant_id,
         )
         event_name = (
             "nexus.run.succeeded" if state.review and state.review.passed else "nexus.run.blocked"
@@ -144,6 +147,7 @@ class PrdOrchestrator:
         self,
         state: NexusState,
         graph: Any,
+        tenant_id: str,
         tasks: dict[str, Task],
         routes: dict[str, tuple[RouteCandidate, ...]],
         budgets: dict[str, BudgetReport],
@@ -157,7 +161,8 @@ class PrdOrchestrator:
                     {"run_id": state.run_id, "task_id": task.id},
                 )
             executions = await asyncio.gather(
-                *(self._execute_task(state, task) for task in layer), return_exceptions=True
+                *(self._execute_task(state, task, tenant_id) for task in layer),
+                return_exceptions=True,
             )
             for task, execution in zip(layer, executions, strict=True):
                 if isinstance(execution, BaseException):
@@ -201,7 +206,7 @@ class PrdOrchestrator:
             evidence_count=len(state.evidence),
         )
 
-    async def _execute_task(self, state: NexusState, task: Task) -> tuple[Any, ...]:
+    async def _execute_task(self, state: NexusState, task: Task, tenant_id: str) -> tuple[Any, ...]:
         agent = self._resolver.resolve(task)
         policy = RoutingPolicy(
             allowed_domains=agent.allowed_domains,
@@ -237,7 +242,7 @@ class PrdOrchestrator:
             fragments.append(
                 ContextFragment("retrieval", result.content, priority=75, relevance=0.9)
             )
-        for value in await self._memory.search(task.objective, limit=3):
+        for value in await self._memory.search(task.objective, tenant_id=tenant_id, limit=3):
             fragments.append(ContextFragment("memory", value, priority=40, relevance=0.6))
 
         context, budget = self._context_manager.build(
