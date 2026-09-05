@@ -5,11 +5,13 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import sys
 from collections.abc import Sequence
 from pathlib import Path
 
 from nexusos.api import serialize_run_record
 from nexusos.bootstrap import build_reference_orchestrator
+from nexusos.diagnostics import run_diagnostics
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -17,16 +19,36 @@ def build_parser() -> argparse.ArgumentParser:
     subcommands = parser.add_subparsers(dest="command", required=True)
     prd = subcommands.add_parser("prd", help="从产品构想生成 PRD")
     prd.add_argument("request", help="产品构想或需求描述")
+    prd.add_argument("--root", type=Path, default=Path.cwd(), help="NexusOS 仓库根目录")
     prd.add_argument("--output", type=Path, default=Path("artifacts"), help="产物目录")
     prd.add_argument("--json", action="store_true", help="输出完整 JSON 摘要")
+    doctor = subcommands.add_parser("doctor", help="检查本地运行与可选工具链")
+    doctor.add_argument("--root", type=Path, default=Path.cwd(), help="NexusOS 仓库根目录")
+    doctor.add_argument("--json", action="store_true", help="输出机器可读报告")
+    doctor.add_argument("--strict", action="store_true", help="可选能力缺失时也返回非零")
     return parser
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    configure = getattr(sys.stdout, "reconfigure", None)
+    if callable(configure):
+        configure(encoding="utf-8", errors="replace")
     args = build_parser().parse_args(argv)
+    if args.command == "doctor":
+        report = run_diagnostics(args.root)
+        if args.json:
+            print(json.dumps(report.as_dict(), ensure_ascii=False, indent=2))
+        else:
+            print(f"诊断状态：{report.status}")
+            for check in report.checks:
+                marker = "✓" if check.available else "!" if not check.critical else "✗"
+                print(f"{marker} {check.name}: {check.detail}")
+                if check.remediation and not check.available:
+                    print(f"  处理：{check.remediation}")
+        return report.exit_code(strict=args.strict)
     if args.command != "prd":
         return 2
-    record = asyncio.run(build_reference_orchestrator().run(args.request))
+    record = asyncio.run(build_reference_orchestrator(args.root).run(args.request))
     payload = serialize_run_record(record)
     run_directory = args.output / record.state.run_id
     run_directory.mkdir(parents=True, exist_ok=True)

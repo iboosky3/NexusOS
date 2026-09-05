@@ -19,8 +19,16 @@ python -m unittest discover -s tests -p 'test_*.py' -v
 
 ## 3. 使用 CLI
 
+首次使用先检查仓库清单、配置与本地工具链：
+
 ```bash
-nexus prd "面向大学生的 AI 学习笔记产品" --output artifacts
+nexus doctor --root .
+```
+
+`degraded` 表示核心 CLI 可用但某些可选能力缺失；`failed` 表示 Agent/Skill 清单或配置等关键条件不满足。CI 可以使用 `--strict --json` 要求完整工具链并读取结构化结果。
+
+```bash
+nexus prd "面向大学生的 AI 学习笔记产品" --root . --output artifacts
 ```
 
 命令会生成 `PRD.md` 与 `run.json`，可在完全离线的 Local Runtime 中验证完整链路。
