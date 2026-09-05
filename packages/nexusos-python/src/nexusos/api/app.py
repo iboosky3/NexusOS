@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
 from nexusos.api.read_store import InMemoryRunReadStore, RunNotFoundError
 from nexusos.bootstrap import build_reference_orchestrator
+from nexusos.health import HealthCheck, HealthRegistry
 from nexusos.orchestrator import RunRecord
 
 
@@ -88,11 +90,13 @@ def create_app(
     *,
     root: str | Path = ".",
     run_store: InMemoryRunReadStore | None = None,
+    readiness_checks: Mapping[str, tuple[HealthCheck, bool]] | None = None,
 ):
     """Create the optional FastAPI application without coupling core imports to FastAPI."""
 
     try:
         from fastapi import FastAPI, HTTPException
+        from fastapi.responses import JSONResponse
     except ImportError as exc:
         raise RuntimeError("install nexusos with the 'api' extra to run the HTTP service") from exc
 
@@ -102,10 +106,22 @@ def create_app(
         description="多智能体编排与 Skill 智能基础设施 API",
     )
     store = run_store or InMemoryRunReadStore()
+    repository_root = Path(root)
+    checks = readiness_checks or {
+        "agent_manifests": (lambda: any((repository_root / "agents").rglob("agent.yaml")), True),
+        "skill_manifests": (lambda: any((repository_root / "skills").rglob("skill.yaml")), True),
+    }
+    health_registry = HealthRegistry(checks)
 
-    @app.get("/healthz")
-    async def health() -> dict[str, str]:
+    @app.get("/livez")
+    @app.get("/healthz", deprecated=True)
+    async def liveness() -> dict[str, str]:
         return {"status": "ok"}
+
+    @app.get("/readyz")
+    async def readiness() -> Any:
+        report = await health_registry.evaluate()
+        return JSONResponse(status_code=200 if report.ready else 503, content=report.as_dict())
 
     @app.post("/v1/prd/runs")
     async def create_prd_run(payload: dict[str, Any]) -> dict[str, Any]:

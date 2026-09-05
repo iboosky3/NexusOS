@@ -19,7 +19,13 @@ nexus = "nexusos.cli:main"
 api = ["fastapi>=0.115", "pydantic>=2.9", "uvicorn>=0.30"]
 runtime = ["langgraph>=0.3"]
 docs = ["mkdocs-material>=9.5"]
-dev = ["pytest>=8.3", "pytest-asyncio>=0.24", "ruff>=0.8", "mypy>=1.13"]
+dev = [
+    "httpx2>=2.12",
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+    "ruff>=0.8",
+    "mypy>=1.13",
+]
 
 [tool.setuptools]
 package-dir = { "" = "packages/nexusos-python/src" }

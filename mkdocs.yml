@@ -69,3 +69,5 @@ nav:
   - 开发记录:
       - 问题与解决: development/problem-log.md
       - 持续集成: development/continuous-integration.md
+  - 运维:
+      - 运行手册: operations/runbook.md
