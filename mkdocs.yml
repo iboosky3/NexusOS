@@ -15,6 +15,9 @@ nav:
   - 首页: index.md
   - 快速了解: getting-started/introduction.md
   - 快速开始: getting-started/quick-start.md
+  - 项目:
+      - 实现状态: project/status.md
+      - 路线图: project/roadmap.md
   - 架构:
       - 总览: architecture/overview.md
       - 系统上下文: architecture/system-context.md
