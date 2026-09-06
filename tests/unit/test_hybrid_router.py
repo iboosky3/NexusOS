@@ -1,10 +1,13 @@
 import unittest
+from typing import ClassVar
 
 from nexusos.router import HybridSkillRouter, RouteRequest, RoutingPolicy
 from nexusos.skills import FileSkillRepository
 
 
 class HybridSkillRouterTests(unittest.TestCase):
+    router: ClassVar[HybridSkillRouter]
+
     @classmethod
     def setUpClass(cls) -> None:
         repository = FileSkillRepository("skills")

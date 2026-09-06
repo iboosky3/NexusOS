@@ -8,6 +8,7 @@ import platform
 import time
 import tracemalloc
 from pathlib import Path
+from typing import TypedDict
 
 from nexusos.evaluation import evaluate_rankings
 from nexusos.router import HybridSkillRouter, RouteRequest, RoutingPolicy
@@ -16,6 +17,49 @@ from nexusos.skills import FileSkillRepository, SkillSummary
 from benchmarks.router.run import load_examples
 
 _DOMAINS = ("finance", "healthcare", "operations", "legal", "sales", "support")
+
+
+class EnvironmentReport(TypedDict):
+    """Interpreter and operating system details for a scale run."""
+
+    python: str
+    platform: str
+
+
+class QualityReport(TypedDict):
+    """Routing quality metrics preserved during scale generation."""
+
+    top1_accuracy: float
+    recall_at_5: float
+    mrr: float
+
+
+class LatencyReport(TypedDict):
+    """Observed in-process latency percentiles."""
+
+    p50: float
+    p95: float
+
+
+class TokenReport(TypedDict):
+    """Full-catalog and selected instruction token counts."""
+
+    all_skill_instructions: int
+    average_selected_instructions: float
+
+
+class ScaleBenchmarkReport(TypedDict):
+    """Machine-readable synthetic scale benchmark output."""
+
+    environment: EnvironmentReport
+    catalog_size: int
+    queries: int
+    repeats: int
+    seed: str
+    quality: QualityReport
+    latency_ms: LatencyReport
+    tokens: TokenReport
+    peak_traced_memory_bytes: int
 
 
 def generate_catalog(real_skills: tuple[SkillSummary, ...], size: int) -> tuple[SkillSummary, ...]:
@@ -42,13 +86,13 @@ def generate_catalog(real_skills: tuple[SkillSummary, ...], size: int) -> tuple[
     return tuple(generated)
 
 
-def run(catalog_size: int, repeats: int = 1) -> dict[str, object]:
+def run(catalog_size: int, repeats: int = 1) -> ScaleBenchmarkReport:
     repository = FileSkillRepository("skills")
     examples = load_examples(Path("benchmarks/router/dataset.jsonl"))
     catalog = generate_catalog(repository.list_summaries(), catalog_size)
     router = HybridSkillRouter(catalog)
     latencies = []
-    rankings = []
+    rankings: list[tuple[str, ...]] = []
     selected_tokens = []
     tracemalloc.start()
     for _ in range(repeats):

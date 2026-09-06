@@ -27,11 +27,24 @@ class Settings:
     @classmethod
     def from_environment(cls, values: Mapping[str, str] | None = None) -> Settings:
         source = os.environ if values is None else values
+        defaults = cls()
         settings = cls(
-            **{
-                item.name: source.get(f"NEXUS_{item.name.upper()}", item.default)
-                for item in fields(cls)
-            }
+            environment=source.get("NEXUS_ENVIRONMENT", defaults.environment),
+            log_level=source.get("NEXUS_LOG_LEVEL", defaults.log_level),
+            database_url=source.get("NEXUS_DATABASE_URL", defaults.database_url),
+            redis_url=source.get("NEXUS_REDIS_URL", defaults.redis_url),
+            qdrant_url=source.get("NEXUS_QDRANT_URL", defaults.qdrant_url),
+            nats_url=source.get("NEXUS_NATS_URL", defaults.nats_url),
+            object_store_url=source.get("NEXUS_OBJECT_STORE_URL", defaults.object_store_url),
+            object_store_access_key=source.get(
+                "NEXUS_OBJECT_STORE_ACCESS_KEY", defaults.object_store_access_key
+            ),
+            object_store_secret_key=source.get(
+                "NEXUS_OBJECT_STORE_SECRET_KEY", defaults.object_store_secret_key
+            ),
+            otlp_endpoint=source.get("NEXUS_OTLP_ENDPOINT", defaults.otlp_endpoint),
+            model_base_url=source.get("NEXUS_MODEL_BASE_URL", defaults.model_base_url),
+            model_api_key=source.get("NEXUS_MODEL_API_KEY", defaults.model_api_key),
         )
         settings.validate()
         return settings

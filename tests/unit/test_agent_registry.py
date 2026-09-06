@@ -1,10 +1,14 @@
 import unittest
+from typing import ClassVar
 
 from nexusos.agents import AgentResolver, FileAgentRegistry
 from nexusos.core.models import Task
 
 
 class AgentRegistryTests(unittest.TestCase):
+    registry: ClassVar[FileAgentRegistry]
+    resolver: ClassVar[AgentResolver]
+
     @classmethod
     def setUpClass(cls) -> None:
         cls.registry = FileAgentRegistry("agents")

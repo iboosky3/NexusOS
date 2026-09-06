@@ -29,6 +29,8 @@ jobs:
         run: python scripts/validate_repository.py
       - name: Check formatting and lint
         run: python -m ruff format --check . && python -m ruff check .
+      - name: Check static types
+        run: python -m mypy packages/nexusos-python/src/nexusos benchmarks tests
       - name: Run Python tests
         env:
           PYTHONPATH: packages/nexusos-python/src

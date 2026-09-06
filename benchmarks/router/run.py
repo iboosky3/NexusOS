@@ -7,12 +7,33 @@ import json
 import re
 from collections.abc import Sequence
 from pathlib import Path
+from typing import TypedDict
 
 from nexusos.evaluation import RoutingExample, evaluate_rankings
 from nexusos.router import HybridSkillRouter, RouteRequest, RoutingPolicy
-from nexusos.skills import FileSkillRepository
+from nexusos.skills import FileSkillRepository, SkillSummary
 
 _TOKEN = re.compile(r"[a-z0-9_]+|[\u3400-\u9fff]{1,2}", re.IGNORECASE)
+
+
+class StrategyReport(TypedDict):
+    """Metrics emitted for one routing strategy."""
+
+    top1_accuracy: float
+    recall_at_3: float
+    recall_at_5: float
+    mrr: float
+    ndcg_at_5: float
+    average_selected_instruction_tokens: float
+
+
+class RoutingBenchmarkReport(TypedDict):
+    """Machine-readable routing benchmark output."""
+
+    dataset: str
+    skills: int
+    examples: int
+    strategies: dict[str, StrategyReport]
 
 
 def load_examples(path: Path) -> tuple[RoutingExample, ...]:
@@ -31,7 +52,7 @@ def load_examples(path: Path) -> tuple[RoutingExample, ...]:
     return tuple(examples)
 
 
-def run(dataset: Path, skills_root: Path) -> dict[str, object]:
+def run(dataset: Path, skills_root: Path) -> RoutingBenchmarkReport:
     repository = FileSkillRepository(skills_root)
     summaries = repository.list_summaries()
     examples = load_examples(dataset)
@@ -70,7 +91,7 @@ def run(dataset: Path, skills_root: Path) -> dict[str, object]:
     }
 
 
-def _keyword_ranking(query: str, summaries: Sequence[object]) -> tuple[str, ...]:
+def _keyword_ranking(query: str, summaries: Sequence[SkillSummary]) -> tuple[str, ...]:
     query_tokens = set(_TOKEN.findall(query.casefold()))
     scored = []
     for skill in summaries:
@@ -81,7 +102,11 @@ def _keyword_ranking(query: str, summaries: Sequence[object]) -> tuple[str, ...]
     return tuple(identifier for _, identifier in scored[:5])
 
 
-def _result(examples, rankings, summaries) -> dict[str, object]:
+def _result(
+    examples: Sequence[RoutingExample],
+    rankings: Sequence[Sequence[str]],
+    summaries: Sequence[SkillSummary],
+) -> StrategyReport:
     metrics = evaluate_rankings(examples, rankings)
     token_by_id = {skill.id: skill.estimated_tokens for skill in summaries}
     average_tokens = sum(
