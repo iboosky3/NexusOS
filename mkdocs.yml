@@ -18,6 +18,7 @@ nav:
   - 项目:
       - 实现状态: project/status.md
       - 路线图: project/roadmap.md
+      - v0.1.0 发布说明: releases/0.1.0.md
   - 架构:
       - 总览: architecture/overview.md
       - 系统上下文: architecture/system-context.md

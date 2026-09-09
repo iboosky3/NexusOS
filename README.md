@@ -2,6 +2,8 @@
 
 > 面向可扩展自主智能的多智能体编排与 Skill 智能基础设施。
 
+当前版本：**v0.1.0 参考基线**。这是可重复验证的工程参考实现，不代表已经达到生产可用标准。
+
 NexusOS 解决的不是“再做一个聊天机器人”，而是当系统拥有大量 Agent、Skill、模型和外部工具时，如何只选择当前真正需要的能力，在有限 Token 预算内规划、执行、评审并解释完整过程。
 
 首个参考应用 **Nexus PRD** 可以把产品构想分解为需求理解、市场/竞品研究、体验设计、技术评估、PRD 写作和结构化评审任务，用它验证 NexusOS 的通用编排能力。
@@ -92,7 +94,9 @@ tests/                      单元、集成与架构测试
 python scripts/validate_repository.py
 python -m ruff format --check .
 python -m ruff check .
+python -m mypy packages/nexusos-python/src/nexusos benchmarks tests
 python -m unittest discover -s tests -v
+python -m mkdocs build --strict
 ```
 
 多语言构建由 [CI 矩阵](docs/development/continuous-integration.md)统一验证。参与前请阅读[贡献规范](CONTRIBUTING.md)：说明文档使用中文，代码注释使用英文，Commit 使用详细的英文 Conventional Commits。
@@ -100,6 +104,8 @@ python -m unittest discover -s tests -v
 ## 文档与许可
 
 - [文档首页](docs/index.md)
+- [v0.1.0 发布说明](docs/releases/0.1.0.md)
+- [变更记录](CHANGELOG.md)
 - [总体架构](docs/architecture/overview.md)
 - [Nexus PRD 工作流](docs/reference-apps/nexus-prd/workflow.md)
 - [运行手册](docs/operations/runbook.md)

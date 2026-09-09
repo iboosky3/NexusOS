@@ -2,4 +2,6 @@
 
 from nexusos.core.models import Goal, NexusState, Task, TaskGraph
 
-__all__ = ["Goal", "NexusState", "Task", "TaskGraph"]
+__version__ = "0.1.0"
+
+__all__ = ["Goal", "NexusState", "Task", "TaskGraph", "__version__"]

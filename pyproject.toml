@@ -1,14 +1,15 @@
 [build-system]
-requires = ["setuptools>=75", "wheel"]
+requires = ["setuptools>=77.0.3", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "nexusos"
-version = "0.1.0.dev0"
+version = "0.1.0"
 description = "Contract-first multi-agent orchestration and skill intelligence infrastructure"
 readme = "README.md"
 requires-python = ">=3.12"
-license = { text = "Apache-2.0" }
+license = "Apache-2.0"
+license-files = ["LICENSE"]
 authors = [{ name = "NexusOS Maintainers" }]
 dependencies = ["PyYAML>=6.0"]
 
