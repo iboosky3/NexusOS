@@ -7,6 +7,7 @@ from typing import TypedDict
 
 from nexusos.core.models import AgentContext, AgentResult, Artifact, Task
 from nexusos.models import ChatMessage, ModelGateway, ModelRequest, ModelResponse
+from nexusos.models.gateway import ModelGatewayRejected
 
 
 class _RuntimeState(TypedDict, total=False):
@@ -40,6 +41,8 @@ class LangGraphRuntime:
         graph = builder.compile()
         outcome = await graph.ainvoke({"agent_id": agent_id, "task": task, "context": context})
         response: ModelResponse = outcome["response"]
+        if response.finish_reason not in {"stop", "end_turn"} or not response.content.strip():
+            raise ModelGatewayRejected("model output is empty, incomplete, or filtered")
         artifacts: tuple[Artifact, ...] = ()
         if task.id == "write":
             artifacts = (Artifact("PRD.md", "text/markdown", response.content),)
@@ -60,7 +63,8 @@ class LangGraphRuntime:
                 ChatMessage(
                     "system",
                     f"You are NexusOS agent {agent_id}. "
-                    "Follow the selected skills and constraints.",
+                    "Follow the selected skills and constraints.\n"
+                    + str(task.metadata.get("system_prompt", "")),
                 ),
                 ChatMessage(
                     "user",
@@ -68,6 +72,8 @@ class LangGraphRuntime:
                 ),
             ),
             model=self._model,
-            maximum_output_tokens=max(256, context.token_budget // 4),
+            maximum_output_tokens=int(
+                task.metadata.get("maximum_output_tokens", max(256, context.token_budget // 4))
+            ),
             metadata={"run_id": context.run_id, "task_id": task.id, "agent_id": agent_id},
         )

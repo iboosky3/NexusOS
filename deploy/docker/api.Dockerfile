@@ -3,7 +3,7 @@ FROM python:3.12-slim AS builder
 WORKDIR /build
 COPY pyproject.toml README.md ./
 COPY packages/nexusos-python packages/nexusos-python
-RUN pip wheel --no-cache-dir --wheel-dir /wheels ".[api]"
+RUN pip wheel --no-cache-dir --wheel-dir /wheels ".[api,runtime]"
 
 FROM python:3.12-slim AS runtime
 
@@ -18,6 +18,7 @@ RUN pip install --no-cache-dir /wheels/* \
     && rm -rf /wheels
 COPY agents agents
 COPY skills skills
+RUN mkdir -p /app/data && chown nexusos:nexusos /app/data
 USER nexusos
 EXPOSE 8000
 CMD ["uvicorn", "nexusos.api:create_app", "--factory", "--host", "0.0.0.0", "--port", "8000"]

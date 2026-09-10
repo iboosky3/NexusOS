@@ -19,6 +19,8 @@ services:
         condition: service_healthy
     restart: unless-stopped
     read_only: true
+    volumes:
+      - prd-data:/app/data
     tmpfs:
       - /tmp
     healthcheck:
@@ -129,6 +131,7 @@ services:
     profiles: ["observability"]
 
 volumes:
+  prd-data:
   postgres-data:
   redis-data:
   qdrant-data:

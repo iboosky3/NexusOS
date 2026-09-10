@@ -6,7 +6,9 @@
 
 NexusOS 解决的不是“再做一个聊天机器人”，而是当系统拥有大量 Agent、Skill、模型和外部工具时，如何只选择当前真正需要的能力，在有限 Token 预算内规划、执行、评审并解释完整过程。
 
-首个参考应用 **Nexus PRD** 可以把产品构想分解为需求理解、市场/竞品研究、体验设计、技术评估、PRD 写作和结构化评审任务，用它验证 NexusOS 的通用编排能力。
+首个应用 **Nexus PRD** 已增加持久化写作工作区：输入需求和参考材料，通过真实模型完成需求、体验、技术、写作与独立评审，并支持手动编辑、反馈修订、版本历史及 Markdown/HTML 导出。当前面向个人使用；真实模型写作质量仍需按实际服务验收。
+
+从[写作工作区使用指南](docs/reference-apps/nexus-prd/authoring.md)开始，也可以导入[NexusOS 自身 PRD 草稿](docs/reference-apps/nexus-prd/product-prd.md)继续完善。原离线参考内核和基准保留用于回归。
 
 ## 当前能力
 
@@ -20,7 +22,7 @@ NexusOS 解决的不是“再做一个聊天机器人”，而是当系统拥有
 | A2A | 协议内核 | Agent Card、消息/产物、单调生命周期与乱序/重复事件测试 |
 | Go Task Runtime | 核心实现 | 并发、超时、重试、幂等和 HTTP 边界源码与测试；待外部 CI 编译证据 |
 | Rust Router | 排序内核 | 策略过滤、RRF、稳定排序和预算算法源码与测试；待外部 CI 编译证据 |
-| NexusOS Studio | 已接 API | TypeScript/Next.js 总览与运行详情；当前开发机缺少 Node.js，待 CI 生产构建 |
+| NexusOS Studio | 已接 API | PRD 写作工作区、参考运行详情；当前环境已通过类型检查与生产构建 |
 | Compose | 配置完成 | PostgreSQL、Redis、Qdrant、MinIO、NATS 与可选观测栈；当前开发机未实际启动 |
 | Kubernetes / Temporal / OIDC | 目标架构 | 尚未达到启用条件，不宣称已经实现 |
 
@@ -33,7 +35,7 @@ NexusOS 解决的不是“再做一个聊天机器人”，而是当系统拥有
 ```bash
 python -m venv .venv
 source .venv/bin/activate
-pip install -e ".[dev,api]"
+pip install -e ".[dev,api,runtime]"
 nexus doctor --root .
 python -m unittest discover -s tests -v
 nexus prd "设计一个面向大学生的 AI 学习平台" --root . --output artifacts

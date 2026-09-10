@@ -1,26 +1,29 @@
 # NexusOS Studio
 
-Studio 是 NexusOS 的运行控制台，不是通用聊天页面。首个界面用于观察 PRD 工作流的运行状态、任务执行链、Agent/Skill 选择、质量门、Token 用量和产物。
+当前主入口是 Nexus PRD 写作工作区：需求与材料、真实模型生成、Markdown 编辑预览、持久化文档库、历史版本、反馈修订、独立评审与 MD/HTML 导出。
 
-## 当前范围
-
-- 总览页与最近运行列表；
-- 单次运行详情、任务时间线和质量维度；
-- Skill 候选得分、选择结果和可解释原因；
-- 桌面与移动端响应式布局；
-- 明确标记的演示快照数据。
-
-页面优先从 `NEXUS_API_URL` 读取 `/v1/runs` 和运行详情。未配置 API 或请求在 2.5 秒内失败时，会降级到 `lib/sample-data.ts` 的类型化快照，并在界面显示黄色“演示快照”标记和失败原因，避免把样例指标解释成真实监控数据。
+完整配置见[写作工作区使用指南](../../docs/reference-apps/nexus-prd/authoring.md)。模型密钥只配置在 Python API 服务中；Studio 只需要 API 地址。
 
 ## 本地运行
 
-需要 Node.js 22 和 npm：
+建议 Node.js 22 和 npm：
 
 ```bash
 cd apps/studio
-copy .env.example .env.local
-npm install
-npm run dev
+npm ci
+NEXUS_API_URL=http://127.0.0.1:8000 npm run dev -- --hostname 127.0.0.1
 ```
 
-打开 `http://localhost:3000`。当前开发机缺少 Node.js，本提交只完成了源代码与类型边界检查；构建验证由后续 CI 补齐。
+打开 `http://127.0.0.1:3000/prd`。也可在 `.env.local` 设置 `NEXUS_API_URL`。
+
+```bash
+npm run typecheck
+npm run build
+mkdir -p .next/standalone/.next
+cp -r .next/static .next/standalone/.next/static
+HOSTNAME=127.0.0.1 PORT=3000 node .next/standalone/server.js
+```
+
+当前环境已通过类型检查与生产构建。PRD 页面通过 `/api/prd/*` 同源代理读取实际服务；接口失败不会使用样例内容。
+
+原 `/runs/[runId]` 页面保留参考内核运行详情与标明来源的演示快照，不作为正式 PRD 编辑入口。新工作区的任务记录在文档侧栏中查看。

@@ -178,21 +178,33 @@ class OpenAICompatibleGateway:
                 payload: Mapping[str, Any] = json.loads(response.read().decode("utf-8"))
             usage = payload.get("usage", {})
             choice = payload["choices"][0]
+            content = choice["message"]["content"]
+            if not isinstance(content, str) or not content.strip():
+                raise ValueError("completion content must be non-empty text")
+            input_tokens = int(usage.get("prompt_tokens", 0))
+            output_tokens = int(usage.get("completion_tokens", 0))
+            if input_tokens < 0 or output_tokens < 0:
+                raise ValueError("completion usage cannot be negative")
+            completion = ModelResponse(
+                content=content,
+                provider="openai-compatible",
+                model=str(payload.get("model", request.model)),
+                usage=TokenUsage(input_tokens=input_tokens, output_tokens=output_tokens),
+                finish_reason=str(choice.get("finish_reason", "stop")),
+            )
         except urllib.error.HTTPError as exc:
             if exc.code == 429 or exc.code >= 500:
                 raise ModelGatewayUnavailable(f"provider returned HTTP {exc.code}") from exc
             raise ModelGatewayRejected(f"provider rejected request with HTTP {exc.code}") from exc
         except (TimeoutError, urllib.error.URLError) as exc:
             raise ModelGatewayUnavailable("provider connection failed or timed out") from exc
-        except (json.JSONDecodeError, KeyError, IndexError, TypeError, ValueError) as exc:
+        except (
+            json.JSONDecodeError,
+            KeyError,
+            IndexError,
+            TypeError,
+            ValueError,
+            AttributeError,
+        ) as exc:
             raise ModelGatewayRejected("provider returned an invalid completion response") from exc
-        return ModelResponse(
-            content=str(choice["message"]["content"]),
-            provider="openai-compatible",
-            model=str(payload.get("model", request.model)),
-            usage=TokenUsage(
-                input_tokens=int(usage.get("prompt_tokens", 0)),
-                output_tokens=int(usage.get("completion_tokens", 0)),
-            ),
-            finish_reason=str(choice.get("finish_reason", "stop")),
-        )
+        return completion

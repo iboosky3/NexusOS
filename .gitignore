@@ -16,7 +16,9 @@ build/
 
 # JavaScript
 node_modules/
+*.tsbuildinfo
 .next/
+.next-preview/
 
 # Rust
 target/
@@ -26,6 +28,7 @@ site/
 
 # Runtime
 .env
+.env.local
 artifacts/
 data/
 

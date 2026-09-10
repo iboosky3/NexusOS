@@ -51,6 +51,8 @@ nav:
       - Runtime 抽象: agent-runtime/runtime-abstraction.md
       - Go Task Runtime: agent-runtime/go-runtime.md
   - 参考应用:
+      - Nexus PRD 写作工作区: reference-apps/nexus-prd/authoring.md
+      - NexusOS 产品需求文档: reference-apps/nexus-prd/product-prd.md
       - Nexus PRD 工作流: reference-apps/nexus-prd/workflow.md
   - 协议:
       - HTTP API: protocols/http-api.md

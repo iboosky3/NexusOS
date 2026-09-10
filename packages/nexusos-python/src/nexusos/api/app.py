@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import os
 from collections.abc import Mapping
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
 
@@ -91,6 +93,9 @@ def create_app(
     root: str | Path = ".",
     run_store: InMemoryRunReadStore | None = None,
     readiness_checks: Mapping[str, tuple[HealthCheck, bool]] | None = None,
+    prd_store: Any = None,
+    model_gateway: Any = None,
+    model_name: str | None = None,
 ):
     """Create the optional FastAPI application without coupling core imports to FastAPI."""
 
@@ -100,11 +105,30 @@ def create_app(
     except ImportError as exc:
         raise RuntimeError("install nexusos with the 'api' extra to run the HTTP service") from exc
 
+    from nexusos.prd.api import create_prd_router
+    from nexusos.prd.store import PrdStore
+    from nexusos.prd.workflow import PrdWorkflow
+
+    documents = prd_store or PrdStore(
+        os.getenv("NEXUS_PRD_DATABASE", str(Path(root) / "data/prd.sqlite3"))
+    )
+    workflow = PrdWorkflow(Path(root), documents, model_gateway, model_name)
+
+    @asynccontextmanager
+    async def lifespan(app: Any):
+        documents.recover()
+        try:
+            yield
+        finally:
+            await workflow.close()
+
     app = FastAPI(
         title="NexusOS API",
         version="0.1.0",
         description="多智能体编排与 Skill 智能基础设施 API",
+        lifespan=lifespan,
     )
+    app.include_router(create_prd_router(documents, workflow))
     store = run_store or InMemoryRunReadStore()
     repository_root = Path(root)
     checks = readiness_checks or {
