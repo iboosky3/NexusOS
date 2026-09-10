@@ -38,12 +38,14 @@ class SaveDocument(StrictModel):
     brief: Brief
     content: str = Field(default="", max_length=200000)
     note: str = Field(default="手动保存", max_length=300)
+    restored_from_version: int | None = Field(default=None, ge=1)
 
 
 class StartJob(StrictModel):
     expected_revision: int = Field(ge=1)
     action: Literal["generate", "revise", "review"] = "generate"
     instruction: str = Field(default="", max_length=8000)
+    retry_of_job_id: str | None = Field(default=None, pattern=r"^[a-f0-9]{32}$")
 
 
 class ReviewIssue(StrictModel):

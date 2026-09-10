@@ -72,3 +72,7 @@
 新增个人写作工作区，详情见[使用指南](../reference-apps/nexus-prd/authoring.md)。包括结构化简报、参考材料、真实模型入口、多阶段写作与评审、编辑、版本、修订、持久化和导出。Studio 生产构建已在当前环境通过，覆盖新增行为的后端测试已通过。
 
 与参考基线分开：旧 `/v1/prd/runs` 仍为离线测试链路，新工作区使用 `/v1/prd/documents` 和 `/v1/prd/jobs`。真实供应商模型尚未配置，内容质量验收待补；暂无公网多用户权限与联网研究。
+
+### PRD 全程追溯
+
+新增输入快照、只追加事件、模型请求/响应证据、能力选择依据、版本来源、文档时间线、历史任务及 JSON 导出。旧任务缺失记录明确标注。详见[RT-001](../development/runtime-issues/001-end-to-end-tracing.md)。自动重试、断点恢复、分布式任务池与调度尚未实现，进度以[关键问题台账](../development/critical-runtime-backlog.md)为准。

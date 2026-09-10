@@ -30,6 +30,7 @@ class PrdHttpModelTests(unittest.TestCase):
                     {
                         "path": self.path,
                         "authorization": self.headers.get("Authorization"),
+                        "traceparent": self.headers.get("traceparent"),
                         "body": body,
                     }
                 )
@@ -49,6 +50,7 @@ class PrdHttpModelTests(unittest.TestCase):
                 ).encode()
                 self.send_response(200)
                 self.send_header("Content-Type", "application/json")
+                self.send_header("x-request-id", "provider-fixture-request")
                 self.send_header("Content-Length", str(len(response)))
                 self.end_headers()
                 self.wfile.write(response)
@@ -102,6 +104,21 @@ class PrdHttpModelTests(unittest.TestCase):
                     self.assertEqual(calls[3]["body"]["max_tokens"], 14000)
                     for call in calls:
                         self.assertIn("禁止重复排班", call["body"]["messages"][-1]["content"])
+                        self.assertRegex(call["traceparent"], r"^00-[a-f0-9]{32}-[a-f0-9]{16}-01$")
+                    trace = client.get(f"/v1/prd/jobs/{job_id}/trace").json()
+                    requests = [e for e in trace["events"] if e["name"] == "model.requested"]
+                    for event, call in zip(requests, calls, strict=True):
+                        self.assertEqual(
+                            call["traceparent"], f"00-{event['trace_id']}-{event['span_id']}-01"
+                        )
+                    responses = [e for e in trace["events"] if e["name"] == "model.responded"]
+                    self.assertTrue(
+                        all(
+                            e["payload"]["provider_request_id"] == "provider-fixture-request"
+                            for e in responses
+                        )
+                    )
+                    self.assertNotIn("fixture-key", json.dumps(trace))
         finally:
             server.shutdown()
             server.server_close()

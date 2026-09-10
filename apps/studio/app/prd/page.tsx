@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { PrdMarkdown } from "@/components/prd-markdown";
+import { PrdTrace } from "@/components/prd-trace";
 import {
   Brief, Configuration, DocumentSummary, Job, PrdDocument, Version,
   emptyBrief, nexusBrief, prdApi,
@@ -31,16 +32,17 @@ export default function PrdPage() {
   const [versions, setVersions] = useState<Version[]>([]);
   const [job, setJob] = useState<Job | null>(null);
   const [configuration, setConfiguration] = useState<Configuration | null>(null);
-  const [tab, setTab] = useState<"brief" | "document" | "history">("brief");
+  const [tab, setTab] = useState<"brief" | "document" | "history" | "trace">("brief");
   const [editing, setEditing] = useState(false);
   const [instruction, setInstruction] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
   const [ready, setReady] = useState(false);
-  const [recovery, setRecovery] = useState<{ brief: Brief; content: string } | null>(null);
+  const [recovery, setRecovery] = useState<{ brief: Brief; content: string; restored_from_version?: number | null } | null>(null);
   const [localSaved, setLocalSaved] = useState(false);
   const [selectedVersion, setSelectedVersion] = useState<Version | null>(null);
+  const [restoredFrom, setRestoredFrom] = useState<number | null>(null);
   const storageKey = useRef("nexus-prd:new");
   const active = Boolean(document?.active_job_id || (job && !terminal(job.status)));
   const dirty = document ? JSON.stringify(brief) !== JSON.stringify(document.brief) || content !== document.content
@@ -97,12 +99,12 @@ export default function PrdPage() {
     setLocalSaved(false);
     const timer = window.setTimeout(() => {
       try {
-        localStorage.setItem(storageKey.current, JSON.stringify({ brief, content }));
+        localStorage.setItem(storageKey.current, JSON.stringify({ brief, content, restored_from_version: restoredFrom }));
         setLocalSaved(true);
       } catch { setNotice("浏览器草稿保存失败，请点击保存或导出文档。"); }
     }, 400);
     return () => window.clearTimeout(timer);
-  }, [brief, content, ready, dirty, active, recovery]);
+  }, [brief, content, ready, dirty, active, recovery, restoredFrom]);
 
   useEffect(() => {
     if (!dirty) return;
@@ -156,10 +158,13 @@ export default function PrdPage() {
     }
     if (JSON.stringify(brief) !== JSON.stringify(item.brief) || content !== item.content) {
       item = await prdApi<PrdDocument>(`documents/${item.id}`, "PUT", {
-        expected_revision: item.revision, brief, content, note: "手动保存",
+        expected_revision: item.revision, brief, content,
+        note: restoredFrom ? `从 v${restoredFrom} 载入后保存` : "手动保存",
+        restored_from_version: restoredFrom,
       });
     }
     accept(item);
+    setRestoredFrom(null);
     try { localStorage.removeItem(previousKey); localStorage.removeItem(storageKey.current); } catch { /* Server save is authoritative. */ }
     setLocalSaved(false); setNotice("已保存到文档库");
     await refreshList();
@@ -172,11 +177,12 @@ export default function PrdPage() {
     finally { setBusy(false); }
   }
 
-  async function start(action: "generate" | "revise" | "review") {
+  async function start(action: "generate" | "revise" | "review", retryOf?: string, retryInstruction?: string) {
     if (!configuration?.configured) throw new Error("模型尚未配置。请先按页面说明配置 API 服务，文档编辑和保存可以继续使用。");
     const item = await save();
     const current = await prdApi<Job>(`documents/${item.id}/jobs`, "POST", {
-      expected_revision: item.revision, action, instruction,
+      expected_revision: item.revision, action, instruction: retryInstruction ?? instruction,
+      retry_of_job_id: retryOf || null,
     });
     setJob(current); setDocument({ ...item, active_job_id: current.id, last_job_id: current.id });
     setNotice(""); setEditing(false);
@@ -232,13 +238,13 @@ export default function PrdPage() {
     {error && <div className="prd-alert error" role="alert">{error}<button onClick={() => setError("")} aria-label="关闭错误">×</button></div>}
     {notice && <div className="prd-alert" role="status">{notice}</div>}
     {recovery && <div className="prd-alert recovery">发现尚未保存到文档库的浏览器草稿。
-      <button className="secondary-button" onClick={() => { setBrief(recovery.brief); setContent(recovery.content); setRecovery(null); setNotice("已恢复浏览器草稿，请检查后保存。"); }}>恢复草稿</button>
+      <button className="secondary-button" onClick={() => { setBrief(recovery.brief); setContent(recovery.content); setRestoredFrom(recovery.restored_from_version ?? null); setRecovery(null); setNotice("已恢复浏览器草稿，请检查后保存。"); }}>恢复草稿</button>
       <button className="secondary-button" onClick={() => { localStorage.removeItem(storageKey.current); setRecovery(null); }}>使用服务器版本</button>
     </div>}
     {configuration && !configuration.configured && <details className="prd-alert"><summary>尚未配置生成模型，仍可编辑、导入和保存文档</summary><p>在 API 服务环境中设置 NEXUS_MODEL_NAME、NEXUS_MODEL_BASE_URL 和 NEXUS_MODEL_API_KEY，安装 runtime 依赖并重启 API。配置完成后刷新页面。密钥只保留在服务端。</p></details>}
     <div className="workspace-grid">
       <div className="workspace-main">
-        <nav className="prd-tabs" aria-label="文档视图">{([['brief', '需求与材料'], ['document', 'PRD 正文'], ['history', '版本历史']] as const).map(([key, label]) => <button key={key} className={tab === key ? "active" : ""} onClick={() => setTab(key)}>{label}</button>)}</nav>
+        <nav className="prd-tabs" aria-label="文档视图">{([['brief', '需求与材料'], ['document', 'PRD 正文'], ['history', '版本历史'], ['trace', '全程追溯']] as const).map(([key, label]) => <button key={key} className={tab === key ? "active" : ""} onClick={() => setTab(key)}>{label}</button>)}</nav>
         {tab === "brief" && <section className="editor-panel panel">
           <div className="editor-toolbar"><span>已确认的信息越具体，初稿越接近可评审状态。</span>{!document && !dirty && <button className="text-button" disabled={active || busy} onClick={() => setBrief(nexusBrief)}>为 NexusOS 自己写 PRD</button>}</div>
           <fieldset disabled={active || busy || !ready || Boolean(recovery)}>
@@ -263,10 +269,14 @@ export default function PrdPage() {
             : editing ? <textarea className="markdown-editor" aria-label="PRD Markdown 正文" value={content} maxLength={200000} disabled={active || busy || Boolean(recovery)} onChange={event => setContent(event.target.value)} placeholder="# 产品需求文档" />
               : <article className="markdown-content"><PrdMarkdown content={content} /></article>}
         </section>}
+        {tab === "trace" && (document ? <PrdTrace documentId={document.id} refreshKey={`${document.revision}:${job?.stage}:${job?.status}`} disabled={active || busy || Boolean(recovery)} onRetry={(previous, published) => {
+          const action = content && (published || previous.action === "generate") ? "review" : previous.action as "generate" | "revise" | "review";
+          void perform(() => start(action, previous.id, previous.instruction));
+        }} /> : <section className="panel editor-panel"><p>保存文档后即可查看完整时间线。</p></section>)}
         {tab === "history" && <section className="panel editor-panel"><h2>已保存的版本</h2><p className="field-hint">恢复会先载入编辑区；点击保存后产生新版本，历史记录保留。</p>
           {!versions.length && <p>还没有版本。保存修改或生成文档后会记录在这里。</p>}
           {versions.map(version => <button className="version-row" key={version.version} onClick={() => setSelectedVersion(version)}><strong>v{version.version} · {version.note}</strong><span>{formatDate(version.created_at)} →</span></button>)}
-          {selectedVersion && <div className="version-preview"><div className="document-toolbar"><strong>预览 v{selectedVersion.version}</strong><button className="secondary-button" disabled={active || busy || Boolean(recovery)} onClick={() => { setBrief(selectedVersion.brief); setContent(selectedVersion.content); setTab("document"); setEditing(true); setNotice(`已载入 v${selectedVersion.version}，保存后成为新版本。`); }}>载入此版本</button></div><article className="markdown-content"><PrdMarkdown content={selectedVersion.content || "此版本仅保存了需求简报。"} /></article></div>}
+          {selectedVersion && <div className="version-preview"><div className="document-toolbar"><strong>预览 v{selectedVersion.version}</strong><button className="secondary-button" disabled={active || busy || Boolean(recovery)} onClick={() => { setRestoredFrom(selectedVersion.version); setBrief(selectedVersion.brief); setContent(selectedVersion.content); setTab("document"); setEditing(true); setNotice(`已载入 v${selectedVersion.version}，保存后成为新版本。`); }}>载入此版本</button></div><article className="markdown-content"><PrdMarkdown content={selectedVersion.content || "此版本仅保存了需求简报。"} /></article></div>}
         </section>}
       </div>
       <aside className="workspace-aside">

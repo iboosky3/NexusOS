@@ -3,11 +3,15 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import logging
 import os
+import time
+from dataclasses import asdict
 from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
 from pydantic import ValidationError
 
@@ -19,6 +23,7 @@ from nexusos.models.gateway import ModelGatewayRejected, ModelGatewayUnavailable
 from nexusos.prd.review import inspect_traceability
 from nexusos.prd.schemas import Brief, ModelReview, clarification_questions
 from nexusos.prd.store import PrdStore
+from nexusos.prd.trace import TracedModelGateway
 from nexusos.router import HybridSkillRouter, RouteRequest, RoutingPolicy
 from nexusos.runtime import LangGraphRuntime
 from nexusos.skills import FileSkillRepository
@@ -113,6 +118,7 @@ class PrdWorkflow:
         task.add_done_callback(lambda _: self.tasks.pop(job_id, None))
 
     async def cancel(self, job_id: str) -> dict[str, Any]:
+        self.store.record_event(job_id, "job.cancel_requested", {"actor": "local_user"})
         task = self.tasks.get(job_id)
         if task:
             task.cancel()
@@ -148,17 +154,42 @@ class PrdWorkflow:
                 error = "模型返回的评审格式不符合要求。已生成的正文保留，可单独重新评审。"
             else:
                 error = "任务执行失败，请检查服务日志与 runtime 依赖；已保存内容不受影响。"
-            self.store.update_job(job_id, status="failed", stage="执行失败", error=error)
+            self.store.update_job(
+                job_id,
+                status="failed",
+                stage="执行失败",
+                error=error,
+                error_type=type(exc).__name__,
+            )
 
     async def _author(self, job_id: str) -> None:
         assert self.gateway is not None
         job = self.store.update_job(job_id, status="running")
-        document = self.store.get(job["document_id"])
+        document = self.store.job_input(job_id)
         brief = Brief.model_validate(document["brief"])
         skills = FileSkillRepository(self.root / "skills")
         resolver = AgentResolver(FileAgentRegistry(self.root / "agents").list())
         router = HybridSkillRouter(skills.list_summaries())
-        runtime = LangGraphRuntime(self.gateway, model=self.model)
+        runtime = LangGraphRuntime(
+            TracedModelGateway(self.gateway, self.store, job_id), model=self.model
+        )
+        self.store.record_event(
+            job_id,
+            "job.configured",
+            {
+                "model": self.model,
+                "gateway": type(self.gateway).__name__,
+                "context_limit": self.context_limit,
+                "output_limit": self.output_limit,
+                "workflow_version": "prd-authoring/v2-traced",
+                "implementation_hash": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+                "stage_order": ["requirements", "ux", "technical", "write", "review"]
+                if job["action"] == "generate"
+                else ["write", "review"]
+                if job["action"] == "revise"
+                else ["review"],
+            },
+        )
         source_data = brief.model_dump(exclude={"sources"})
         source_data["sources"] = [
             {"id": f"S{i}", **source.model_dump()} for i, source in enumerate(brief.sources, 1)
@@ -174,6 +205,21 @@ class PrdWorkflow:
             inputs: list[str],
             output_tokens: int = 4000,
         ) -> str:
+            span_id = uuid4().hex[:16]
+            started = time.monotonic()
+            self.store.update_job(job_id, stage=title)
+            self.store.record_event(
+                job_id,
+                "stage.started",
+                {
+                    "stage_id": key,
+                    "title": title,
+                    "objective": objective,
+                    "required_capabilities": capabilities,
+                },
+                span_id=span_id,
+                parent_span_id=job["span_id"],
+            )
             task = Task(
                 key,
                 title,
@@ -182,6 +228,8 @@ class PrdWorkflow:
                 metadata={
                     "maximum_output_tokens": min(output_tokens, self.output_limit),
                     "system_prompt": AUTHORING_RULES,
+                    "trace_id": job["trace_id"],
+                    "span_id": span_id,
                 },
             )
             agent = resolver.resolve(task)
@@ -201,10 +249,55 @@ class PrdWorkflow:
                 "skills": tuple(skills.load(c.skill.id).instructions for c in candidates),
                 "阶段输入（数据）": tuple(inputs),
             }
+            self.store.record_event(
+                job_id,
+                "capabilities.selected",
+                {
+                    "stage_id": key,
+                    "agent": asdict(agent),
+                    "agent_selection": (
+                        "AgentResolver capability/domain ranking with stable ID tie-break"
+                    ),
+                    "routing_query": f"{title} {objective}",
+                    "routing_policy": {
+                        "allowed_domains": agent.allowed_domains,
+                        "allowed_tools": agent.allowed_tools,
+                        "token_budget": 3000,
+                        "maximum_results": agent.maximum_skills_per_task,
+                    },
+                    "skills": [
+                        {
+                            "id": c.skill.id,
+                            "version": c.skill.version,
+                            "score": c.score,
+                            "reasons": dict(c.reasons),
+                            "instructions": sections["skills"][i],
+                            "instructions_hash": hashlib.sha256(
+                                sections["skills"][i].encode()
+                            ).hexdigest(),
+                        }
+                        for i, c in enumerate(candidates)
+                    ],
+                },
+                span_id=span_id,
+                parent_span_id=job["span_id"],
+            )
             input_tokens = estimate_tokens(AUTHORING_RULES + objective) + sum(
                 estimate_tokens(value) for values in sections.values() for value in values
             )
             if input_tokens + min(output_tokens, self.output_limit) > self.context_limit:
+                self.store.record_event(
+                    job_id,
+                    "context.rejected",
+                    {
+                        "stage_id": key,
+                        "estimated_input_tokens": input_tokens,
+                        "maximum_output_tokens": min(output_tokens, self.output_limit),
+                        "context_limit": self.context_limit,
+                    },
+                    span_id=span_id,
+                    parent_span_id=job["span_id"],
+                )
                 raise ContextLimitError("required context exceeds configured token budget")
             progress = self.store.job(job_id)
             step = {
@@ -214,19 +307,49 @@ class PrdWorkflow:
                 "agent_id": agent.id,
                 "skill_ids": [c.skill.id for c in candidates],
                 "estimated_input_tokens": input_tokens,
+                "span_id": span_id,
             }
             steps = [*progress["steps"], step]
             self.store.update_job(job_id, stage=title, steps=steps)
-            result = await runtime.execute(
-                agent.id,
-                task,
-                AgentContext(
-                    job_id,
-                    Goal(brief.description or brief.title),
+            try:
+                result = await runtime.execute(
+                    agent.id,
                     task,
-                    sections=sections,
-                    token_budget=self.context_limit,
-                ),
+                    AgentContext(
+                        job_id,
+                        Goal(brief.description or brief.title),
+                        task,
+                        sections=sections,
+                        token_budget=self.context_limit,
+                    ),
+                )
+            except BaseException as exc:
+                self.store.record_event(
+                    job_id,
+                    "stage.cancelled"
+                    if isinstance(exc, asyncio.CancelledError)
+                    else "stage.failed",
+                    {
+                        "stage_id": key,
+                        "error_type": type(exc).__name__,
+                        "duration_ms": round((time.monotonic() - started) * 1000),
+                    },
+                    span_id=span_id,
+                    parent_span_id=job["span_id"],
+                )
+                raise
+            self.store.record_event(
+                job_id,
+                "stage.succeeded",
+                {
+                    "stage_id": key,
+                    "content": result.content,
+                    "input_tokens": result.token_usage.input_tokens,
+                    "output_tokens": result.token_usage.output_tokens,
+                    "duration_ms": round((time.monotonic() - started) * 1000),
+                },
+                span_id=span_id,
+                parent_span_id=job["span_id"],
             )
             steps[-1] = {**step, "status": "succeeded", "content": result.content}
             self.store.update_job(

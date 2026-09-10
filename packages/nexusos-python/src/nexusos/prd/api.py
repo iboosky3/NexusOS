@@ -49,9 +49,12 @@ def create_prd_router(store: PrdStore, workflow: PrdWorkflow) -> APIRouter:
                 payload.brief.model_dump(),
                 payload.content,
                 payload.note,
+                payload.restored_from_version,
             )
         except ConflictError as exc:
             raise HTTPException(409, str(exc)) from exc
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from exc
         return document(document_id)
 
     @router.get("/documents/{document_id}/versions")
@@ -70,12 +73,18 @@ def create_prd_router(store: PrdStore, workflow: PrdWorkflow) -> APIRouter:
             )
         try:
             job = store.start_job(
-                document_id, payload.expected_revision, payload.action, payload.instruction
+                document_id,
+                payload.expected_revision,
+                payload.action,
+                payload.instruction,
+                payload.retry_of_job_id,
             )
         except ConflictError as exc:
             raise HTTPException(409, str(exc)) from exc
         except ValueError as exc:
             raise HTTPException(422, str(exc)) from exc
+        except NotFoundError as exc:
+            raise HTTPException(404, "关联任务不存在") from exc
         workflow.start(job["id"])
         return job
 
@@ -90,5 +99,28 @@ def create_prd_router(store: PrdStore, workflow: PrdWorkflow) -> APIRouter:
     async def cancel_job(job_id: str) -> dict[str, Any]:
         await get_job(job_id)
         return await workflow.cancel(job_id)
+
+    @router.get("/documents/{document_id}/jobs")
+    async def list_jobs(
+        document_id: str, before: int | None = None, limit: int = 50
+    ) -> dict[str, Any]:
+        document(document_id)
+        try:
+            return store.job_history(document_id, before=before, limit=limit)
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from exc
+
+    @router.get("/documents/{document_id}/trace")
+    async def timeline(document_id: str, after: int = 0, limit: int = 100) -> dict[str, Any]:
+        document(document_id)
+        try:
+            return store.timeline(document_id, after=after, limit=limit)
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from exc
+
+    @router.get("/jobs/{job_id}/trace")
+    async def trace_bundle(job_id: str) -> dict[str, Any]:
+        await get_job(job_id)
+        return store.trace_bundle(job_id)
 
     return router

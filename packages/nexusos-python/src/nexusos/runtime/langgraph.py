@@ -75,5 +75,14 @@ class LangGraphRuntime:
             maximum_output_tokens=int(
                 task.metadata.get("maximum_output_tokens", max(256, context.token_budget // 4))
             ),
-            metadata={"run_id": context.run_id, "task_id": task.id, "agent_id": agent_id},
+            metadata={
+                "run_id": context.run_id,
+                "task_id": task.id,
+                "agent_id": agent_id,
+                **{
+                    key: str(task.metadata[key])
+                    for key in ("trace_id", "span_id")
+                    if key in task.metadata
+                },
+            },
         )

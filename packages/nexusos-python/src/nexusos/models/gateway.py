@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 import urllib.error
 import urllib.request
 from collections.abc import Mapping
@@ -58,6 +59,7 @@ class ModelResponse:
     model: str
     usage: TokenUsage = field(default_factory=TokenUsage)
     finish_reason: str = "stop"
+    provider_request_id: str | None = None
 
 
 class ModelGateway(Protocol):
@@ -69,9 +71,17 @@ class ModelGateway(Protocol):
 class ModelGatewayUnavailable(RuntimeError):
     """Signal a transient backend failure that allows a policy-approved failover."""
 
+    def __init__(self, message: str, *, http_status: int | None = None) -> None:
+        super().__init__(message)
+        self.http_status = http_status
+
 
 class ModelGatewayRejected(RuntimeError):
     """Signal a permanent request or protocol failure that must fail closed."""
+
+    def __init__(self, message: str, *, http_status: int | None = None) -> None:
+        super().__init__(message)
+        self.http_status = http_status
 
 
 @dataclass(frozen=True, slots=True)
@@ -173,9 +183,19 @@ class OpenAICompatibleGateway:
             },
             method="POST",
         )
+        trace_id = request.metadata.get("trace_id", "")
+        span_id = request.metadata.get("span_id", "")
+        if (
+            re.fullmatch(r"[a-f0-9]{32}", trace_id)
+            and re.fullmatch(r"[a-f0-9]{16}", span_id)
+            and int(trace_id, 16)
+            and int(span_id, 16)
+        ):
+            http_request.add_header("traceparent", f"00-{trace_id}-{span_id}-01")
         try:
             with urllib.request.urlopen(http_request, timeout=self._timeout_seconds) as response:
                 payload: Mapping[str, Any] = json.loads(response.read().decode("utf-8"))
+                request_id = getattr(response, "headers", {}).get("x-request-id")
             usage = payload.get("usage", {})
             choice = payload["choices"][0]
             content = choice["message"]["content"]
@@ -191,11 +211,16 @@ class OpenAICompatibleGateway:
                 model=str(payload.get("model", request.model)),
                 usage=TokenUsage(input_tokens=input_tokens, output_tokens=output_tokens),
                 finish_reason=str(choice.get("finish_reason", "stop")),
+                provider_request_id=str(request_id)[:200] if request_id else None,
             )
         except urllib.error.HTTPError as exc:
             if exc.code == 429 or exc.code >= 500:
-                raise ModelGatewayUnavailable(f"provider returned HTTP {exc.code}") from exc
-            raise ModelGatewayRejected(f"provider rejected request with HTTP {exc.code}") from exc
+                raise ModelGatewayUnavailable(
+                    f"provider returned HTTP {exc.code}", http_status=exc.code
+                ) from exc
+            raise ModelGatewayRejected(
+                f"provider rejected request with HTTP {exc.code}", http_status=exc.code
+            ) from exc
         except (TimeoutError, urllib.error.URLError) as exc:
             raise ModelGatewayUnavailable("provider connection failed or timed out") from exc
         except (
