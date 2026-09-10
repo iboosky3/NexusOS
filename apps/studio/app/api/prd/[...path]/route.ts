@@ -13,7 +13,7 @@ function requestOrigin(request: NextRequest): string {
 async function proxy(request: NextRequest, context: { params: Promise<{ path: string[] }> }) {
   const { path } = await context.params;
   const suffix = path.join("/");
-  if (!/^(configuration|documents(?:\/[a-f0-9]{32}(?:\/(versions|jobs|trace))?)?|jobs\/[a-f0-9]{32}(?:\/(cancel|trace|stream))?)$/.test(suffix)) {
+  if (!/^(configuration|capabilities|assistant|documents(?:\/[a-f0-9]{32}(?:\/(versions|jobs|trace))?)?|jobs\/[a-f0-9]{32}(?:\/(cancel|trace|stream))?)$/.test(suffix)) {
     return NextResponse.json({ detail: "接口不存在" }, { status: 404 });
   }
   if (request.method !== "GET") {
@@ -42,7 +42,7 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path: st
       },
       body,
       cache: "no-store",
-      signal: streaming ? request.signal : AbortSignal.timeout(15000),
+      signal: streaming ? request.signal : AbortSignal.timeout(suffix === "assistant" ? 120000 : 15000),
     });
     return new NextResponse(streaming ? response.body : await response.text(), {
       status: response.status,

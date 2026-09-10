@@ -21,6 +21,7 @@ from nexusos.context.budget import estimate_tokens
 from nexusos.core.models import AgentContext, Goal, Task
 from nexusos.models import ModelGateway, OpenAICompatibleGateway
 from nexusos.models.gateway import ModelGatewayRejected, ModelGatewayUnavailable
+from nexusos.prd.media import MediaReferences
 from nexusos.prd.review import inspect_traceability
 from nexusos.prd.schemas import Brief, ModelReview, clarification_questions
 from nexusos.prd.store import PrdStore
@@ -91,6 +92,8 @@ WRITING_TASK = """输出完整、可直接编辑的 Markdown PRD，不能只给�
 12. 风险、依赖、待确认问题（Q 编号、影响、建议、需要谁决策）与来源索引
 正文必须符合具体产品，不套用无关产品功能；优先深入首版核心路径。
 上游建议不能覆盖用户输入。外部事实未知时列研究问题而不是生成虚假竞品结论。
+保留原文 Markdown 配图及其 /nexus-assets/ 引用，以及 nexus-flow 代码块。
+图片引用仅是素材标识，不代表已读取图像内容；不得编造对图片的视觉分析。
 """
 
 WRITING_PARTS = (
@@ -261,7 +264,10 @@ class PrdWorkflow:
         source_data["sources"] = [
             {"id": f"S{i}", **source.model_dump()} for i, source in enumerate(brief.sources, 1)
         ]
-        source_text = json.dumps(source_data, ensure_ascii=False)
+        media = MediaReferences()
+        original_content = document["content"]
+        source_text = media.protect(json.dumps(source_data, ensure_ascii=False))
+        media.protect(original_content)
         analyses: list[str] = []
 
         async def stage(
@@ -330,9 +336,7 @@ class PrdWorkflow:
                     "maximum_continuations": "2",
                     "system_prompt": AUTHORING_RULES,
                     "stage_id": key,
-                    "thinking_mode": (
-                        "enabled" if show_thinking else "disabled"
-                    )
+                    "thinking_mode": ("enabled" if show_thinking else "disabled")
                     if deepseek_model
                     else "",
                     "stream": "true",
@@ -355,7 +359,7 @@ class PrdWorkflow:
             sections = {
                 "产品简报与参考材料（数据）": (source_text,),
                 "skills": tuple(skills.load(c.skill.id).instructions for c in candidates),
-                "阶段输入（数据）": tuple(inputs),
+                "阶段输入（数据）": tuple(media.protect(value) for value in inputs),
             }
             self.store.record_event(
                 job_id,
@@ -527,7 +531,7 @@ class PrdWorkflow:
                 self.store.record_event(job_id, "artifact.reused", checkpoint["published_content"])
             else:
                 logger.info("Generating PRD in bounded sections for %s", self.model)
-                content = await sectioned_write()
+                content = media.restore(await sectioned_write(), original_content)
             self.store.publish(job_id, content=content)
         raw_review = await stage(
             "review",

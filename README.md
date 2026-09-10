@@ -10,6 +10,8 @@ NexusOS 解决的不是“再做一个聊天机器人”，而是当系统拥有
 
 从[写作工作区使用指南](docs/reference-apps/nexus-prd/authoring.md)开始，也可以导入[NexusOS 自身 PRD 草稿](docs/reference-apps/nexus-prd/product-prd.md)继续完善。原离线参考内核和基准保留用于回归。
 
+首页点击 **编写 PRD** 会在新标签页打开 `/prd-studio`：左侧查看 Agent / Skill 与文档库，中间填写简报、编辑图文，右侧与 AI 澄清需求，底部查看工作流与状态。首页只选择工具，产品构想和参考材料全部在 Studio 内填写。旧版 `/prd` 保留，可打开同一份已保存文档。新界面的菜单、命令、侧栏、编辑器页签和状态栏已抽成通用组件，其他工具的接入方式见[工作台组件与扩展说明](docs/development/studio-workbench.md)。
+
 ## 当前能力
 
 | 模块 | 当前状态 | 已有证据 |

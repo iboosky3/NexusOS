@@ -41,6 +41,39 @@ class SaveDocument(StrictModel):
     restored_from_version: int | None = Field(default=None, ge=1)
 
 
+class DraftBrief(Brief):
+    title: str = Field(default="", max_length=200)
+
+
+class AssistantMessage(StrictModel):
+    role: Literal["user", "assistant"]
+    content: str = Field(min_length=1, max_length=6000)
+
+
+class AssistantRequest(StrictModel):
+    brief: DraftBrief
+    message: str = Field(min_length=1, max_length=8000)
+    show_thinking: bool = False
+    history: list[AssistantMessage] = Field(default_factory=list, max_length=8)
+
+
+class AssistantReply(StrictModel):
+    answer: str = Field(min_length=1, max_length=6000)
+    updates: dict[
+        Literal[
+            "title",
+            "description",
+            "audience",
+            "problem",
+            "scope",
+            "constraints",
+            "metrics",
+            "template",
+        ],
+        str,
+    ] = Field(default_factory=dict)
+
+
 class StartJob(StrictModel):
     expected_revision: int = Field(ge=1)
     action: Literal["generate", "revise", "review"] = "generate"

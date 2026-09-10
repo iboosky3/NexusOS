@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 
 function IconOption({ type, label }: { type: "firefly"; label: string }) {
@@ -10,6 +13,8 @@ function IconOption({ type, label }: { type: "firefly"; label: string }) {
 }
 
 export function AppShell({ children }: { children: ReactNode }) {
+  const pathname = usePathname();
+  if (pathname === "/prd-studio") return <>{children}</>;
   return (
     <div className="app-shell">
       <header className="topbar">
