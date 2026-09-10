@@ -75,4 +75,4 @@
 
 ### PRD 全程追溯
 
-新增输入快照、只追加事件、模型请求/响应证据、能力选择依据、版本来源、文档时间线、历史任务及 JSON 导出。旧任务缺失记录明确标注。详见[RT-001](../development/runtime-issues/001-end-to-end-tracing.md)。自动重试、断点恢复、分布式任务池与调度尚未实现，进度以[关键问题台账](../development/critical-runtime-backlog.md)为准。
+新增输入快照、只追加事件、模型请求/响应证据、能力选择依据、版本来源、文档时间线、历史任务及 JSON 导出。旧任务缺失记录明确标注。详见[RT-001](../development/runtime-issues/001-end-to-end-tracing.md)。已支持单实例显式阶段恢复与从头重新执行；自动重试、自动恢复、分布式任务池与调度尚未实现，进度以[关键问题台账](../development/critical-runtime-backlog.md)为准。

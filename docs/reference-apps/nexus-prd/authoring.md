@@ -19,9 +19,6 @@ export NEXUS_MODEL_NAME='你的模型名称'
 export NEXUS_MODEL_BASE_URL='你的兼容模型服务地址/v1'
 export NEXUS_MODEL_API_KEY='你的模型密钥'
 
-# 可选：按模型实际限制设置总上下文与最大输出。
-export NEXUS_PRD_CONTEXT_TOKENS=64000
-export NEXUS_PRD_OUTPUT_TOKENS=14000
 export NEXUS_PRD_DATABASE='./data/prd.sqlite3'
 
 python -m uvicorn nexusos.api:create_app --factory --host 127.0.0.1 --port 8000
@@ -41,14 +38,14 @@ NEXUS_API_URL=http://127.0.0.1:8000 npm run dev -- --hostname 127.0.0.1
 
 不配置模型仍然可以导入、编辑、保存和导出。点击生成会得到明确配置提示，不会退回固定模板。当前适配器调用兼容的 Chat Completions 服务，发送 `temperature` 和 `max_tokens`；服务必须支持这些参数。各供应商特定的推理参数、独立 Responses 协议、非兼容 Anthropic 接口仍需独立适配。
 
-`NEXUS_MODEL_NAME` 只表示选定模型，并不证明服务已经可达。连接失败、限流、认证错误、非法响应或输出截断会在任务记录中显示失败。可以通过改变输出限制、简化材料或调整服务配置再试。
+`NEXUS_MODEL_NAME` 只表示选定模型，并不证明服务已经可达。连接失败、限流、认证错误或非法响应会在任务记录中显示失败。PRD 工作流对所有模型统一分段生成正文；单段达到服务商输出上限时会从截断处自动续写并合并，因此不需要配置 PRD Token 上限。模型响应通过流式接口逐步显示。输入材料超过模型自身上下文窗口时仍需精简材料。
 
 ## 写作流程
 
 1. 从工作台描述产品，或打开新文档。空白工作区提供“为 NexusOS 自己写 PRD”预填简报。
 2. 填写用户、问题、首版范围、约束和验收期待。侧栏提示缺失字段，可跳转补充。
 3. 添加资料。支持 `.md`、`.txt`、`.markdown` 或粘贴原文；每份提供来源名称。仅有 URL 不会自动抓取网页。
-4. 保存后点击生成。需求、体验、技术、写作、评审阶段实际运行并记录所选 Agent 和 Skill。
+4. 保存后点击生成。需求、体验、技术、写作、评审阶段实际运行并记录所选 Agent 和 Skill；当前阶段的模型正文会实时显示。
 5. 阅读 PRD 与问题清单，特别检查“建议”“假设”和“待确认”。没有问题也只代表等待人工评审。
 6. 在正文中直接编辑，或填写修改要求后修订。修订会先保存当前人工修改，再生成一个新版本。
 7. 需要时只重新评审，避免重复写作。修改正文或简报后，旧评审不再作为当前评审显示。
@@ -86,6 +83,7 @@ Docker 镜像安装 runtime 依赖，Compose 为 `/app/data` 配置 `prd-data` �
 | GET | `/v1/prd/documents/{id}/versions` | 历史快照 |
 | POST | `/v1/prd/documents/{id}/jobs` | 发起 generate / revise / review，返回 202 |
 | GET | `/v1/prd/jobs/{id}` | 轮询实际任务进度与阶段输出 |
+| GET | `/v1/prd/jobs/{id}/stream` | 以 SSE 接收任务状态、当前阶段正文与可选思考过程 |
 | POST | `/v1/prd/jobs/{id}/cancel` | 停止任务 |
 
 `/v1/prd/runs` 仍是原有离线参考内核 API，供基线回归使用；新工作区不调用它。不要把其固定输出与参考质量分数当成真实写作结果。
@@ -112,6 +110,15 @@ npm run build
 
 “文档时间线”也记录创建、人工编辑和版本恢复来源；任务与事件均支持分页。点击“导出追溯 JSON”可保存本次任务的证据包。导出包含原始材料与模型对话，应按原文的敏感程度保管。
 
-失败/停止任务可以“基于当前文档重新执行”，新任务关联旧任务并保留独立 Trace。它使用当前保存版本，不是自动重试或断点恢复。旧任务没有记录的输入/调用会明确显示缺失，不补造历史。
+页面顶部的“显示思考过程”开关按任务生效。使用 DeepSeek 时，关闭会向模型发送 `thinking: {"type":"disabled"}`，只流式显示并保存正文；开启会发送 `thinking: {"type":"enabled"}`，并显示服务商返回的 `reasoning_content`。启用后的思考内容会保存在任务记录和追溯导出中。任务运行期间切换只改变当前页面的显示，并应用到下一次生成，不会改变已经发出的模型请求。
+
+失败/停止任务提供“重新执行”和“继续执行”：重新执行保存当前输入并从头运行所选任务；继续执行复用已完成阶段，使用原始输入，从未完成处继续。两者都关联旧任务并保留独立 Trace。继续要求文档未修改且来源是最近任务，前端会显示不可继续的原因。旧任务没有记录的输入/调用会明确显示缺失，不补造历史。
 
 详见[全程追溯问题与技术方案](../../development/runtime-issues/001-end-to-end-tracing.md)；后续长任务、限流、调度与记忆按[问题台账](../../development/critical-runtime-backlog.md)迭代。
+
+
+## 失败后继续执行
+
+主编辑区顶部任务状态条和“全程追溯”均有恢复入口。继续执行会复用分析及已完成写作片段；正文已保存而评审失败时只重新评审，不产生重复正文版本。服务重启后仍需手动选择继续，不自动发出模型请求。未完成阶段可能再次产生费用；继续执行不能修复模型配置或无限扩展输出上限。
+
+安装依赖使用 `pip install -e ".[api,runtime]"`，其中包含 `langgraph-checkpoint-sqlite`。业务数据库旁新增 `.checkpoints` 文件（默认 `data/prd.sqlite3.checkpoints`），备份需包含两个数据库及各自 WAL，建议停服务后备份整个数据目录。详见 [检查点恢复方案](../../development/runtime-issues/003-checkpoint-recovery.md)。

@@ -199,28 +199,53 @@ class PrdStore:
         action: str,
         instruction: str,
         retry_of_job_id: str | None = None,
+        resume_of_job_id: str | None = None,
+        show_thinking: bool = False,
     ) -> dict[str, Any]:
         with self.connection() as db:
             item = self._get(db, "prd_documents", document_id)
             self._check(item, revision)
-            if retry_of_job_id:
-                original = self._get(db, "prd_jobs", retry_of_job_id)
+            if retry_of_job_id and resume_of_job_id:
+                raise ValueError("重新执行与继续执行只能选择一种")
+            checkpoint: dict[str, Any] = {"version": "prd-stages/v1", "stages": {}}
+            original = None
+            if retry_of_job_id or resume_of_job_id:
+                original = self._get(db, "prd_jobs", retry_of_job_id or resume_of_job_id or "")
                 if original["document_id"] != document_id or original["status"] not in {
                     "failed",
                     "cancelled",
                 }:
                     raise ValueError("只能关联同一文档中失败或已停止的任务")
+            if resume_of_job_id and original:
+                reason = self._resume_reason(db, original, item)
+                if reason:
+                    raise ConflictError(reason)
+                checkpoint = self._restore_checkpoint(db, original)
+                action, instruction = original["action"], original["instruction"]
+                show_thinking = bool(original.get("show_thinking", False))
+                checkpoint["runtime_ancestors"] = [
+                    original["id"],
+                    *checkpoint.get("runtime_ancestors", []),
+                ]
+                if original.get("error_type") == "MergeValidationError":
+                    checkpoint["invalidated_stages"] = ["write-1", "write-2", "write-3"]
+                    checkpoint["stages"] = {
+                        k: v
+                        for k, v in checkpoint["stages"].items()
+                        if k not in checkpoint["invalidated_stages"]
+                    }
             if action in {"revise", "review"} and not item["content"].strip():
                 raise ValueError("请先生成或导入 PRD 文档")
             if action == "revise" and not instruction.strip():
                 raise ValueError("请填写修改要求")
-            if action == "generate" and item["content"].strip():
+            if action == "generate" and item["content"].strip() and not original:
                 raise ValueError("已有文档请使用修改功能，以保留现有内容")
             job: dict[str, Any] = {
                 "id": uuid4().hex,
                 "document_id": document_id,
                 "action": action,
                 "instruction": instruction,
+                "show_thinking": show_thinking,
                 "status": "queued",
                 "stage": "等待执行",
                 "steps": [],
@@ -229,13 +254,20 @@ class PrdStore:
                 "updated_at": now(),
                 "input_tokens": 0,
                 "output_tokens": 0,
+                "stream": None,
                 "trace_id": uuid4().hex,
                 "span_id": uuid4().hex[:16],
                 "input_revision": item["revision"],
                 "input_version": item["version"],
                 "input_hash": put_object(db, item),
                 "retry_of_job_id": retry_of_job_id,
+                "resume_of_job_id": resume_of_job_id,
+                "checkpoint": checkpoint,
+                "checkpoint_revision": item["revision"],
             }
+            if resume_of_job_id and original:
+                for key in ("input_revision", "input_version", "input_hash"):
+                    job[key] = original[key]
             item["active_job_id"] = job["id"]
             item["last_job_id"] = job["id"]
             self._put(db, "prd_documents", item)
@@ -254,14 +286,71 @@ class PrdStore:
                 {
                     "action": action,
                     "instruction": instruction,
+                    "show_thinking": show_thinking,
                     "input_hash": job["input_hash"],
                     "input": get_object(db, job["input_hash"]),
                     "retry_of_job_id": retry_of_job_id,
-                    "execution_policy": "explicit new execution; no automatic replay",
+                    "resume_of_job_id": resume_of_job_id,
+                    "execution_policy": "resume completed stages"
+                    if resume_of_job_id
+                    else "restart from current input",
+                    "reused_stage_ids": list(checkpoint["stages"]),
                 },
                 job=job,
             )
             return job
+
+    def begin_stream(self, job_id: str, stage_id: str, title: str) -> None:
+        """Reset the durable live snapshot when a model-backed stage starts."""
+
+        with self.connection() as db:
+            job = self._get(db, "prd_jobs", job_id)
+            if job["status"] != "running":
+                return
+            previous_sequence = int((job.get("stream") or {}).get("sequence", 0))
+            job["stream"] = {
+                "stage_id": stage_id,
+                "title": title,
+                "content": "",
+                "reasoning_content": "",
+                "sequence": previous_sequence + 1,
+                "status": "streaming",
+                "updated_at": now(),
+            }
+            job["updated_at"] = now()
+            self._put(db, "prd_jobs", job)
+
+    def append_stream_delta(
+        self, job_id: str, stage_id: str, content: str, reasoning_content: str
+    ) -> None:
+        """Append a throttled provider delta to the current live snapshot."""
+
+        if not content and not reasoning_content:
+            return
+        with self.connection() as db:
+            job = self._get(db, "prd_jobs", job_id)
+            stream = job.get("stream")
+            if job["status"] != "running" or not stream or stream["stage_id"] != stage_id:
+                return
+            stream["content"] += content
+            if job.get("show_thinking"):
+                stream["reasoning_content"] += reasoning_content
+            stream["sequence"] += 1
+            stream["updated_at"] = now()
+            job["updated_at"] = stream["updated_at"]
+            self._put(db, "prd_jobs", job)
+
+    def finish_stream(self, job_id: str, stage_id: str, status: str = "succeeded") -> None:
+        with self.connection() as db:
+            job = self._get(db, "prd_jobs", job_id)
+            stream = job.get("stream")
+            if not stream or stream["stage_id"] != stage_id:
+                return
+            stream["status"] = status
+            stream["sequence"] += 1
+            stream["updated_at"] = now()
+            job["updated_at"] = stream["updated_at"]
+            self._put(db, "prd_jobs", job)
 
     def job(self, job_id: str) -> dict[str, Any]:
         with self.connection() as db:
@@ -279,6 +368,9 @@ class PrdStore:
                     {**step, "status": job["status"]} if step["status"] == "running" else step
                     for step in job["steps"]
                 ]
+            if job["status"] in {"succeeded", "failed", "cancelled"} and job.get("stream"):
+                job["stream"]["status"] = job["status"]
+                job["stream"]["sequence"] += 1
             self._put(db, "prd_jobs", job)
             if job["status"] != old_status:
                 append_event(
@@ -308,6 +400,11 @@ class PrdStore:
             item = self._get(db, "prd_documents", job["document_id"])
             if item["active_job_id"] != job_id or job["status"] != "running":
                 raise ConflictError("任务已结束，不能覆盖当前文档")
+            checkpoint = job.setdefault("checkpoint", {"version": "prd-stages/v1", "stages": {}})
+            if content is not None and checkpoint.get("published_content"):
+                return
+            if review is not None and checkpoint.get("published_review"):
+                return
             item.update(updated_at=now(), review=review)
             item["revision"] += 1
             if content is not None:
@@ -327,6 +424,12 @@ class PrdStore:
                     },
                     job=job,
                 )
+            if content is not None:
+                checkpoint["published_content"] = {"version": item["version"], "job_id": job_id}
+            if review is not None:
+                checkpoint["published_review"] = {"revision": item["revision"], "job_id": job_id}
+            job["checkpoint_revision"] = item["revision"]
+            self._put(db, "prd_jobs", job)
             self._put(db, "prd_documents", item)
 
     def recover(self) -> None:
@@ -357,7 +460,7 @@ class PrdStore:
                     status="failed",
                     stage="任务中断",
                     updated_at=now(),
-                    error="服务重启导致任务中断。已保存内容可继续使用，请重新发起任务。",
+                    error="服务重启导致任务中断。可继续执行以复用已完成阶段，或选择重新执行。",
                 )
                 self._put(db, "prd_jobs", job)
                 append_event(
@@ -375,6 +478,132 @@ class PrdStore:
                 item = self._get(db, "prd_documents", job["document_id"])
                 item["active_job_id"] = None
                 self._put(db, "prd_documents", item)
+
+    @staticmethod
+    def _restore_checkpoint(db: sqlite3.Connection, job: dict[str, Any]) -> dict[str, Any]:
+        if job.get("checkpoint"):
+            return json.loads(json.dumps(job["checkpoint"]))  # type: ignore[no-any-return]
+        # Adopt only explicitly accepted legacy stages, never infer success from a response.
+        checkpoint: dict[str, Any] = {
+            "version": "prd-stages/v1",
+            "stages": {},
+            "legacy_import": True,
+        }
+        for name, digest in db.execute(
+            "SELECT name,payload_hash FROM prd_trace_events WHERE job_id=? ORDER BY sequence",
+            (job["id"],),
+        ):
+            payload = get_object(db, digest)
+            key = payload.get("stage_id")
+            if name == "stage.succeeded" and key in {
+                "requirements",
+                "ux",
+                "technical",
+                "write-1",
+                "write-2",
+                "write-3",
+            }:
+                checkpoint["stages"][key] = {
+                    "content": payload["content"],
+                    "source_job_id": job["id"],
+                    "evidence_hash": digest,
+                    "step": next(
+                        (step for step in job["steps"] if step["id"] == key),
+                        {"id": key, "title": key, "agent_id": "", "skill_ids": []},
+                    ),
+                }
+            if name == "artifact.version_created":
+                checkpoint["published_content"] = {
+                    "version": payload["version"],
+                    "job_id": job["id"],
+                }
+        return checkpoint
+
+    @staticmethod
+    def _resume_reason(
+        db: sqlite3.Connection, job: dict[str, Any], item: dict[str, Any]
+    ) -> str | None:
+        if job["status"] not in {"failed", "cancelled"}:
+            return "只有失败或已停止的任务可以继续执行"
+        if not job.get("input_hash"):
+            return "旧任务缺少原始输入快照，请选择重新执行"
+        if item["last_job_id"] != job["id"]:
+            return "已有后续任务，请选择最新任务继续或重新执行"
+        if job.get("checkpoint", {}).get("version", "prd-stages/v1") != "prd-stages/v1":
+            return "检查点版本不兼容，请选择重新执行"
+        revision = job.get("checkpoint_revision", job["input_revision"])
+        if not job.get("checkpoint"):
+            for _name, digest in db.execute(
+                "SELECT name,payload_hash FROM prd_trace_events WHERE job_id=? "
+                "AND name IN ('artifact.version_created','review.published')",
+                (job["id"],),
+            ):
+                revision = max(revision, get_object(db, digest).get("revision", revision))
+        if item["revision"] != revision:
+            return "文档或需求已修改，旧现场不能继续；请重新执行"
+        if item["active_job_id"]:
+            return "文档已有执行中的任务"
+        return None
+
+    def _recovery_info(self, db: sqlite3.Connection, job: dict[str, Any]) -> dict[str, Any]:
+        item = self._get(db, "prd_documents", job["document_id"])
+        reason = self._resume_reason(db, job, item)
+        checkpoint = self._restore_checkpoint(db, job) if job.get("input_hash") else {"stages": {}}
+        return {
+            "can_resume": reason is None,
+            "reason": reason,
+            "completed_stages": list(checkpoint["stages"]),
+        }
+
+    def recovery_info(self, job_id: str) -> dict[str, Any]:
+        with self.connection() as db:
+            return self._recovery_info(db, self._get(db, "prd_jobs", job_id))
+
+    def checkpoint_stage(self, job_id: str, key: str) -> dict[str, Any] | None:
+        with self.connection() as db:
+            job = self._get(db, "prd_jobs", job_id)
+            cached = job["checkpoint"]["stages"].get(key)
+            if cached and get_object(db, cached["evidence_hash"])["content"] != cached["content"]:
+                raise ValueError("检查点与原始证据不一致")
+            return cached  # type: ignore[no-any-return]
+
+    def complete_stage(self, job_id: str, step: dict[str, Any], payload: dict[str, Any]) -> None:
+        """Commit accepted stage output, progress and evidence in one transaction."""
+        with self.connection() as db:
+            job = self._get(db, "prd_jobs", job_id)
+            if job["status"] != "running":
+                raise ConflictError("任务已停止，不能保存阶段结果")
+            completed = {**step, "status": "succeeded", "content": payload["content"]}
+            job["steps"] = [s for s in job["steps"] if s["id"] != step["id"]] + [completed]
+            job["input_tokens"] += payload["input_tokens"]
+            job["output_tokens"] += payload["output_tokens"]
+            job["checkpoint"]["stages"][step["id"]] = {
+                "content": payload["content"],
+                "step": completed,
+                "source_job_id": job_id,
+                "evidence_hash": put_object(db, payload),
+            }
+            self._put(db, "prd_jobs", job)
+            append_event(
+                db,
+                job["document_id"],
+                "stage.succeeded",
+                payload,
+                job=job,
+                span_id=step["span_id"],
+                parent_span_id=job["span_id"],
+            )
+            append_event(
+                db,
+                job["document_id"],
+                "checkpoint.saved",
+                {
+                    "stage_id": step["id"],
+                    "output_hash": job["checkpoint"]["stages"][step["id"]]["evidence_hash"],
+                    "runtime_thread_id": f"{job_id}:{step['id']}",
+                },
+                job=job,
+            )
 
     def job_input(self, job_id: str) -> dict[str, Any]:
         with self.connection() as db:
@@ -419,8 +648,11 @@ class PrdStore:
             items = []
             for _, body in rows[:limit]:
                 job = json.loads(body)
-                summary = {key: value for key, value in job.items() if key != "steps"}
+                summary = {
+                    key: value for key, value in job.items() if key not in {"steps", "checkpoint"}
+                }
                 summary["trace_available"] = bool(job.get("input_hash"))
+                summary["recovery"] = self._recovery_info(db, job)
                 items.append(summary)
             return {
                 "items": items,
@@ -457,12 +689,13 @@ class PrdStore:
                 "schema_version": "nexus.prd.trace/v1",
                 "exported_at": now(),
                 "coverage": "recorded" if job.get("input_hash") else "legacy_incomplete",
-                "job": job,
+                "job": {**job, "recovery": self._recovery_info(db, job)},
                 "events": events,
                 "input": get_object(db, job["input_hash"]) if job.get("input_hash") else None,
                 "artifacts": [
                     version for version in versions if version.get("origin_job_id") == job_id
                 ],
-                "notice": "包含用户材料和模型输入输出。不采集配置密钥、认证头或模型内部思维链。"
-                "事件只追加且内容带 SHA-256；不是不可篡改存证，也不保证模型重跑相同。",
+                "notice": "包含用户材料和模型输入输出；任务启用思考显示时，也包含供应商返回的"
+                " reasoning_content。不采集配置密钥或认证头。事件只追加且内容带 SHA-256；"
+                "不是不可篡改存证，也不保证模型重跑相同。",
             }

@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import asyncio
+import json
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
+from fastapi.responses import StreamingResponse
 
 from nexusos.prd.schemas import Brief, SaveDocument, StartJob, clarification_questions
 from nexusos.prd.store import ConflictError, NotFoundError, PrdStore
@@ -78,6 +81,8 @@ def create_prd_router(store: PrdStore, workflow: PrdWorkflow) -> APIRouter:
                 payload.action,
                 payload.instruction,
                 payload.retry_of_job_id,
+                payload.resume_of_job_id,
+                payload.show_thinking,
             )
         except ConflictError as exc:
             raise HTTPException(409, str(exc)) from exc
@@ -91,9 +96,50 @@ def create_prd_router(store: PrdStore, workflow: PrdWorkflow) -> APIRouter:
     @router.get("/jobs/{job_id}")
     async def get_job(job_id: str) -> dict[str, Any]:
         try:
-            return store.job(job_id)
+            return {**store.job(job_id), "recovery": store.recovery_info(job_id)}
         except NotFoundError as exc:
             raise HTTPException(404, "任务不存在") from exc
+
+    @router.get("/jobs/{job_id}/stream")
+    async def stream_job(job_id: str, request: Request) -> StreamingResponse:
+        try:
+            store.job(job_id)
+        except NotFoundError as exc:
+            raise HTTPException(404, "任务不存在") from exc
+
+        async def events():
+            last_sequence = -1
+            heartbeat = 0
+            while not await request.is_disconnected():
+                current = store.job(job_id)
+                sequence = int((current.get("stream") or {}).get("sequence", 0))
+                terminal = current["status"] in {
+                    "succeeded",
+                    "failed",
+                    "cancelled",
+                }
+                if sequence != last_sequence or terminal:
+                    event = {
+                        key: value
+                        for key, value in current.items()
+                        if key not in {"checkpoint", "input_hash"}
+                    }
+                    if terminal:
+                        event["recovery"] = store.recovery_info(job_id)
+                    yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
+                    last_sequence = sequence
+                    if terminal:
+                        return
+                heartbeat += 1
+                if heartbeat % 60 == 0:
+                    yield ": keep-alive\n\n"
+                await asyncio.sleep(0.25)
+
+        return StreamingResponse(
+            events(),
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache, no-transform", "X-Accel-Buffering": "no"},
+        )
 
     @router.post("/jobs/{job_id}/cancel")
     async def cancel_job(job_id: str) -> dict[str, Any]:

@@ -31,8 +31,16 @@ export interface DocumentSummary {
   id: string; title: string; version: number; updated_at: string; active_job_id: string | null;
 }
 export interface Job {
+  action: "generate" | "revise" | "review"; instruction: string;
+  show_thinking: boolean;
+  resume_of_job_id?: string | null;
+  recovery?: { can_resume: boolean; reason: string | null; completed_stages: string[] };
   id: string; status: string; stage: string; error: string | null;
   input_tokens: number; output_tokens: number;
+  stream?: {
+    stage_id: string; title: string; content: string; reasoning_content: string;
+    sequence: number; status: string; updated_at: string;
+  } | null;
   steps: { id: string; title: string; status: string; agent_id: string; skill_ids: string[]; content?: string }[];
 }
 export interface Version { version: number; brief: Brief; content: string; note: string; created_at: string }

@@ -49,7 +49,15 @@ class AuthoringGateway:
             if self.failure == "review":
                 output = "不是结构化评审"
         elif task == "write":
-            output = "# 排班产品 PRD\n\n## FR-001 班次冲突\n\n引用 [S1]，禁止重复排班。"
+            stage_id = request.metadata["stage_id"]
+            if stage_id == "write-1":
+                output = "# 排班产品 PRD\n\n## 背景与问题\n\n医院排班需要避免冲突。"
+            elif stage_id == "write-2":
+                output = "## 用户流程与功能需求\n\n### FR-001 班次冲突\n\n引用 [S1]，禁止重复排班。"
+            elif stage_id == "write":
+                output = "# 排班产品 PRD\n\n## FR-001 班次冲突\n\n引用 [S1]，禁止重复排班。"
+            else:
+                output = "## 数据与验收\n\n### AC-001 冲突被阻止\n\n验收结果可观察。"
         else:
             output = f"## {task}\n\nFR-001 班次冲突；AC-001 重复排班被阻止。"
         return ModelResponse(
@@ -115,9 +123,9 @@ class PrdWorkspaceTests(unittest.TestCase):
         item = self.create()
         job = self.finish(self.start(item))
         self.assertEqual(job["status"], "succeeded", job)
-        self.assertEqual(len(job["steps"]), 5)
-        self.assertEqual(job["input_tokens"], 505)
-        self.assertEqual(job["output_tokens"], 255)
+        self.assertEqual(len(job["steps"]), 7)
+        self.assertEqual(job["input_tokens"], 707)
+        self.assertEqual(job["output_tokens"], 357)
         self.assertTrue(all(step["skill_ids"] for step in job["steps"]))
         for request in self.gateway.requests:
             self.assertIn("仅排班，不做记账", request.messages[-1].content)
@@ -271,7 +279,7 @@ class PrdWorkspaceTests(unittest.TestCase):
         with self.assertRaises(ConflictError):
             reopened.publish(job["id"], content="late output")
 
-    def test_over_budget_inputs_fail_without_dropping_sources_or_calling_model(self):
+    def test_large_inputs_are_forwarded_without_an_application_token_gate(self):
         self.brief["description"] = "需" * 12000
         self.brief["scope"] = "范" * 8000
         self.brief["sources"] = [
@@ -281,7 +289,7 @@ class PrdWorkspaceTests(unittest.TestCase):
         ]
         item = self.create()
         job = self.finish(self.start(item))
-        self.assertEqual(job["status"], "failed")
-        self.assertIn("上下文预算", job["error"])
-        self.assertEqual(self.gateway.requests, [])
+        self.assertEqual(job["status"], "succeeded")
+        self.assertEqual(len(self.gateway.requests), 7)
+        self.assertIn("证" * 20000, self.gateway.requests[0].messages[-1].content)
         self.assertEqual(self.store.get(item["id"])["brief"], self.brief)

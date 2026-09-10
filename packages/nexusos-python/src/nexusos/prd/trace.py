@@ -12,7 +12,7 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
-from nexusos.models import ModelGateway, ModelRequest, ModelResponse
+from nexusos.models import ModelDelta, ModelGateway, ModelRequest, ModelResponse
 
 if TYPE_CHECKING:
     from nexusos.prd.store import PrdStore
@@ -131,8 +131,8 @@ class TracedModelGateway:
         record(
             "model.requested",
             {
-                "stage_id": metadata.get("task_id"),
-                "attempt": 1,
+                "stage_id": metadata.get("stage_id", metadata.get("task_id")),
+                "attempt": int(metadata.get("continuation_index", "0")) + 1,
                 "model": routed.model,
                 "temperature": routed.temperature,
                 "maximum_output_tokens": routed.maximum_output_tokens,
@@ -147,7 +147,7 @@ class TracedModelGateway:
             record(
                 "model.cancelled",
                 {
-                    "stage_id": metadata.get("task_id"),
+                    "stage_id": metadata.get("stage_id", metadata.get("task_id")),
                     "duration_ms": round((time.monotonic() - started) * 1000),
                     "provider_outcome": "unknown",
                     "note": "本地等待已取消；供应商可能继续计算，未推断其结果或费用。",
@@ -158,7 +158,7 @@ class TracedModelGateway:
             record(
                 "model.failed",
                 {
-                    "stage_id": metadata.get("task_id"),
+                    "stage_id": metadata.get("stage_id", metadata.get("task_id")),
                     "error_type": type(exc).__name__,
                     "http_status": getattr(exc, "http_status", None),
                     "duration_ms": round((time.monotonic() - started) * 1000),
@@ -169,7 +169,7 @@ class TracedModelGateway:
         record(
             "model.responded",
             {
-                "stage_id": metadata.get("task_id"),
+                "stage_id": metadata.get("stage_id", metadata.get("task_id")),
                 "provider": response.provider,
                 "model": response.model,
                 "finish_reason": response.finish_reason,
@@ -178,6 +178,121 @@ class TracedModelGateway:
                 "input_tokens": response.usage.input_tokens,
                 "output_tokens": response.usage.output_tokens,
                 "duration_ms": round((time.monotonic() - started) * 1000),
+                "note": "供应商已返回；正文是否可接受由后续阶段校验决定。",
+            },
+        )
+        return response
+
+    async def complete_stream(
+        self, request: ModelRequest, on_delta: Any
+    ) -> ModelResponse:
+        """Trace one streamed call and durably expose throttled live snapshots."""
+
+        stage_id = str(request.metadata.get("stage_id", request.metadata.get("task_id", "")))
+        complete_stream = getattr(self.gateway, "complete_stream", None)
+        if not callable(complete_stream):
+            response = await self.complete(request)
+            delta = ModelDelta(
+                content=response.content,
+                reasoning_content=response.reasoning_content,
+            )
+            self.store.append_stream_delta(
+                self.job_id,
+                stage_id,
+                delta.content,
+                delta.reasoning_content,
+            )
+            on_delta(delta)
+            return response
+
+        span_id = uuid4().hex[:16]
+        parent = request.metadata.get("span_id")
+        job = self.store.job(self.job_id)
+        metadata = {**request.metadata, "trace_id": job["trace_id"], "span_id": span_id}
+        routed = replace(request, metadata=metadata)
+        started = time.monotonic()
+        pending_content: list[str] = []
+        pending_reasoning: list[str] = []
+        last_flush = started
+        stage_id = str(metadata.get("stage_id", metadata.get("task_id", "")))
+
+        def record(name: str, payload: dict[str, Any]) -> None:
+            self.store.record_event(
+                self.job_id, name, payload, span_id=span_id, parent_span_id=parent
+            )
+
+        def flush() -> None:
+            nonlocal last_flush
+            content = "".join(pending_content)
+            reasoning = "".join(pending_reasoning)
+            pending_content.clear()
+            pending_reasoning.clear()
+            if content or reasoning:
+                self.store.append_stream_delta(self.job_id, stage_id, content, reasoning)
+            last_flush = time.monotonic()
+
+        def streamed(delta: ModelDelta) -> None:
+            pending_content.append(delta.content)
+            pending_reasoning.append(delta.reasoning_content)
+            on_delta(delta)
+            if time.monotonic() - last_flush >= 0.08 or "\n" in delta.content:
+                flush()
+
+        record(
+            "model.requested",
+            {
+                "stage_id": stage_id,
+                "attempt": int(metadata.get("continuation_index", "0")) + 1,
+                "model": routed.model,
+                "temperature": routed.temperature,
+                "maximum_output_tokens": routed.maximum_output_tokens,
+                "data_classification": routed.data_classification,
+                "stream": True,
+                "messages": [{"role": m.role, "content": m.content} for m in routed.messages],
+                "metadata": metadata,
+            },
+        )
+        try:
+            response = await complete_stream(routed, streamed)
+            flush()
+        except asyncio.CancelledError:
+            flush()
+            record(
+                "model.cancelled",
+                {
+                    "stage_id": stage_id,
+                    "duration_ms": round((time.monotonic() - started) * 1000),
+                    "provider_outcome": "unknown",
+                    "note": "本地等待已取消；供应商可能继续计算，未推断其结果或费用。",
+                },
+            )
+            raise
+        except Exception as exc:
+            flush()
+            record(
+                "model.failed",
+                {
+                    "stage_id": stage_id,
+                    "error_type": type(exc).__name__,
+                    "http_status": getattr(exc, "http_status", None),
+                    "duration_ms": round((time.monotonic() - started) * 1000),
+                    "note": "未记录供应商异常原文，避免泄露密钥或 HTTP 头。",
+                },
+            )
+            raise
+        record(
+            "model.responded",
+            {
+                "stage_id": stage_id,
+                "provider": response.provider,
+                "model": response.model,
+                "finish_reason": response.finish_reason,
+                "provider_request_id": response.provider_request_id,
+                "content": response.content,
+                "input_tokens": response.usage.input_tokens,
+                "output_tokens": response.usage.output_tokens,
+                "duration_ms": round((time.monotonic() - started) * 1000),
+                "streamed": True,
                 "note": "供应商已返回；正文是否可接受由后续阶段校验决定。",
             },
         )

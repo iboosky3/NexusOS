@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { PrdMarkdown } from "@/components/prd-markdown";
+import { PrdRecovery } from "@/components/prd-recovery";
 import { PrdTrace } from "@/components/prd-trace";
 import {
   Brief, Configuration, DocumentSummary, Job, PrdDocument, Version,
@@ -35,6 +36,8 @@ export default function PrdPage() {
   const [tab, setTab] = useState<"brief" | "document" | "history" | "trace">("brief");
   const [editing, setEditing] = useState(false);
   const [instruction, setInstruction] = useState("");
+  const [showThinking, setShowThinking] = useState(false);
+  const [thinkingPreferenceReady, setThinkingPreferenceReady] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
@@ -74,7 +77,10 @@ export default function PrdPage() {
           if (disposed) return;
           accept(item);
           if (item.content) setTab("document");
-          if (item.last_job_id) setJob(await prdApi<Job>(`jobs/${item.last_job_id}`));
+          if (item.last_job_id) {
+            const previousJob = await prdApi<Job>(`jobs/${item.last_job_id}`);
+            setJob(previousJob);
+          }
         }
         if (disposed) return;
         const request = new URLSearchParams(window.location.search).get("request");
@@ -93,6 +99,20 @@ export default function PrdPage() {
     void initialize();
     return () => { disposed = true; };
   }, []);
+
+  useEffect(() => {
+    try {
+      const preference = localStorage.getItem("nexus-prd:show-thinking");
+      if (preference !== null) setShowThinking(preference === "true");
+    } catch { /* The switch still works for this page session. */ }
+    finally { setThinkingPreferenceReady(true); }
+  }, []);
+
+  useEffect(() => {
+    if (!thinkingPreferenceReady) return;
+    try { localStorage.setItem("nexus-prd:show-thinking", String(showThinking)); }
+    catch { /* Preference persistence is optional. */ }
+  }, [showThinking, thinkingPreferenceReady]);
 
   useEffect(() => {
     if (!ready || !dirty || active || recovery) return;
@@ -117,27 +137,37 @@ export default function PrdPage() {
     const jobId = document?.active_job_id || (job && !terminal(job.status) ? job.id : null);
     if (!jobId) return;
     let disposed = false;
-    let timer: ReturnType<typeof setTimeout>;
-    async function poll() {
+    const source = new EventSource(`/api/prd/jobs/${jobId}/stream`);
+    async function finish(current: Job) {
       try {
-        const current = await prdApi<Job>(`jobs/${jobId}`);
+        const item = await prdApi<PrdDocument>(`documents/${document!.id}`);
         if (disposed) return;
-        setJob(current);
-        if (terminal(current.status)) {
-          const item = await prdApi<PrdDocument>(`documents/${document!.id}`);
-          if (disposed) return;
-          accept(item);
-          if (item.content) setTab("document");
-          if (current.error) setError(current.error);
-          else setNotice("任务已完成，文档已保存。请检查评审意见和待确认事项。");
-          await refreshList();
-          return;
-        }
+        accept(item);
+        if (item.content) setTab("document");
+        if (current.error) setError(current.error);
+        else setNotice("任务已完成，文档已保存。请检查评审意见和待确认事项。");
+        await refreshList();
       } catch (err) { if (!disposed) setError(message(err)); }
-      if (!disposed) timer = setTimeout(poll, 1500);
     }
-    void poll();
-    return () => { disposed = true; clearTimeout(timer); };
+    source.onmessage = event => {
+      if (disposed) return;
+      const current = JSON.parse(event.data) as Job;
+      setJob(current);
+      if (terminal(current.status)) {
+        source.close();
+        void finish(current);
+      }
+    };
+    source.onerror = () => {
+      if (source.readyState === EventSource.CLOSED && !disposed) {
+        void prdApi<Job>(`jobs/${jobId}`).then(current => {
+          if (disposed) return;
+          setJob(current);
+          if (terminal(current.status)) void finish(current);
+        }).catch(err => { if (!disposed) setError(message(err)); });
+      }
+    };
+    return () => { disposed = true; source.close(); };
   }, [document?.active_job_id, document?.id, job?.id]);
 
   useEffect(() => {
@@ -177,14 +207,18 @@ export default function PrdPage() {
     finally { setBusy(false); }
   }
 
-  async function start(action: "generate" | "revise" | "review", retryOf?: string, retryInstruction?: string) {
+  async function start(action: "generate" | "revise" | "review", retryOf?: string, retryInstruction?: string, resumeOf?: string) {
     if (!configuration?.configured) throw new Error("模型尚未配置。请先按页面说明配置 API 服务，文档编辑和保存可以继续使用。");
-    const item = await save();
+    if (resumeOf && dirty) throw new Error("当前有修改，不能沿用旧现场；请选择重新执行。");
+    const item = resumeOf && document ? document : await save();
     const current = await prdApi<Job>(`documents/${item.id}/jobs`, "POST", {
       expected_revision: item.revision, action, instruction: retryInstruction ?? instruction,
+      show_thinking: showThinking,
       retry_of_job_id: retryOf || null,
+      resume_of_job_id: resumeOf || null,
     });
-    setJob(current); setDocument({ ...item, active_job_id: current.id, last_job_id: current.id });
+    setJob(current); setShowThinking(current.show_thinking);
+    setDocument({ ...item, active_job_id: current.id, last_job_id: current.id });
     setNotice(""); setEditing(false);
   }
 
@@ -231,6 +265,7 @@ export default function PrdPage() {
     <header className="prd-header">
       <div><span className="panel-kicker">NEXUS PRD / WORKSPACE</span><h1>{brief.title || "编写产品需求文档"}</h1><p>从需求与材料出发，写清楚产品行为和验收条件。</p></div>
       <div className="prd-actions"><span className="save-state" role="status">{active ? job?.stage || "执行中" : busy ? "正在保存…" : dirty ? localSaved ? "浏览器草稿 · 待保存到文档库" : "有未保存修改" : document ? `已保存 · v${document.version}` : "新文档"}</span>
+        <label className="thinking-switch"><input type="checkbox" role="switch" checked={showThinking} onChange={event => setShowThinking(event.target.checked)} /><span>显示思考过程</span></label>
         <button className="secondary-button" disabled={busy || active || !ready || Boolean(recovery)} onClick={() => void perform(save)}>保存</button>
         {!content && <button className="primary-button" disabled={busy || active || !ready || Boolean(recovery)} onClick={() => void perform(() => start("generate"))}>生成 PRD →</button>}
       </div>
@@ -244,7 +279,16 @@ export default function PrdPage() {
     {configuration && !configuration.configured && <details className="prd-alert"><summary>尚未配置生成模型，仍可编辑、导入和保存文档</summary><p>在 API 服务环境中设置 NEXUS_MODEL_NAME、NEXUS_MODEL_BASE_URL 和 NEXUS_MODEL_API_KEY，安装 runtime 依赖并重启 API。配置完成后刷新页面。密钥只保留在服务端。</p></details>}
     <div className="workspace-grid">
       <div className="workspace-main">
+        {active && job?.stream && <section className="panel live-output-panel" aria-live="polite">
+          <div className="live-output-heading"><div><span className="stream-dot" />实时生成</div><strong>{job.stream.title}</strong></div>
+          {showThinking && job.show_thinking && <details className="thinking-output" open><summary>思考过程</summary><pre>{job.stream.reasoning_content || "模型正在思考…"}</pre></details>}
+          {showThinking && !job.show_thinking && <p className="field-hint">本次任务启动时未启用思考过程；此开关将应用于下一次生成。</p>}
+          <div className="stream-content"><span>阶段输出</span><pre>{job.stream.content || (job.stream.reasoning_content ? "等待正文输出…" : "正在连接模型流…")}</pre></div>
+        </section>}
         <nav className="prd-tabs" aria-label="文档视图">{([['brief', '需求与材料'], ['document', 'PRD 正文'], ['history', '版本历史'], ['trace', '全程追溯']] as const).map(([key, label]) => <button key={key} className={tab === key ? "active" : ""} onClick={() => setTab(key)}>{label}</button>)}</nav>
+        {tab !== "trace" && !active && job && ["failed", "cancelled"].includes(job.status) && <PrdRecovery job={job} disabled={busy || Boolean(recovery)} dirty={dirty} onExecute={(previous, mode) => {
+          void perform(() => start(previous.action, mode === "restart" ? previous.id : undefined, previous.instruction, mode === "resume" ? previous.id : undefined));
+        }} />}
         {tab === "brief" && <section className="editor-panel panel">
           <div className="editor-toolbar"><span>已确认的信息越具体，初稿越接近可评审状态。</span>{!document && !dirty && <button className="text-button" disabled={active || busy} onClick={() => setBrief(nexusBrief)}>为 NexusOS 自己写 PRD</button>}</div>
           <fieldset disabled={active || busy || !ready || Boolean(recovery)}>
@@ -269,9 +313,8 @@ export default function PrdPage() {
             : editing ? <textarea className="markdown-editor" aria-label="PRD Markdown 正文" value={content} maxLength={200000} disabled={active || busy || Boolean(recovery)} onChange={event => setContent(event.target.value)} placeholder="# 产品需求文档" />
               : <article className="markdown-content"><PrdMarkdown content={content} /></article>}
         </section>}
-        {tab === "trace" && (document ? <PrdTrace documentId={document.id} refreshKey={`${document.revision}:${job?.stage}:${job?.status}`} disabled={active || busy || Boolean(recovery)} onRetry={(previous, published) => {
-          const action = content && (published || previous.action === "generate") ? "review" : previous.action as "generate" | "revise" | "review";
-          void perform(() => start(action, previous.id, previous.instruction));
+        {tab === "trace" && (document ? <PrdTrace documentId={document.id} refreshKey={`${document.revision}:${job?.stage}:${job?.status}`} disabled={active || busy || Boolean(recovery)} dirty={dirty} onExecute={(previous, mode) => {
+          void perform(() => start(previous.action, mode === "restart" ? previous.id : undefined, previous.instruction, mode === "resume" ? previous.id : undefined));
         }} /> : <section className="panel editor-panel"><p>保存文档后即可查看完整时间线。</p></section>)}
         {tab === "history" && <section className="panel editor-panel"><h2>已保存的版本</h2><p className="field-hint">恢复会先载入编辑区；点击保存后产生新版本，历史记录保留。</p>
           {!versions.length && <p>还没有版本。保存修改或生成文档后会记录在这里。</p>}

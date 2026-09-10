@@ -75,6 +75,8 @@ nav:
   - 开发记录:
       - 关键运行问题台账: development/critical-runtime-backlog.md
       - RT-001 全程追溯: development/runtime-issues/001-end-to-end-tracing.md
+      - 检查点恢复: development/runtime-issues/003-checkpoint-recovery.md
+      - Trouble Shooting: development/trouble-shooting.md
       - 问题与解决: development/problem-log.md
       - 持续集成: development/continuous-integration.md
   - 运维:

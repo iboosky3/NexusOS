@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { PrdRecovery } from "@/components/prd-recovery";
 import { Job, prdApi } from "@/lib/prd-api";
 
 interface TraceEvent {
@@ -21,6 +22,8 @@ interface TraceBundle {
 }
 interface EventPage { items: TraceEvent[]; next_cursor: number | null; notice: string }
 const labels: Record<string, string> = {
+  "stage.reused": "复用已完成阶段", "checkpoint.saved": "保存阶段检查点",
+  "checkpoint.runtime_recovered": "恢复 LangGraph 节点", "artifact.reused": "沿用已保存正文",
   "document.created": "创建文档", "document.saved": "保存编辑",
   "artifact.version_created": "保存产物版本", "job.queued": "提交任务与输入快照",
   "job.running": "开始执行", "job.configured": "运行配置",
@@ -49,9 +52,9 @@ function EventList({ events }: { events: TraceEvent[] }) {
   </li>)}</ol>;
 }
 
-export function PrdTrace({ documentId, refreshKey, disabled, onRetry }: {
-  documentId: string; refreshKey: string; disabled: boolean;
-  onRetry: (job: Job & { action: string; instruction: string }, hasPublishedVersion: boolean) => void;
+export function PrdTrace({ documentId, refreshKey, disabled, dirty, onExecute }: {
+  documentId: string; refreshKey: string; disabled: boolean; dirty: boolean;
+  onExecute: (job: Job, mode: "restart" | "resume") => void;
 }) {
   const [jobs, setJobs] = useState<JobSummary[]>([]);
   const [jobsCursor, setJobsCursor] = useState<number | null>(null);
@@ -124,10 +127,13 @@ export function PrdTrace({ documentId, refreshKey, disabled, onRetry }: {
       {jobs.length ? <label>选择一次任务<select className="trace-select" aria-label="选择追溯任务" value={selectedId || ""} onChange={event => setSelectedId(event.target.value)}>{jobs.map(job => <option key={job.id} value={job.id}>{date(job.created_at)} · {actions[job.action]} · {statuses[job.status]} · {job.id.slice(0, 8)}</option>)}</select></label> : <p className="field-hint">尚无生成任务；手动编辑记录可以在文档时间线查看。</p>}
       {jobsCursor != null && <button className="text-button" disabled={loading} onClick={() => void more()}>加载更早任务</button>}
       {bundle && <>
-        <div className="trace-summary"><strong>{actions[bundle.job.action]} · {statuses[bundle.job.status]}</strong><span>起始版本 {bundle.job.input_version == null ? "未记录" : `v${bundle.job.input_version}`} / 修订号 {bundle.job.input_revision ?? "未记录"}</span><code>Trace {bundle.job.trace_id || "历史任务未记录"}</code><code>任务 {bundle.job.id}</code>{bundle.job.retry_of_job_id && <p>重新执行自 <button className="text-button" onClick={() => { setSelectedId(bundle.job.retry_of_job_id!); }}>{bundle.job.retry_of_job_id}</button></p>}</div>
+        <div className="trace-summary">{["failed", "cancelled"].includes(bundle.job.status)
+          ? <PrdRecovery job={bundle.job} disabled={disabled} dirty={dirty} onExecute={onExecute} label={`${actions[bundle.job.action]} · ${statuses[bundle.job.status]}`} />
+          : <strong>{actions[bundle.job.action]} · {statuses[bundle.job.status]}</strong>}<span>起始版本 {bundle.job.input_version == null ? "未记录" : `v${bundle.job.input_version}`} / 修订号 {bundle.job.input_revision ?? "未记录"}</span><code>Trace {bundle.job.trace_id || "历史任务未记录"}</code><code>任务 {bundle.job.id}</code>{bundle.job.retry_of_job_id && <p>重新执行自 <button className="text-button" onClick={() => { setSelectedId(bundle.job.retry_of_job_id!); }}>{bundle.job.retry_of_job_id}</button></p>}</div>
         {bundle.coverage === "legacy_incomplete" && <p className="prd-alert">此任务在追溯功能上线前执行，仅保留原有阶段结果，缺少当时的模型请求和输入快照。</p>}
-        <div className="document-toolbar"><button className="secondary-button" onClick={exportTrace}>导出追溯 JSON</button>{["failed", "cancelled"].includes(bundle.job.status) && <button className="secondary-button" disabled={disabled} onClick={() => onRetry(bundle.job, bundle.artifacts.length > 0)}>基于当前文档重新执行</button>}</div>
-        <p className="field-hint">导出包含原始需求、参考材料和模型对话。重新执行会建立关联记录，并使用当前已保存版本；不是从断点自动恢复。</p>
+        {bundle.job.resume_of_job_id && <p className="field-hint">继续执行自 {bundle.job.resume_of_job_id}</p>}
+        <div className="document-toolbar"><button className="secondary-button" onClick={exportTrace}>导出追溯 JSON</button></div>
+        <p className="field-hint">导出包含原始需求、参考材料和模型对话。</p>
         {bundle.job.error && <p className="prd-alert error">{bundle.job.error}</p>}
         <details className="trace-input"><summary>本次任务输入快照</summary><pre>{bundle.input ? JSON.stringify(bundle.input, null, 2) : "未记录"}</pre></details>
         {bundle.artifacts.length > 0 && <div className="trace-artifacts"><h3>产物来源</h3>{bundle.artifacts.map(artifact => <p key={artifact.version}>v{artifact.parent_version} → <strong>v{artifact.version}</strong><small>内容校验 {artifact.snapshot_hash}</small></p>)}</div>}

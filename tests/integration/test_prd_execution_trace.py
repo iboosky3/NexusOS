@@ -76,9 +76,9 @@ class ExecutionTraceTests(unittest.TestCase):
         names = [event["name"] for event in events]
         self.assertEqual(names[0], "job.queued")
         self.assertEqual(names[-1], "job.succeeded")
-        self.assertEqual(names.count("model.requested"), 5)
-        self.assertEqual(names.count("model.responded"), 5)
-        self.assertEqual(names.count("capabilities.selected"), 5)
+        self.assertEqual(names.count("model.requested"), 7)
+        self.assertEqual(names.count("model.responded"), 7)
+        self.assertEqual(names.count("capabilities.selected"), 7)
         self.assertEqual(bundle["artifacts"][0]["origin_job_id"], job["id"])
         self.assertEqual(bundle["artifacts"][0]["parent_version"], 0)
         self.assertEqual(bundle["input"]["brief"]["description"], "必须保留的原始要求")

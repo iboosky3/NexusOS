@@ -45,7 +45,9 @@ class StartJob(StrictModel):
     expected_revision: int = Field(ge=1)
     action: Literal["generate", "revise", "review"] = "generate"
     instruction: str = Field(default="", max_length=8000)
+    show_thinking: bool = False
     retry_of_job_id: str | None = Field(default=None, pattern=r"^[a-f0-9]{32}$")
+    resume_of_job_id: str | None = Field(default=None, pattern=r"^[a-f0-9]{32}$")
 
 
 class ReviewIssue(StrictModel):

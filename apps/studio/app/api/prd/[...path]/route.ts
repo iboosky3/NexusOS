@@ -13,7 +13,7 @@ function requestOrigin(request: NextRequest): string {
 async function proxy(request: NextRequest, context: { params: Promise<{ path: string[] }> }) {
   const { path } = await context.params;
   const suffix = path.join("/");
-  if (!/^(configuration|documents(?:\/[a-f0-9]{32}(?:\/(versions|jobs|trace))?)?|jobs\/[a-f0-9]{32}(?:\/(cancel|trace))?)$/.test(suffix)) {
+  if (!/^(configuration|documents(?:\/[a-f0-9]{32}(?:\/(versions|jobs|trace))?)?|jobs\/[a-f0-9]{32}(?:\/(cancel|trace|stream))?)$/.test(suffix)) {
     return NextResponse.json({ detail: "接口不存在" }, { status: 404 });
   }
   if (request.method !== "GET") {
@@ -33,16 +33,24 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path: st
       const value = request.nextUrl.searchParams.get(key);
       if (value !== null) query.set(key, value);
     }
+    const streaming = suffix.endsWith("/stream");
     const response = await fetch(`${base}/v1/prd/${suffix}?${query}`, {
       method: request.method,
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        Accept: streaming ? "text/event-stream" : "application/json",
+      },
       body,
       cache: "no-store",
-      signal: AbortSignal.timeout(15000),
+      signal: streaming ? request.signal : AbortSignal.timeout(15000),
     });
-    return new NextResponse(await response.text(), {
+    return new NextResponse(streaming ? response.body : await response.text(), {
       status: response.status,
-      headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
+      headers: {
+        "Content-Type": response.headers.get("content-type") || "application/json",
+        "Cache-Control": streaming ? "no-cache, no-transform" : "no-store",
+        ...(streaming ? { "X-Accel-Buffering": "no" } : {}),
+      },
     });
   } catch {
     return NextResponse.json({ detail: "无法连接文档服务，请检查 API 是否已启动。当前编辑仍保留在浏览器中。" }, { status: 502 });
