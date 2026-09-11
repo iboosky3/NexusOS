@@ -1,12 +1,31 @@
 "use client";
 
-import { useState } from "react";
+import dynamic from "next/dynamic";
+import { useEffect, useState } from "react";
+import { createComponentId, sha256Hex } from "@/lib/browser-crypto";
 import { Brief, Prototype, PrototypePage } from "@/lib/prd-api";
+import {
+  designElements,
+  embedPrototype,
+  DesignBlock,
+  archivePrototype,
+  validateDesign,
+} from "@/lib/prototype";
+import { prototypeDesigner } from "@/extensions/prototype-designer/manifest";
 import {
   PrototypeCanvas,
   capturePrototype,
 } from "@/components/workbench/prototype-canvas";
 import s from "./prototype-editor.module.css";
+
+const Designer = dynamic(prototypeDesigner.load, {
+  ssr: false,
+  loading: () => <p>正在加载原型设计器…</p>,
+});
+const DesignPreview = dynamic(
+  () => import("@/extensions/prototype-designer/preview"),
+  { ssr: false },
+);
 
 export function PrototypeEditor({
   content,
@@ -16,6 +35,10 @@ export function PrototypeEditor({
   onBusy,
   onGenerate,
   onImport,
+  designerEnabled,
+  onOpenExtensions,
+  onEmbed,
+  onSave,
 }: {
   content: string;
   brief: Brief;
@@ -24,51 +47,101 @@ export function PrototypeEditor({
   onBusy: (busy: boolean) => void;
   onGenerate: (instruction: string) => void;
   onImport: () => void;
+  designerEnabled: boolean;
+  onOpenExtensions: () => void;
+  onEmbed: (content: string) => void;
+  onSave: (prototype: Prototype) => Promise<void>;
 }) {
   const [selected, setSelected] = useState("");
   const [instruction, setInstruction] = useState("");
-  const [edit, setEdit] = useState(false);
+  const [edit, setEdit] = useState(Boolean(brief.prototype?.pages[0]));
   const [error, setError] = useState("");
   const [feedback, setFeedback] = useState("");
   const prototype = brief.prototype;
+  const page =
+    prototype?.pages.find((p) => p.id === selected) || prototype?.pages[0];
+  const hasPrototypeContent = Boolean(
+    prototype?.pages.some(
+      (item) =>
+        item.screenshot || item.elements.length || item.design?.content.length,
+    ),
+  );
   const existing = [
     ...content.matchAll(
       /!\[([^\]\n]*)\]\((data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/=]+)\)/g,
     ),
   ];
-  const page =
-    prototype?.pages.find((p) => p.id === selected) || prototype?.pages[0];
+  useEffect(() => {
+    if (!designerEnabled || disabled || prototype) return;
+    const id = createComponentId();
+    onBrief({
+      ...brief,
+      prototype: archivePrototype({
+        confirmed: false,
+        pages: [
+          {
+            id,
+            title: "新页面",
+            description: "",
+            elements: [],
+            screenshot: "",
+            design: { engine: "puck", version: 1, width: 960, content: [] },
+          },
+        ],
+      }),
+    });
+    setSelected(id);
+    setEdit(true);
+  }, [brief, designerEnabled, disabled, onBrief, prototype]);
   function update(next: Prototype) {
-    onBrief({ ...brief, prototype: { ...next, confirmed: false } });
+    setFeedback("");
+    onBrief({
+      ...brief,
+      prototype: archivePrototype({
+        ...next,
+        confirmed: false,
+        input_digest: "",
+      }),
+    });
   }
   function patch(value: Partial<PrototypePage>) {
-    if (!prototype || !page) return;
+    if (!prototype || !page || disabled) return;
     update({
       ...prototype,
       pages: prototype.pages.map((p) =>
         p.id === page.id
-          ? { ...p, ...value, ...(p.elements.length ? { screenshot: "" } : {}) }
+          ? {
+              ...p,
+              ...value,
+              ...(p.design || p.elements.length ? { screenshot: "" } : {}),
+            }
           : p,
       ),
     });
   }
-  async function confirm() {
+  async function confirm(insert: boolean) {
     if (!prototype || disabled) return;
     setError("");
     onBusy(true);
     try {
-      if (
-        prototype.pages.some(
-          (p) =>
-            !p.title.trim() ||
-            !p.description.trim() ||
-            p.elements.some((e) => !e.label.trim()),
-        )
-      )
-        throw new Error("请为每个原型页面填写名称和交互说明");
-      const pages = [];
-      for (const p of prototype.pages)
-        pages.push({ ...p, screenshot: await capturePrototype(p) });
+      for (const p of prototype.pages) {
+        if (!p.title.trim() || !p.description.trim())
+          throw new Error("请为每个原型页面填写名称和交互说明");
+        if (p.design) {
+          validateDesign(p.design);
+          if (!designElements(p.design).length)
+            throw new Error("请先拖入页面组件，再生成截图");
+        }
+      }
+      const pages: PrototypePage[] = [];
+      for (const p of prototype.pages) {
+        const screenshot = p.design
+          ? await (
+              await import("@/extensions/prototype-designer/capture")
+            ).captureDesign(p)
+          : await capturePrototype(p);
+        pages.push({ ...p, screenshot });
+      }
       if (pages.reduce((n, p) => n + p.screenshot.length, 0) > 140000)
         throw new Error("截图合计过大，请压缩导入图片或减少页面");
       const { prototype: _prototype, ...values } = brief;
@@ -89,19 +162,17 @@ export function PrototypeEditor({
             ]),
         ),
       );
-      const bytes = await crypto.subtle.digest(
-        "SHA-256",
-        new TextEncoder().encode(canonical),
-      );
-      const input_digest = Array.from(new Uint8Array(bytes), (v) =>
-        v.toString(16).padStart(2, "0"),
-      ).join("");
-      onBrief({
-        ...brief,
-        prototype: { pages, confirmed: true, input_digest },
+      const input_digest = await sha256Hex(canonical);
+      const confirmed = archivePrototype({
+        pages,
+        confirmed: true,
+        input_digest,
       });
+      const next = insert ? embedPrototype(content, confirmed) : undefined;
+      onBrief({ ...brief, prototype: confirmed });
+      if (next !== undefined) onEmbed(next);
       setFeedback(
-        "原型已确认，截图已准备。使用文件菜单保存，或通过运行菜单编写 PRD。",
+        "原型已确认，截图已准备。通过文件菜单保存，或运行菜单编写 PRD。",
       );
     } catch (err) {
       setError(err instanceof Error ? err.message : "截图生成失败");
@@ -109,23 +180,78 @@ export function PrototypeEditor({
       onBusy(false);
     }
   }
+  function removePage() {
+    if (!prototype || !page) return;
+    function clean(blocks: DesignBlock[]): DesignBlock[] {
+      return blocks.map((b) => ({
+        ...b,
+        props: {
+          ...b.props,
+          target: b.props.target === page!.id ? "" : b.props.target,
+          left: clean(b.props.left),
+          right: clean(b.props.right),
+        },
+      }));
+    }
+    const pages = prototype.pages
+      .filter((p) => p.id !== page.id)
+      .map((p) => {
+        const design = p.design
+          ? { ...p.design, content: clean(p.design.content) }
+          : p.design;
+        return {
+          ...p,
+          design,
+          screenshot: p.elements.length || design ? "" : p.screenshot,
+          elements: design
+            ? designElements(design)
+            : p.elements.map((e) =>
+                e.target === page.id ? { ...e, target: "" } : e,
+              ),
+        };
+      });
+    onBrief({
+      ...brief,
+      prototype: pages.length ? { pages, confirmed: false } : null,
+    });
+  }
   return (
     <section className={s.editor} aria-label="原型设计">
       <header>
         <div>
           <h1>原型设计</h1>
-          <p>预览页面与跳转，确认后将截图和说明写入 PRD。</p>
+          <p>拖拽设计 → 预览交互 → 截图嵌入 PRD</p>
         </div>
-        <span>{prototype?.confirmed ? "✓ 已确认" : "待确认"}</span>
+        <div className={s.confirmation}>
+          <span>{prototype?.confirmed ? "✓ 已确认" : "待确认"}</span>
+          {page && !prototype?.confirmed && (
+            <button
+              className={s.primaryAction}
+              disabled={disabled}
+              onClick={() => void confirm(false)}
+            >
+              确认原型并生成截图
+            </button>
+          )}
+        </div>
       </header>
       <div className={s.actions}>
+        {prototype && (
+          <button
+            disabled={disabled}
+            onClick={() => void onSave(archivePrototype(prototype))}
+          >
+            保存设计方案
+          </button>
+        )}
         <button disabled={disabled} onClick={onImport}>
           导入原型图
         </button>
         <button
-          disabled={disabled}
+          disabled={disabled || !designerEnabled}
+          hidden={(prototype?.pages.length || 0) >= 4}
           onClick={() => {
-            const id = `page${Date.now()}`;
+            const id = createComponentId();
             update({
               confirmed: false,
               pages: [
@@ -134,17 +260,20 @@ export function PrototypeEditor({
                   id,
                   title: "新页面",
                   description: "",
-                  elements: [
-                    { kind: "text", label: "页面内容", detail: "", target: "" },
-                  ],
+                  elements: [],
                   screenshot: "",
+                  design: {
+                    engine: "puck",
+                    version: 1,
+                    width: 960,
+                    content: [],
+                  },
                 },
               ],
             });
             setSelected(id);
             setEdit(true);
           }}
-          hidden={(prototype?.pages.length || 0) >= 4}
         >
           添加页面
         </button>
@@ -153,17 +282,19 @@ export function PrototypeEditor({
             <button disabled={disabled} onClick={() => setEdit(!edit)}>
               {edit ? "预览原型" : "编辑页面"}
             </button>
-            <button
-              hidden={prototype?.confirmed}
-              disabled={disabled || Boolean(prototype?.confirmed)}
-              onClick={() => void confirm()}
-            >
-              确认原型并生成截图
+            <button disabled={disabled} onClick={() => void confirm(true)}>
+              确认并嵌入 PRD
             </button>
           </>
         )}
       </div>
-      <details className={s.generate} open={!prototype}>
+      {!designerEnabled && (
+        <p>
+          原型设计器插件未启用。
+          <button onClick={onOpenExtensions}>管理插件</button>
+        </p>
+      )}
+      <details className={s.generate}>
         <summary>AI 设计原型</summary>
         <textarea
           aria-label="原型设计要求"
@@ -179,14 +310,20 @@ export function PrototypeEditor({
           }
           onClick={() => onGenerate(instruction)}
         >
-          {prototype ? "根据要求重新设计" : "根据简报生成原型"}
+          {hasPrototypeContent ? "根据要求重新设计" : "根据简报生成原型"}
         </button>
         {prototype && (
-          <small>重新设计将替换当前原型；已保存的版本可从版本历史恢复。</small>
+          <small>重新设计会替换当前原型；已保存的版本可从版本历史恢复。</small>
         )}
       </details>
       {error && <p role="alert">{error}</p>}
       {feedback && <p role="status">{feedback}</p>}
+      {prototype?.document && (
+        <details className={s.archive}>
+          <summary>原型设计方案文档</summary>
+          <pre>{prototype.document}</pre>
+        </details>
+      )}
       {!prototype && existing.length > 0 && (
         <button
           disabled={disabled}
@@ -200,15 +337,14 @@ export function PrototypeEditor({
             }
             update({
               confirmed: false,
-              pages: existing.map((match, index) => ({
-                id: `imported-${index + 1}`,
-                title: match[1].slice(0, 80) || `页面 ${index + 1}`,
+              pages: existing.map((match, i) => ({
+                id: `imported-${i + 1}`,
+                title: match[1].slice(0, 80) || `页面 ${i + 1}`,
                 description: "",
                 elements: [],
                 screenshot: match[2],
               })),
             });
-            setEdit(true);
           }}
         >
           将正文中的 {existing.length} 张配图纳入原型设计
@@ -216,7 +352,7 @@ export function PrototypeEditor({
       )}
       {!page && (
         <p className={s.empty}>
-          先填写需求简报，再让 AI 设计关键页面，或导入已有原型图。
+          添加页面开始拖拽设计，也可以让 AI 根据简报生成原型，或导入已有原型图。
         </p>
       )}
       {page && prototype && (
@@ -236,174 +372,80 @@ export function PrototypeEditor({
             ))}
           </nav>
           {edit ? (
-            <fieldset disabled={disabled} className={s.fields}>
-              <label>
-                页面名称
-                <input
-                  value={page.title}
-                  maxLength={80}
-                  onChange={(e) => patch({ title: e.target.value })}
-                />
-              </label>
-              <label>
-                页面与交互说明
-                <textarea
-                  value={page.description}
-                  maxLength={2000}
-                  rows={4}
-                  onChange={(e) => patch({ description: e.target.value })}
-                />
-              </label>
-              {page.elements.map((element, index) => (
-                <div className={s.element} key={index}>
-                  <select
-                    aria-label={`组件 ${index + 1} 类型`}
-                    value={element.kind}
-                    onChange={(e) =>
-                      patch({
-                        elements: page.elements.map((v, i) =>
-                          i === index
-                            ? {
-                                ...v,
-                                kind: e.target.value as typeof v.kind,
-                                target: "",
-                              }
-                            : v,
-                        ),
-                      })
-                    }
-                  >
-                    {["text", "input", "button", "list", "card"].map(
-                      (kind, i) => (
-                        <option value={kind} key={kind}>
-                          {["文字", "输入框", "按钮", "列表", "卡片"][i]}
-                        </option>
-                      ),
-                    )}
-                  </select>
+            <>
+              <fieldset disabled={disabled} className={s.fields}>
+                <label>
+                  页面名称
                   <input
-                    aria-label={`组件 ${index + 1} 名称`}
-                    value={element.label}
+                    value={page.title}
                     maxLength={80}
-                    onChange={(e) =>
-                      patch({
-                        elements: page.elements.map((v, i) =>
-                          i === index ? { ...v, label: e.target.value } : v,
-                        ),
-                      })
-                    }
+                    onChange={(e) => patch({ title: e.target.value })}
                   />
-                  <input
-                    aria-label={`组件 ${index + 1} 说明`}
-                    value={element.detail}
-                    maxLength={200}
-                    onChange={(e) =>
-                      patch({
-                        elements: page.elements.map((v, i) =>
-                          i === index ? { ...v, detail: e.target.value } : v,
-                        ),
-                      })
-                    }
+                </label>
+                <label>
+                  页面与交互说明
+                  <textarea
+                    value={page.description}
+                    maxLength={2000}
+                    rows={2}
+                    placeholder="说明角色、操作、跳转以及异常状态；截图时会一同嵌入 PRD。"
+                    onChange={(e) => patch({ description: e.target.value })}
                   />
-                  {element.kind === "button" && (
-                    <select
-                      aria-label={`组件 ${index + 1} 跳转`}
-                      value={element.target}
-                      onChange={(e) =>
-                        patch({
-                          elements: page.elements.map((v, i) =>
-                            i === index ? { ...v, target: e.target.value } : v,
-                          ),
-                        })
-                      }
-                    >
-                      <option value="">留在当前页并显示说明</option>
-                      {prototype.pages.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.title}
-                        </option>
-                      ))}
-                    </select>
-                  )}
-                  <button
-                    aria-label={`移除组件 ${index + 1}`}
-                    disabled={page.elements.length === 1}
-                    onClick={() =>
-                      patch({
-                        elements: page.elements.filter((_, i) => i !== index),
-                      })
-                    }
-                  >
-                    ×
-                  </button>
-                </div>
-              ))}
-              {page.elements.length > 0 && page.elements.length < 8 && (
-                <button
-                  onClick={() =>
-                    patch({
-                      elements: [
-                        ...page.elements,
-                        {
-                          kind: "button",
-                          label: "新操作",
-                          detail: "",
-                          target: "",
-                        },
-                      ],
-                    })
+                </label>
+              </fieldset>
+              {designerEnabled && (page.design || page.elements.length > 0) ? (
+                <Designer
+                  key={page.id}
+                  page={page}
+                  pages={prototype.pages}
+                  disabled={disabled}
+                  onChange={(design) =>
+                    patch({ design, elements: designElements(design) })
                   }
-                >
-                  添加组件
-                </button>
+                />
+              ) : (
+                <div className={s.canvas}>
+                  {page.screenshot ? (
+                    <img src={page.screenshot} alt={page.title} />
+                  ) : (
+                    <PrototypeCanvas page={page} />
+                  )}
+                </div>
               )}
-              <button
-                onClick={() => {
-                  const pages = prototype.pages
-                    .filter((p) => p.id !== page.id)
-                    .map((p) => ({
-                      ...p,
-                      screenshot: p.elements.length ? "" : p.screenshot,
-                      elements: p.elements.map((e) =>
-                        e.target === page.id ? { ...e, target: "" } : e,
-                      ),
-                    }));
-                  onBrief({
-                    ...brief,
-                    prototype: pages.length
-                      ? { pages, confirmed: false }
-                      : null,
-                  });
-                }}
-              >
-                删除页面
-              </button>
-            </fieldset>
+              {!page.design && !page.elements.length && (
+                <p>导入图片保留为静态原型；添加页面可进行拖拽设计。</p>
+              )}
+              <details className={s.pageActions}>
+                <summary>页面操作</summary>
+                <button disabled={disabled} onClick={removePage}>
+                  删除当前页面
+                </button>
+              </details>
+            </>
           ) : (
             <>
-              <div className={s.canvas}>
-                {page.elements.length ? (
-                  <PrototypeCanvas
-                    page={page}
-                    onNavigate={(id) => {
-                      setSelected(id);
-                      setFeedback("");
-                    }}
-                    onAction={setFeedback}
-                  />
-                ) : (
-                  <img src={page.screenshot} alt={page.title} />
-                )}
-              </div>
+              {page.design ? (
+                <DesignPreview
+                  page={page}
+                  pages={prototype.pages}
+                  onNavigate={setSelected}
+                />
+              ) : (
+                <div className={s.canvas}>
+                  {page.elements.length ? (
+                    <PrototypeCanvas
+                      page={page}
+                      onNavigate={setSelected}
+                      onAction={setFeedback}
+                    />
+                  ) : (
+                    <img src={page.screenshot} alt={page.title} />
+                  )}
+                </div>
+              )}
               <p className={s.description}>
                 {page.description || "请编辑页面，补充操作、状态与异常说明。"}
               </p>
-              {!page.elements.length && (
-                <small>
-                  导入原型图为静态预览；AI
-                  依据你填写的交互说明编写需求，不识别图片像素。
-                </small>
-              )}
             </>
           )}
         </>

@@ -1,4 +1,5 @@
 import type { Brief } from "./prd-api";
+import { createComponentId } from "./browser-crypto";
 import { imageToDataUrl } from "@/components/workbench/document-renderer";
 
 /** Prepare a complete batch before changing any document state. */
@@ -24,7 +25,7 @@ export async function preparePrdAttachments(
     } else if (["image/png", "image/jpeg", "image/webp"].includes(file.type)) {
       const url = await imageToDataUrl(file);
       pages.push({
-        id: crypto.randomUUID(),
+        id: createComponentId(),
         title: file.name.slice(0, 80),
         description: "",
         elements: [],

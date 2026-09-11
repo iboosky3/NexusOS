@@ -9,6 +9,9 @@ import {
   PanelHeading,
   WorkbenchCommand,
 } from "@/components/workbench/workbench";
+import { ExtensionBrowser } from "@/components/workbench/extension-browser";
+import { useWorkbenchExtensions } from "@/lib/workbench-extensions";
+import { prototypeDesigner } from "@/extensions/prototype-designer/manifest";
 import type { Capability } from "@/components/workbench/capability-browser";
 
 import {
@@ -45,6 +48,7 @@ const tabs = [
 
 export default function PrdStudio() {
   const w = usePrdStudio();
+  const extensions = useWorkbenchExtensions();
   const [runPanel, setRunPanel] = useState(false);
   const [runFocus, setRunFocus] = useState(0);
   function openRun() {
@@ -153,12 +157,13 @@ export default function PrdStudio() {
     w.setNotice("已插入文档，点击保存后保存到文档库。");
   }
   const run = () => {
-    if (!w.brief.prototype?.confirmed) {
-      w.setTab("prototype");
-      w.setNotice("请先生成或导入原型，预览并确认后再编写 PRD。");
-      return;
-    }
-    const hasProse = w.content.replace(/!\[[^\]\n]*\]\([^\s)]+\)/g, "").trim();
+    const hasProse = w.content
+      .replace(
+        /<!-- nexus-prototype:start -->[\s\S]*?<!-- nexus-prototype:end -->/g,
+        "",
+      )
+      .replace(/!\[[^\]\n]*\]\([^\s)]+\)/g, "")
+      .trim();
     if (hasProse) {
       w.setTab("document");
       setFocusChat((value) => value + 1);
@@ -166,6 +171,14 @@ export default function PrdStudio() {
     } else void w.perform(() => w.start("generate"));
   };
   const commands: WorkbenchCommand[] = [
+    {
+      id: "extensions",
+      label: "管理工作台插件",
+      run: () => {
+        setSide("extensions");
+        setSidebarFocus((value) => value + 1);
+      },
+    },
     {
       id: "activity-labels",
       label: showLabels ? "隐藏侧边栏文字" : "显示侧边栏文字",
@@ -319,7 +332,14 @@ export default function PrdStudio() {
       menus={[
         menu("文件", ["new", "save", "import", "export-md", "export-html"]),
         menu("编辑", ["brief", "prototype", "edit"]),
-        menu("视图", ["split", "activity-labels", "files", "history", "trace"]),
+        menu("视图", [
+          "split",
+          "activity-labels",
+          "extensions",
+          "files",
+          "history",
+          "trace",
+        ]),
         menu("运行", ["generate", "review", "stop", "trace"]),
         menu("帮助", ["help", "legacy"]),
       ]}
@@ -327,13 +347,38 @@ export default function PrdStudio() {
         { id: "workspace", label: "资源", icon: "▤" },
         { id: "agents", label: "Agent", icon: "◇" },
         { id: "skills", label: "Skill", icon: "✧" },
+        {
+          id: "extensions",
+          label: "插件",
+          icon: (
+            <svg
+              width="22"
+              height="22"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.4"
+              aria-hidden="true"
+            >
+              <path d="M3 3h7v7H3zM3 14h7v7H3zM14 14h7v7h-7zM16 2l6 2-2 6-6-2z" />
+            </svg>
+          ),
+        },
       ]}
       showActivityLabels={showLabels}
       activeView={side}
       onView={setSide}
       sidebarFocusToken={sidebarFocus}
       sidebar={
-        side === "agents" || side === "skills" ? (
+        side === "extensions" ? (
+          <ExtensionBrowser
+            extensions={[prototypeDesigner.manifest]}
+            enabled={extensions.enabled}
+            onToggle={extensions.toggle}
+            disabled={locked || !extensions.ready}
+            onOpen={() => w.setTab("prototype")}
+          />
+        ) : side === "agents" || side === "skills" ? (
           <CapabilityBrowser
             key={side}
             kind={side === "agents" ? "agents" : "skills"}
@@ -504,6 +549,27 @@ export default function PrdStudio() {
       <div className={s.viewport}>
         {w.tab === "prototype" && (
           <PrototypeEditor
+            key={`${w.document?.id || "new"}:${w.document?.revision || 0}`}
+            designerEnabled={
+              extensions.ready &&
+              extensions.enabled(prototypeDesigner.manifest.id)
+            }
+            onOpenExtensions={() => {
+              setSide("extensions");
+              setSidebarFocus((value) => value + 1);
+            }}
+            onEmbed={(next) => {
+              w.setContent(next);
+              w.setTab("document");
+              w.setEditing(false);
+              w.setNotice(
+                "原型截图和交互说明已更新到 PRD，请通过文件菜单保存。",
+              );
+            }}
+            onSave={async (prototype) => {
+              w.setBrief({ ...w.brief, prototype });
+              await w.perform(() => w.save({ ...w.brief, prototype }));
+            }}
             content={w.content}
             brief={w.brief}
             onBrief={w.setBrief}
@@ -522,7 +588,7 @@ export default function PrdStudio() {
           <section className={s.assetEditor}>
             <h1>使用说明</h1>
             <p>
-              填写简报 → 设计并确认原型 → 编写 PRD → 编辑或与 AI 修订 →
+              填写简报 → 编写 PRD（可选原型设计） → 编辑或与 AI 修订 →
               保存与导出。
             </p>
             <p>

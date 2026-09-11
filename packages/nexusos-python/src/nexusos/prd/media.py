@@ -9,7 +9,10 @@ FLOW = re.compile(r"(?m)^```nexus-flow\s*\n[\s\S]*?^```[ \t]*$")
 
 
 def has_document_text(content: str) -> bool:
-    """Images can be prepared before the first draft without becoming a written PRD."""
+    """Prepared prototype assets are not a first draft of the PRD itself."""
+    content = re.sub(
+        r"<!-- nexus-prototype:start -->[\s\S]*?<!-- nexus-prototype:end -->", "", content
+    )
     return bool(IMAGE.sub("", content).strip())
 
 

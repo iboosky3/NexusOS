@@ -171,8 +171,8 @@ export function PrdRunPanel({
     if (job?.action !== "prototype")
       nodes.unshift({
         id: "prototype",
-        title: titles.prototype,
-        status: prototypeState === "none" ? "waiting" : "succeeded",
+        title: `${titles.prototype}（可选）`,
+        status: prototypeState === "confirmed" ? "succeeded" : "skipped",
       });
     nodes.unshift({
       id: "brief",
@@ -181,8 +181,8 @@ export function PrdRunPanel({
     });
     nodes.splice(2, 0, {
       id: "confirm",
-      title: titles.confirm,
-      status: prototypeState === "confirmed" ? "succeeded" : "waiting",
+      title: `${titles.confirm}（可选）`,
+      status: prototypeState === "confirmed" ? "succeeded" : "skipped",
     });
   }
   const edges = nodes.slice(1).map((node, index) => ({
@@ -257,7 +257,7 @@ export function PrdRunPanel({
         <strong>运行</strong>
         <span role="status">
           {job
-            ? `${job.action === "prototype" && job.status === "succeeded" ? (prototypeState === "confirmed" ? "等待编写 PRD" : "等待确认原型") : executionStatus[job.status] || job.status} · ${nodes.filter((n) => n.status === "succeeded").length}/${nodes.length} 阶段`
+            ? `${job.action === "prototype" && job.status === "succeeded" ? (prototypeState === "confirmed" ? "等待编写 PRD" : "原型草稿可继续编辑；也可直接编写 PRD") : executionStatus[job.status] || job.status} · ${nodes.filter((n) => n.status === "succeeded").length}/${nodes.length} 阶段`
             : "尚未运行"}
         </span>
         <button aria-pressed={follow} onClick={() => setFollow(!follow)}>
@@ -542,7 +542,7 @@ export function PrdRunPanel({
                   <p>
                     {prototypeState === "confirmed"
                       ? "用户已确认页面与交互，截图已准备。"
-                      : "请在原型设计中核对页面和交互，并确认截图。"}
+                      : "此步骤可选。原型未确认，本次 PRD 不采用草稿；确认截图后可用于配图。"}
                   </p>
                 ) : selected === "prototype" ? (
                   <>

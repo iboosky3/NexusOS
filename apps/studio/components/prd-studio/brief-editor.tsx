@@ -1,5 +1,6 @@
 "use client";
 
+import { TemplateUpload } from "@/components/workbench/template-upload";
 import { Brief } from "@/lib/prd-api";
 import { fields } from "@/lib/use-prd-studio";
 import s from "./studio.module.css";
@@ -114,6 +115,10 @@ export function BriefEditor({
         ))}
         <details className={s.template}>
           <summary>文档模板（可选）</summary>
+          <TemplateUpload
+            disabled={disabled}
+            onApply={(template) => onChange({ ...brief, template })}
+          />
           <textarea
             aria-label="文档模板"
             value={brief.template}

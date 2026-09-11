@@ -22,7 +22,7 @@ from nexusos.core.models import AgentContext, Goal, Task
 from nexusos.models import ModelGateway, OpenAICompatibleGateway
 from nexusos.models.gateway import ModelGatewayRejected, ModelGatewayUnavailable
 from nexusos.prd.media import MediaReferences
-from nexusos.prd.prototype import PROTOTYPE_TASK, parse_prototype, prototype_appendix
+from nexusos.prd.prototype import PROTOTYPE_TASK, brief_digest, parse_prototype, prototype_appendix
 from nexusos.prd.review import inspect_traceability
 from nexusos.prd.schemas import Brief, ModelReview, clarification_questions
 from nexusos.prd.store import PrdStore
@@ -222,6 +222,17 @@ class PrdWorkflow:
         job = self.store.update_job(job_id, status="running")
         document = self.store.job_input(job_id)
         brief = Brief.model_validate(document["brief"])
+        # Designing is optional. Unconfirmed/stale drafts remain saved in the
+        # workspace, but must not become authoritative PRD requirements.
+        if (
+            job["action"] != "prototype"
+            and brief.prototype
+            and (
+                not brief.prototype.confirmed
+                or brief.prototype.input_digest != brief_digest(document["brief"])
+            )
+        ):
+            brief = brief.model_copy(update={"prototype": None})
         normalized_model = self.model.strip().lower().rsplit("/", 1)[-1]
         deepseek_model = normalized_model.startswith("deepseek-")
         show_thinking = bool(job.get("show_thinking", False))
@@ -274,7 +285,11 @@ class PrdWorkflow:
         source_data = brief.model_dump(exclude={"sources"})
         if brief.prototype:
             source_data["prototype"] = brief.prototype.model_dump(
-                exclude={"pages": {"__all__": {"screenshot"}}, "input_digest": True}
+                exclude={
+                    "document": True,
+                    "pages": {"__all__": {"screenshot", "design"}},
+                    "input_digest": True,
+                }
             )
             for index, page in enumerate(source_data["prototype"]["pages"], 1):
                 page["reference"] = f"P{index}"
@@ -283,12 +298,12 @@ class PrdWorkflow:
         ]
         media = MediaReferences()
         original_content = document["content"]
+        original_content = re.sub(
+            r"<!-- nexus-prototype:start -->[\s\S]*?<!-- nexus-prototype:end -->",
+            "",
+            original_content,
+        )
         if brief.prototype:
-            original_content = re.sub(
-                r"<!-- nexus-prototype:start -->[\s\S]*?<!-- nexus-prototype:end -->",
-                "",
-                original_content,
-            )
             for page in brief.prototype.pages:
                 original_content = (
                     re.sub(

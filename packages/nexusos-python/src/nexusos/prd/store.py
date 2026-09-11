@@ -12,7 +12,7 @@ from typing import Any
 from uuid import uuid4
 
 from nexusos.prd.media import has_document_text
-from nexusos.prd.prototype import Prototype, brief_digest
+from nexusos.prd.prototype import brief_digest
 from nexusos.prd.trace import TRACE_SCHEMA, append_event, get_object, put_object, read_events
 
 
@@ -248,10 +248,6 @@ class PrdStore:
                 raise ValueError("请填写修改要求")
             if action == "generate" and has_document_text(item["content"]) and not original:
                 raise ValueError("已有文档请使用修改功能，以保留现有内容")
-            if action in {"generate", "revise"} and item["brief"].get("prototype"):
-                prototype = Prototype.model_validate(item["brief"]["prototype"])
-                if not prototype.confirmed or prototype.input_digest != brief_digest(item["brief"]):
-                    raise ValueError("请先预览并确认原型，再编写 PRD")
             job: dict[str, Any] = {
                 "id": uuid4().hex,
                 "document_id": document_id,

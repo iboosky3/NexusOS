@@ -1,5 +1,7 @@
 "use client";
 
+import { validateDesign } from "./prototype";
+
 import { useEffect, useRef, useState } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { DocumentRenderer } from "@/components/workbench/document-renderer";
@@ -10,6 +12,7 @@ import {
   Job,
   PrdDocument,
   Version,
+  briefPayload,
   emptyBrief,
   prdApi,
 } from "@/lib/prd-api";
@@ -135,7 +138,8 @@ export function usePrdStudio() {
     document?.active_job_id || (job && !terminal(job.status)),
   );
   const dirty = document
-    ? JSON.stringify(brief) !== JSON.stringify(document.brief) ||
+    ? JSON.stringify(briefPayload(brief)) !==
+        JSON.stringify(briefPayload(document.brief)) ||
       content !== document.content
     : JSON.stringify(brief) !== JSON.stringify(emptyBrief) || Boolean(content);
 
@@ -185,7 +189,8 @@ export function usePrdStudio() {
             typeof draft.content === "string" &&
             (!item ||
               draft.content !== item.content ||
-              JSON.stringify(draft.brief) !== JSON.stringify(item.brief))
+              JSON.stringify(briefPayload(draft.brief)) !==
+                JSON.stringify(briefPayload(item.brief)))
           ) {
             setRecovery(draft);
           }
@@ -271,7 +276,7 @@ export function usePrdStudio() {
           setNotice(
             current.status === "succeeded"
               ? current.action === "prototype"
-                ? "原型已生成，请预览并确认后编写 PRD。"
+                ? "原型已生成，可直接拖拽编辑；确认截图后可用于 PRD，也可直接编写 PRD。"
                 : "任务已完成，文档已保存。请检查评审意见和待确认事项。"
               : "任务已停止，已完成结果保留。",
           );
@@ -320,25 +325,29 @@ export function usePrdStudio() {
       .catch((err) => setError(message(err)));
   }, [tab, document?.revision, document?.id]);
 
-  async function save(): Promise<PrdDocument> {
+  async function save(value: Brief = brief): Promise<PrdDocument> {
+    const brief = value;
     if (!brief.title.trim()) throw new Error("请先填写产品名称");
     if (content.length > 200000)
       throw new Error("正文不能超过 200,000 字符，请减少配图或正文。");
+    for (const page of brief.prototype?.pages || [])
+      if (page.design) validateDesign(page.design);
+    const payload = briefPayload(brief);
     const previousKey = storageKey.current;
     let item = document;
     if (!item) {
-      item = await prdApi<PrdDocument>("documents", "POST", brief);
+      item = await prdApi<PrdDocument>("documents", "POST", payload);
       setDocument(item);
       storageKey.current = `nexus-studio:${item.id}`;
       window.history.replaceState(null, "", `/prd-studio?id=${item.id}`);
     }
     if (
-      JSON.stringify(brief) !== JSON.stringify(item.brief) ||
+      JSON.stringify(payload) !== JSON.stringify(briefPayload(item.brief)) ||
       content !== item.content
     ) {
       item = await prdApi<PrdDocument>(`documents/${item.id}`, "PUT", {
         expected_revision: item.revision,
-        brief,
+        brief: payload,
         content,
         note: restoredFrom ? `从 v${restoredFrom} 载入后保存` : "手动保存",
         restored_from_version: restoredFrom,
@@ -380,14 +389,6 @@ export function usePrdStudio() {
     retryInstruction?: string,
     resumeOf?: string,
   ) {
-    if (
-      !resumeOf &&
-      ["generate", "revise"].includes(action) &&
-      !brief.prototype?.confirmed
-    ) {
-      setTab("prototype");
-      throw new Error("请先预览并确认原型，再编写或修订 PRD");
-    }
     if (!resumeOf && !brief.description.trim())
       throw new Error("请先描述产品构想与使用场景");
     if (!configuration?.configured)

@@ -1,0 +1,36 @@
+.upload {
+  margin: 12px 0;
+  font-size: 12px;
+}
+.upload button {
+  padding: 6px 10px;
+  border: 1px solid #cadbd0;
+  border-radius: 4px;
+  background: white;
+  color: #285b3f;
+  cursor: pointer;
+  margin-right: 8px;
+  font: inherit;
+}
+.upload button:disabled {
+  opacity: 0.5;
+}
+.upload small {
+  display: block;
+  margin-top: 6px;
+  color: #76877c;
+}
+.preview {
+  margin: 12px 0;
+  padding: 12px;
+  border: 1px solid #dce5df;
+  border-radius: 5px;
+}
+.preview pre {
+  max-height: 180px;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: inherit;
+  line-height: 1.6;
+}

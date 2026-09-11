@@ -73,8 +73,10 @@ class PrototypeTests(unittest.TestCase):
         self.assertEqual(doc["content"], "")
         self.assertEqual(job["plan"], ["prototype"])
         self.assertEqual(job["steps"][0]["status"], "succeeded")
-        with self.assertRaisesRegex(ValueError, "确认原型"):
-            self.store.start_job(doc["id"], doc["revision"], "generate", "")
+        optional = self.store.create(copy.deepcopy(doc["brief"]))
+        optional, _ = self.run_job(optional, "generate")
+        self.assertNotIn("## 原型页面与交互说明", optional["content"])
+        self.assertTrue(doc["brief"]["prototype"]["document"].startswith("# 原型设计方案"))
         confirmed = copy.deepcopy(doc["brief"])
         for page in confirmed["prototype"]["pages"]:
             page["screenshot"] = IMAGE

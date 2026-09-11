@@ -13,6 +13,14 @@ export interface Brief {
   template: string;
   sources: { name: string; content: string }[];
 }
+
+/** Strip server-derived fields before validating or persisting a brief. */
+export function briefPayload(brief: Brief): Brief {
+  if (!brief.prototype) return brief;
+  const { document: _document, ...prototype } = brief.prototype;
+  return { ...brief, prototype };
+}
+
 export interface Review {
   summary: string;
   status: string;

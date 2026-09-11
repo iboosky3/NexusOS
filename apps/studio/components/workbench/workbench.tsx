@@ -1,9 +1,32 @@
 "use client";
 
-import { ReactNode, useEffect, useId, useRef, useState } from "react";
+import {
+  ReactNode,
+  createContext,
+  useContext,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+} from "react";
 import { PanelSplitter } from "./panel-splitter";
 import { usePanelLayout } from "./use-panel-layout";
 import styles from "./workbench.module.css";
+
+const AssistantVisibility = createContext<() => void>(() => {});
+export function CloseAssistantButton({ className }: { className?: string }) {
+  const close = useContext(AssistantVisibility);
+  return (
+    <button
+      className={className}
+      aria-label="关闭 AI 对话"
+      title="关闭 AI 对话；可从底部状态栏重新打开"
+      onClick={close}
+    >
+      ×
+    </button>
+  );
+}
 
 export interface WorkbenchPanelControls {
   expanded: boolean;
@@ -19,7 +42,7 @@ export interface WorkbenchCommand {
 export interface WorkbenchView {
   id: string;
   label: string;
-  icon: string;
+  icon: ReactNode;
 }
 
 /** Tool-neutral layout; business state and API calls belong to the caller. */
@@ -269,7 +292,9 @@ export function Workbench({
             style={right ? { width: layout.right } : { display: "none" }}
             aria-hidden={!right}
           >
-            {assistant}
+            <AssistantVisibility.Provider value={() => setRight(false)}>
+              {assistant}
+            </AssistantVisibility.Provider>
           </aside>
         )}
       </div>
@@ -288,7 +313,11 @@ export function Workbench({
               </button>
             )}
             {assistant && (
-              <button aria-pressed={right} onClick={() => setRight(!right)}>
+              <button
+                aria-pressed={right}
+                title={right ? "关闭 AI 对话" : "打开 AI 对话"}
+                onClick={() => setRight(!right)}
+              >
                 AI 对话
               </button>
             )}

@@ -79,7 +79,14 @@ def create_prd_router(store: PrdStore, workflow: PrdWorkflow) -> APIRouter:
                     MediaReferences().protect(
                         json.dumps(
                             {
-                                "brief": payload.brief.model_dump(),
+                                "brief": payload.brief.model_dump(
+                                    exclude={
+                                        "prototype": {
+                                            "document": True,
+                                            "pages": {"__all__": {"screenshot", "design"}},
+                                        }
+                                    }
+                                ),
                                 "message": payload.message,
                                 "history": [item.model_dump() for item in payload.history],
                             },

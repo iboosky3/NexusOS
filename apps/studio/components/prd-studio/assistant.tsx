@@ -3,7 +3,10 @@
 import { useEffect, useRef, useState } from "react";
 import { Brief, Job, prdApi } from "@/lib/prd-api";
 import { fields } from "@/lib/use-prd-studio";
-import { PanelHeading } from "@/components/workbench/workbench";
+import {
+  PanelHeading,
+  CloseAssistantButton,
+} from "@/components/workbench/workbench";
 import { AttachmentDropzone } from "@/components/workbench/attachment-dropzone";
 import s from "./studio.module.css";
 
@@ -204,19 +207,22 @@ export function PrdAssistant({
     <>
       <PanelHeading
         actions={
-          <button
-            className={s.iconButton}
-            aria-label="清空对话"
-            title="新建对话（保留简报与附件）"
-            disabled={pending}
-            onClick={() => {
-              updateEntries([]);
-              setProposal(null);
-              setError("");
-            }}
-          >
-            ＋
-          </button>
+          <span style={{ display: "flex", gap: 4 }}>
+            <button
+              className={s.iconButton}
+              aria-label="清空对话"
+              title="新建对话（保留简报与附件）"
+              disabled={pending}
+              onClick={() => {
+                updateEntries([]);
+                setProposal(null);
+                setError("");
+              }}
+            >
+              ＋
+            </button>
+            <CloseAssistantButton className={s.iconButton} />
+          </span>
         }
       >
         <span className={s.spark}>✧</span> Nexus Copilot

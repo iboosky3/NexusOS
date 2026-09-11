@@ -120,4 +120,4 @@ python -m mkdocs build --strict
 文档站规划域名为 [nexusos.net.cn](https://nexusos.net.cn)。项目采用 [Apache License 2.0](LICENSE)。
 
 
-PRD Studio 支持“需求简报 → 原型设计与确认 → 图文 PRD”：导入原型图或由 AI 生成可点击线框，确认后附入截图与交互说明。底部运行面板集中展示实时 Flow、节点输出和 trace；对话区保持简洁。详见 [Studio 工作台设计](docs/development/studio-workbench.md)与[写作指南](docs/reference-apps/nexus-prd/authoring.md)。
+PRD Studio 支持“需求简报 → PRD”，并可选加入原型设计与确认：使用内置 Puck 插件拖拽设计页面，也可导入原型图或由 AI 生成线框；支持截图并嵌入 PRD、归档设计方案、保存后继续编辑。未确认的原型草稿不会阻止 PRD 生成。需求简报支持上传 Markdown / TXT / Word 模板。插件可在侧边栏管理，详见[插件与原型设计说明](docs/development/studio-extensions.md)。底部运行面板集中展示实时 Flow、节点输出和 trace；对话区保持简洁。详见 [Studio 工作台设计](docs/development/studio-workbench.md)与[写作指南](docs/reference-apps/nexus-prd/authoring.md)。

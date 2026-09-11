@@ -1,0 +1,36 @@
+.block {
+  box-sizing: border-box;
+  min-width: 0;
+}
+.block > div,
+.block > label {
+  padding: var(--block-padding, 14px) !important;
+  margin: var(--block-margin, 0px) !important;
+}
+.block button,
+.block input {
+  width: var(--control-width, auto) !important;
+  height: var(--control-height, auto) !important;
+  border-radius: var(--block-radius, 5px) !important;
+  font-size: var(--block-font, 14px) !important;
+}
+.block input {
+  width: var(--control-width, 100%) !important;
+}
+.block button {
+  background: var(--block-background, #287454) !important;
+  color: var(--block-color, white) !important;
+}
+.block h1,
+.block strong,
+.block p,
+.block label {
+  font-size: var(--block-font) !important;
+  color: var(--block-color) !important;
+}
+.block input,
+.block > div > div {
+  background: var(--block-background) !important;
+  color: var(--block-color) !important;
+  border-radius: var(--block-radius) !important;
+}

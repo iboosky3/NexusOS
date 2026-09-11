@@ -74,6 +74,7 @@ nav:
       - 初始威胁模型: security/threat-model.md
   - 开发记录:
       - Studio 工作台组件: development/studio-workbench.md
+      - 工作台插件与原型设计: development/studio-extensions.md
       - 关键运行问题台账: development/critical-runtime-backlog.md
       - RT-001 全程追溯: development/runtime-issues/001-end-to-end-tracing.md
       - 检查点恢复: development/runtime-issues/003-checkpoint-recovery.md
