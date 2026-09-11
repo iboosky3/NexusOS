@@ -19,35 +19,41 @@ export interface WorkbenchView {
 export function Workbench({
   title,
   home,
-  menus,
-  commands,
+  menus = [],
+  commands = [],
   toolbar,
-  views,
+  views = [],
   activeView,
-  onView,
+  onView = () => {},
   sidebar,
   children,
   assistant,
   assistantFocusToken = 0,
+  sidebarFocusToken = 0,
+  bottomFocusToken = 0,
   bottom,
   status,
   statusRight,
+  showActivityLabels = true,
 }: {
   title: string;
   home: ReactNode;
-  menus: { label: string; commands: WorkbenchCommand[] }[];
-  commands: WorkbenchCommand[];
-  toolbar: ReactNode;
-  views: WorkbenchView[];
-  activeView: string;
-  onView: (id: string) => void;
-  sidebar: ReactNode;
+  menus?: { label: string; commands: WorkbenchCommand[] }[];
+  commands?: WorkbenchCommand[];
+  toolbar?: ReactNode;
+  views?: WorkbenchView[];
+  activeView?: string;
+  onView?: (id: string) => void;
+  sidebar?: ReactNode;
   children: ReactNode;
-  assistant: ReactNode;
+  assistant?: ReactNode;
   assistantFocusToken?: number;
-  bottom: ReactNode;
-  status: ReactNode;
-  statusRight: ReactNode;
+  sidebarFocusToken?: number;
+  bottomFocusToken?: number;
+  bottom?: ReactNode;
+  status?: ReactNode;
+  statusRight?: ReactNode;
+  showActivityLabels?: boolean;
 }) {
   const [menu, setMenu] = useState<string | null>(null);
   const [search, setSearch] = useState("");
@@ -55,6 +61,10 @@ export function Workbench({
   const [left, setLeft] = useState(true);
   const [right, setRight] = useState(true);
   const [panel, setPanel] = useState(true);
+  useEffect(() => { if (bottomFocusToken) setPanel(true); }, [bottomFocusToken]);
+  useEffect(() => {
+    if (sidebarFocusToken) setLeft(true);
+  }, [sidebarFocusToken]);
   const paletteTrigger = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     if (assistantFocusToken) setRight(true);
@@ -91,101 +101,123 @@ export function Workbench({
           {home}
           <strong>{title}</strong>
         </div>
-        <nav aria-label="工具菜单">
-          {menus.map((item) => (
-            <div className={styles.menu} key={item.label}>
-              <button
-                aria-expanded={menu === item.label}
-                onClick={() => setMenu(menu === item.label ? null : item.label)}
-              >
-                {item.label}
-              </button>
-              {menu === item.label && (
-                <>
-                  <button
-                    className={styles.dismiss}
-                    aria-label="关闭菜单"
-                    onClick={() => setMenu(null)}
-                  />
-                  <div className={styles.dropdown}>
-                    {item.commands.map((command) => (
-                      <button
-                        key={command.id}
-                        disabled={command.disabled}
-                        onClick={() => {
-                          setMenu(null);
-                          command.run();
-                        }}
-                      >
-                        {command.label}
-                      </button>
-                    ))}
-                  </div>
-                </>
-              )}
-            </div>
-          ))}
-        </nav>
-        <button
-          ref={paletteTrigger}
-          className={styles.search}
-          aria-label="打开命令搜索"
-          onClick={() => setPalette(true)}
-        >
-          ⌕ <span>搜索命令… Ctrl/⌘ ⇧ P</span>
-        </button>
-        <span className={styles.beta}>新版试用</span>
+        {menus.length > 0 && (
+          <nav aria-label="工具菜单">
+            {menus.map((item) => (
+              <div className={styles.menu} key={item.label}>
+                <button
+                  aria-expanded={menu === item.label}
+                  onClick={() =>
+                    setMenu(menu === item.label ? null : item.label)
+                  }
+                >
+                  {item.label}
+                </button>
+                {menu === item.label && (
+                  <>
+                    <button
+                      className={styles.dismiss}
+                      aria-label="关闭菜单"
+                      onClick={() => setMenu(null)}
+                    />
+                    <div className={styles.dropdown}>
+                      {item.commands.map((command) => (
+                        <button
+                          key={command.id}
+                          disabled={command.disabled}
+                          onClick={() => {
+                            setMenu(null);
+                            command.run();
+                          }}
+                        >
+                          {command.label}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+            ))}
+          </nav>
+        )}
+        {commands.length > 0 && (
+          <button
+            ref={paletteTrigger}
+            className={styles.search}
+            aria-label="打开命令搜索"
+            onClick={() => setPalette(true)}
+          >
+            ⌕ <span>搜索命令… Ctrl/⌘ ⇧ P</span>
+          </button>
+        )}
       </header>
-      <div className={styles.toolbar}>{toolbar}</div>
+      {toolbar && <div className={styles.toolbar}>{toolbar}</div>}
       <div className={styles.body}>
-        <nav className={styles.activity} aria-label="工作区视图">
-          {views.map((view) => (
-            <button
-              key={view.id}
-              title={view.label}
-              aria-label={view.label}
-              aria-pressed={left && activeView === view.id}
-              onClick={() => {
-                if (activeView === view.id && left) setLeft(false);
-                else {
-                  setLeft(true);
-                  onView(view.id);
-                }
-              }}
-            >
-              <span>{view.icon}</span>
-              <small>{view.label}</small>
-            </button>
-          ))}
-        </nav>
-        {left && <aside className={styles.sidebar}>{sidebar}</aside>}
+        {views.length > 0 && (
+          <nav
+            className={`${styles.activity} ${showActivityLabels ? "" : styles.iconsOnly}`}
+            aria-label="工作区视图"
+          >
+            {views.map((view) => (
+              <button
+                key={view.id}
+                title={view.label}
+                aria-label={view.label}
+                aria-pressed={left && activeView === view.id}
+                onClick={() => {
+                  if (activeView === view.id && left) setLeft(false);
+                  else {
+                    setLeft(true);
+                    onView(view.id);
+                  }
+                }}
+              >
+                <span>{view.icon}</span>
+                {showActivityLabels && <small>{view.label}</small>}
+              </button>
+            ))}
+          </nav>
+        )}
+        {left && sidebar && <aside className={styles.sidebar}>{sidebar}</aside>}
         <main className={styles.center}>
           {children}
-          {panel && <section className={styles.bottom}>{bottom}</section>}
+          {panel && bottom && (
+            <section className={styles.bottom}>{bottom}</section>
+          )}
         </main>
-        <aside
-          className={styles.assistant}
-          style={right ? undefined : { display: "none" }}
-          aria-hidden={!right}
-        >
-          {assistant}
-        </aside>
+        {assistant && (
+          <aside
+            className={styles.assistant}
+            style={right ? undefined : { display: "none" }}
+            aria-hidden={!right}
+          >
+            {assistant}
+          </aside>
+        )}
       </div>
-      <footer className={styles.status}>
-        <div>{status}</div>
-        <div>
-          <button aria-pressed={left} onClick={() => setLeft(!left)}>
-            侧栏
-          </button>
-          <button aria-pressed={panel} onClick={() => setPanel(!panel)}>
-            面板
-          </button>
-          <button aria-pressed={right} onClick={() => setRight(!right)}>
-            AI 对话
-          </button>
-          {statusRight}
-        </div>
-      </footer>
+      {(status || statusRight) && (
+        <footer className={styles.status}>
+          <div>{status}</div>
+          <div>
+            {sidebar && (
+              <button aria-pressed={left} onClick={() => setLeft(!left)}>
+                侧栏
+              </button>
+            )}
+            {bottom && (
+              <button aria-pressed={panel} onClick={() => setPanel(!panel)}>
+                面板
+              </button>
+            )}
+            {assistant && (
+              <button aria-pressed={right} onClick={() => setRight(!right)}>
+                AI 对话
+              </button>
+            )}
+            {statusRight}
+          </div>
+        </footer>
+      )}
       {palette && (
         <div className={styles.overlay} onClick={closePalette}>
           <section
@@ -248,22 +280,36 @@ export function EditorTabs({
   tabs,
   value,
   onChange,
+  onClose,
+  closableIds = [],
 }: {
   tabs: WorkbenchView[];
   value: string;
   onChange: (id: string) => void;
+  onClose?: () => void;
+  closableIds?: string[];
 }) {
   return (
     <nav className={styles.tabs} aria-label="编辑器标签">
       {tabs.map((tab) => (
-        <button
-          key={tab.id}
-          aria-current={value === tab.id ? "page" : undefined}
-          onClick={() => onChange(tab.id)}
-        >
-          <span>{tab.icon}</span>
-          {tab.label}
-        </button>
+        <div className={styles.tab} key={tab.id}>
+          <button
+            aria-current={value === tab.id ? "page" : undefined}
+            onClick={() => onChange(tab.id)}
+          >
+            <span>{tab.icon}</span>
+            {tab.label}
+          </button>
+          {onClose && closableIds.includes(tab.id) && (
+            <button
+              className={styles.closeTab}
+              aria-label={`关闭${tab.label}`}
+              onClick={onClose}
+            >
+              ×
+            </button>
+          )}
+        </div>
       ))}
     </nav>
   );

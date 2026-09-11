@@ -2,11 +2,10 @@
 
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import Field, field_validator
 
-
-class StrictModel(BaseModel):
-    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+from nexusos.prd.prototype import Prototype
+from nexusos.prd.schemas_base import StrictModel
 
 
 class Source(StrictModel):
@@ -23,6 +22,7 @@ class Brief(StrictModel):
     constraints: str = Field(default="", max_length=6000)
     metrics: str = Field(default="", max_length=4000)
     template: str = Field(default="", max_length=8000)
+    prototype: Prototype | None = None
     sources: list[Source] = Field(default_factory=list, max_length=12)
 
     @field_validator("sources")
@@ -76,7 +76,7 @@ class AssistantReply(StrictModel):
 
 class StartJob(StrictModel):
     expected_revision: int = Field(ge=1)
-    action: Literal["generate", "revise", "review"] = "generate"
+    action: Literal["generate", "revise", "review", "prototype"] = "generate"
     instruction: str = Field(default="", max_length=8000)
     show_thinking: bool = False
     retry_of_job_id: str | None = Field(default=None, pattern=r"^[a-f0-9]{32}$")

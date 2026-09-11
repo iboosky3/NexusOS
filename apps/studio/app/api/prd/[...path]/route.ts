@@ -13,7 +13,7 @@ function requestOrigin(request: NextRequest): string {
 async function proxy(request: NextRequest, context: { params: Promise<{ path: string[] }> }) {
   const { path } = await context.params;
   const suffix = path.join("/");
-  if (!/^(configuration|capabilities|assistant|documents(?:\/[a-f0-9]{32}(?:\/(versions|jobs|trace))?)?|jobs\/[a-f0-9]{32}(?:\/(cancel|trace|stream))?)$/.test(suffix)) {
+  if (!/^(configuration|capabilities|assistant|documents(?:\/[a-f0-9]{32}(?:\/(versions|jobs|trace))?)?|jobs\/[a-f0-9]{32}(?:\/(cancel|trace|stream|events))?)$/.test(suffix)) {
     return NextResponse.json({ detail: "接口不存在" }, { status: 404 });
   }
   if (request.method !== "GET") {

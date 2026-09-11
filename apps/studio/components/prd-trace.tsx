@@ -10,7 +10,7 @@ interface TraceEvent {
   job_id: string | null; payload_hash: string; payload: Record<string, unknown>;
 }
 interface JobSummary extends Job {
-  action: "generate" | "revise" | "review"; instruction: string; created_at: string;
+  action: "generate" | "revise" | "review" | "prototype"; instruction: string; created_at: string;
   trace_id?: string; input_version?: number; input_revision?: number;
   retry_of_job_id?: string | null; trace_available: boolean;
 }
@@ -36,7 +36,7 @@ const labels: Record<string, string> = {
   "job.failed": "任务失败", "job.cancelled": "任务停止", "job.interrupted": "服务中断",
   "stage.interrupted": "阶段中断", "job.cancel_requested": "请求停止任务",
 };
-const actions: Record<string, string> = { generate: "生成", revise: "修订", review: "评审" };
+const actions: Record<string, string> = { prototype: "原型设计", generate: "生成", revise: "修订", review: "评审" };
 const statuses: Record<string, string> = { queued: "排队", running: "执行中", succeeded: "完成", failed: "失败", cancelled: "已停止" };
 const date = (text: string) => new Date(text).toLocaleString("zh-CN");
 

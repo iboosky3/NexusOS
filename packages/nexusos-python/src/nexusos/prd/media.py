@@ -8,6 +8,11 @@ IMAGE = re.compile(r"!\[[^\]\n]*\]\([^\s)]+(?:\s+\"[^\"]*\")?\)")
 FLOW = re.compile(r"(?m)^```nexus-flow\s*\n[\s\S]*?^```[ \t]*$")
 
 
+def has_document_text(content: str) -> bool:
+    """Images can be prepared before the first draft without becoming a written PRD."""
+    return bool(IMAGE.sub("", content).strip())
+
+
 class MediaReferences:
     def __init__(self) -> None:
         self.images: dict[str, str] = {}

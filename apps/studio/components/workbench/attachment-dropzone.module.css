@@ -1,0 +1,35 @@
+.zone {
+  position: relative;
+  border-radius: 6px;
+}
+.dragging {
+  outline: 2px dashed #388763;
+  outline-offset: 3px;
+}
+.hint {
+  position: absolute;
+  inset: 0;
+  background: #edf7f1ef;
+  color: #275b40;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  font-size: 12px;
+  border-radius: 6px;
+}
+.message {
+  margin: 6px 0;
+  color: #56735e;
+  font-size: 11px;
+}
+.error {
+  color: #a03932;
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+.error button {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  margin-left: 6px;
+}

@@ -11,7 +11,7 @@ import {
   emptyBrief, nexusBrief, prdApi,
 } from "@/lib/prd-api";
 
-const fields: { key: Exclude<keyof Brief, "sources">; title: string; hint: string; rows: number; limit: number }[] = [
+const fields: { key: Exclude<keyof Brief, "sources" | "prototype">; title: string; hint: string; rows: number; limit: number }[] = [
   { key: "title", title: "产品名称", hint: "你正在为哪个产品写需求？", rows: 1, limit: 200 },
   { key: "description", title: "产品构想与使用场景", hint: "描述产品要帮助用户完成的任务，也可以粘贴原始需求。", rows: 5, limit: 12000 },
   { key: "audience", title: "目标用户与角色", hint: "优先服务谁？使用者、管理者和购买者分别是谁？", rows: 3, limit: 4000 },
@@ -207,7 +207,7 @@ export default function PrdPage() {
     finally { setBusy(false); }
   }
 
-  async function start(action: "generate" | "revise" | "review", retryOf?: string, retryInstruction?: string, resumeOf?: string) {
+  async function start(action: "generate" | "revise" | "review" | "prototype", retryOf?: string, retryInstruction?: string, resumeOf?: string) {
     if (!configuration?.configured) throw new Error("模型尚未配置。请先按页面说明配置 API 服务，文档编辑和保存可以继续使用。");
     if (resumeOf && dirty) throw new Error("当前有修改，不能沿用旧现场；请选择重新执行。");
     const item = resumeOf && document ? document : await save();

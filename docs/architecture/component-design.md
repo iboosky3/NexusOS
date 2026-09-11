@@ -1,5 +1,7 @@
 # 组件设计
 
+> **首要设计原则：由 AI 分析用户任务，按需组装已注册能力与界面组件。只显示当前任务所需组件，功能入口不重复，不为无关功能占位。** 所有组件设计与接入遵循[架构总览中的核心思想](overview.md)和[工作台设计验收约束](../development/studio-workbench.md)。
+
 ## 1. Nexus Core
 
 核心包定义 Goal、Task、TaskGraph、AgentContext、AgentResult、ReviewResult、Artifact、Evidence 与 TokenUsage。核心不引用 HTTP、数据库、模型或 Agent 框架类型。
@@ -56,3 +58,8 @@ Domain Models and Ports
 ```
 
 反向依赖通过端口注入。架构测试用于阻止供应商 SDK 进入 Core。
+
+
+### PRD 原型与可视化运行
+
+PRD 的必需组合为需求简报、原型设计、正文编辑及 AI 对话；运行面板随任务按需出现。原型复用声明式画布，导入图片与 AI 生成页面共用确认和截图管线。Flow 组件仅消费计划与真实状态，业务面板负责订阅 SSE、增量 trace、节点详情和恢复动作。不得用模拟计时推动节点，也不在对话区重复放编辑对象与运行输出。具体契约见 [Studio 工作台](../development/studio-workbench.md)。

@@ -2,6 +2,8 @@
 
 > 面向可扩展自主智能的多智能体编排与 Skill 智能基础设施。
 
+> **纽带系统核心思想：以用户任务为中心，由 AI 分析需求，按需组装已注册的能力与界面组件。只显示当前任务需要的组件，同一功能保留一个主要入口，不重复铺设、不硬占位。** 该原则约束所有现有及后续工具的设计；详见[设计约束与实现边界](docs/development/studio-workbench.md)。
+
 当前版本：**v0.1.0 参考基线**。这是可重复验证的工程参考实现，不代表已经达到生产可用标准。
 
 NexusOS 解决的不是“再做一个聊天机器人”，而是当系统拥有大量 Agent、Skill、模型和外部工具时，如何只选择当前真正需要的能力，在有限 Token 预算内规划、执行、评审并解释完整过程。
@@ -10,7 +12,7 @@ NexusOS 解决的不是“再做一个聊天机器人”，而是当系统拥有
 
 从[写作工作区使用指南](docs/reference-apps/nexus-prd/authoring.md)开始，也可以导入[NexusOS 自身 PRD 草稿](docs/reference-apps/nexus-prd/product-prd.md)继续完善。原离线参考内核和基准保留用于回归。
 
-首页点击 **编写 PRD** 会在新标签页打开 `/prd-studio`：左侧查看 Agent / Skill 与文档库，中间填写简报、编辑图文，右侧与 AI 澄清需求，底部查看工作流与状态。首页只选择工具，产品构想和参考材料全部在 Studio 内填写。旧版 `/prd` 保留，可打开同一份已保存文档。新界面的菜单、命令、侧栏、编辑器页签和状态栏已抽成通用组件，其他工具的接入方式见[工作台组件与扩展说明](docs/development/studio-workbench.md)。
+首页点击 **编写 PRD** 在新标签页打开 `/prd-studio`，保留软件式菜单、工具栏、左侧管理、中间编辑、右侧 AI 与底部状态栏。通过收拢重复入口和分组折叠降低杂乱；流程图、版本、追溯等按需打开。首页不传入产品想法。旧版 `/prd` 保留并共享文档库。菜单、侧栏和底部面板都是可选组件，未选择时不占空间，详见[工作台组件与扩展说明](docs/development/studio-workbench.md)。
 
 ## 当前能力
 
@@ -116,3 +118,6 @@ python -m mkdocs build --strict
 - [项目路线图](docs/project/roadmap.md)
 
 文档站规划域名为 [nexusos.net.cn](https://nexusos.net.cn)。项目采用 [Apache License 2.0](LICENSE)。
+
+
+PRD Studio 支持“需求简报 → 原型设计与确认 → 图文 PRD”：导入原型图或由 AI 生成可点击线框，确认后附入截图与交互说明。底部运行面板集中展示实时 Flow、节点输出和 trace；对话区保持简洁。详见 [Studio 工作台设计](docs/development/studio-workbench.md)与[写作指南](docs/reference-apps/nexus-prd/authoring.md)。

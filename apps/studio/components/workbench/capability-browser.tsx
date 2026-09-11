@@ -18,16 +18,24 @@ export function CapabilityBrowser({
   skills,
   used = [],
   error,
+  kind,
 }: {
   agents: Capability[];
   skills: Capability[];
   used?: string[];
   error?: string;
+  kind?: "agents" | "skills";
 }) {
   const [search, setSearch] = useState("");
   return (
     <>
-      <PanelHeading>Agent 与 Skill</PanelHeading>
+      <PanelHeading>
+        {kind === "agents"
+          ? "智能体 Agent"
+          : kind === "skills"
+            ? "技能 Skill"
+            : "Agent 与 Skill"}
+      </PanelHeading>
       <div style={{ padding: 14 }}>
         <input
           aria-label="搜索能力"
@@ -43,49 +51,61 @@ export function CapabilityBrowser({
         />
         {error && <p role="alert">{error}</p>}
         {[
-          { label: "智能体 Agent", items: agents },
-          { label: "专业技能 Skill", items: skills },
-        ].map((group) => (
-          <section key={group.label}>
-            <h3 style={{ fontSize: 12, color: "#34674a", marginTop: 24 }}>
-              {group.label} · {group.items.length}
-            </h3>
-            {group.items
-              .filter((item) =>
-                `${item.id} ${item.role} ${item.description}`
-                  .toLowerCase()
-                  .includes(search.toLowerCase()),
-              )
-              .map((item) => (
-                <details
-                  key={item.id}
-                  style={{
-                    padding: "12px 0",
-                    borderBottom: "1px solid #e0e7e2",
-                    overflowWrap: "anywhere",
-                  }}
-                >
-                  <summary style={{ cursor: "pointer", fontSize: 12 }}>
-                    <strong>{item.id}</strong>
-                    {used.includes(item.id) && (
-                      <span style={{ color: "#257047", marginLeft: 5 }}>
-                        已调用
-                      </span>
-                    )}
-                  </summary>
-                  <p>{item.role || item.description}</p>
-                  <small>v{item.version}</small>
-                  <p>能力：{item.capabilities.join("、")}</p>
-                  {(item.required_tools || item.allowed_tools)?.length ? (
+          { id: "agents", label: "智能体 Agent", items: agents },
+          { id: "skills", label: "专业技能 Skill", items: skills },
+        ]
+          .filter((group) => !kind || group.id === kind)
+          .map((group) => (
+            <details
+              key={group.label}
+              style={{ marginTop: 20 }}
+              open={kind || search.trim() ? true : undefined}
+            >
+              <summary
+                style={{ fontSize: 12, color: "#34674a", cursor: "pointer" }}
+              >
+                {group.label} · {group.items.length}
+              </summary>
+              {group.items
+                .filter((item) =>
+                  `${item.id} ${item.role} ${item.description}`
+                    .toLowerCase()
+                    .includes(search.toLowerCase()),
+                )
+                .map((item) => (
+                  <details
+                    key={item.id}
+                    style={{
+                      padding: "12px 0",
+                      borderBottom: "1px solid #e0e7e2",
+                      overflowWrap: "anywhere",
+                    }}
+                  >
+                    <summary style={{ cursor: "pointer", fontSize: 12 }}>
+                      <strong>{item.role || item.id}</strong>
+                      {used.includes(item.id) && (
+                        <span style={{ color: "#257047", marginLeft: 5 }}>
+                          已调用
+                        </span>
+                      )}
+                    </summary>
+                    {item.description && <p>{item.description}</p>}
                     <small>
-                      工具：
-                      {(item.required_tools || item.allowed_tools)?.join("、")}
+                      {item.id} · v{item.version}
                     </small>
-                  ) : null}
-                </details>
-              ))}
-          </section>
-        ))}
+                    <p>能力：{item.capabilities.join("、")}</p>
+                    {(item.required_tools || item.allowed_tools)?.length ? (
+                      <small>
+                        工具：
+                        {(item.required_tools || item.allowed_tools)?.join(
+                          "、",
+                        )}
+                      </small>
+                    ) : null}
+                  </details>
+                ))}
+            </details>
+          ))}
         <p style={{ color: "#7a877f", fontSize: 11 }}>
           工作流按阶段自动选择能力。列表来自服务端注册清单。
         </p>

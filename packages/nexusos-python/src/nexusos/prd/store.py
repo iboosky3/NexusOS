@@ -11,6 +11,8 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
+from nexusos.prd.media import has_document_text
+from nexusos.prd.prototype import Prototype, brief_digest
 from nexusos.prd.trace import TRACE_SCHEMA, append_event, get_object, put_object, read_events
 
 
@@ -163,6 +165,12 @@ class PrdStore:
                 raise ValueError("要恢复的历史版本不存在")
             if item["brief"] == brief and item["content"] == content:
                 return item
+            if (
+                brief.get("prototype")
+                and brief["prototype"].get("confirmed")
+                and brief["prototype"].get("input_digest") != brief_digest(brief)
+            ):
+                brief = {**brief, "prototype": {**brief["prototype"], "confirmed": False}}
             item.update(brief=brief, content=content, review=None, updated_at=now())
             item["revision"] += 1
             self._version(db, item, note, restored_from_version=restored_from_version)
@@ -238,8 +246,12 @@ class PrdStore:
                 raise ValueError("请先生成或导入 PRD 文档")
             if action == "revise" and not instruction.strip():
                 raise ValueError("请填写修改要求")
-            if action == "generate" and item["content"].strip() and not original:
+            if action == "generate" and has_document_text(item["content"]) and not original:
                 raise ValueError("已有文档请使用修改功能，以保留现有内容")
+            if action in {"generate", "revise"} and item["brief"].get("prototype"):
+                prototype = Prototype.model_validate(item["brief"]["prototype"])
+                if not prototype.confirmed or prototype.input_digest != brief_digest(item["brief"]):
+                    raise ValueError("请先预览并确认原型，再编写 PRD")
             job: dict[str, Any] = {
                 "id": uuid4().hex,
                 "document_id": document_id,
@@ -393,7 +405,12 @@ class PrdStore:
             return job
 
     def publish(
-        self, job_id: str, *, content: str | None = None, review: dict[str, Any] | None = None
+        self,
+        job_id: str,
+        *,
+        content: str | None = None,
+        review: dict[str, Any] | None = None,
+        prototype: dict[str, Any] | None = None,
     ) -> None:
         with self.connection() as db:
             job = self._get(db, "prd_jobs", job_id)
@@ -407,6 +424,9 @@ class PrdStore:
                 return
             item.update(updated_at=now(), review=review)
             item["revision"] += 1
+            if prototype is not None:
+                item["brief"] = {**item["brief"], "prototype": prototype}
+                self._version(db, item, "AI 原型设计（待确认）", job=job)
             if content is not None:
                 item["content"] = content
                 self._version(
@@ -502,6 +522,7 @@ class PrdStore:
                 "write-1",
                 "write-2",
                 "write-3",
+                "prototype",
             }:
                 checkpoint["stages"][key] = {
                     "content": payload["content"],
@@ -666,6 +687,11 @@ class PrdStore:
             result["coverage"] = "recorded_events_only"
             result["notice"] = "仅展示启用追溯后记录的事件；旧任务没有的输入和调用记录不会补造。"
             return result
+
+    def job_events(self, job_id: str, *, after: int = 0, limit: int = 100) -> dict[str, Any]:
+        with self.connection() as db:
+            job = self._get(db, "prd_jobs", job_id)
+            return read_events(db, job["document_id"], after=after, limit=limit, job_id=job_id)
 
     def trace_bundle(self, job_id: str) -> dict[str, Any]:
         with self.connection() as db:

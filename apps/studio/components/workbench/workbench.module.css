@@ -207,7 +207,7 @@
 }
 .bottom {
   flex-shrink: 0;
-  max-height: 220px;
+  max-height: 65vh;
   overflow: auto;
   border-top: 1px solid #dfe6e1;
   background: #f9fbf9;
@@ -324,4 +324,92 @@
     overflow: auto;
     white-space: nowrap;
   }
+}
+
+/* Stable application chrome with quiet navigation and a wider editing surface. */
+.activity {
+  width: 48px;
+}
+.activity button {
+  height: 58px;
+}
+.activity button span {
+  font-size: 20px;
+}
+.sidebar {
+  width: 215px;
+  min-width: 180px;
+  background: #f7f9f7;
+}
+.assistant {
+  width: 330px;
+}
+.menubar {
+  gap: 20px;
+}
+.tabs {
+  background: #f7f9f7;
+}
+.tabs button {
+  border-right: 0;
+  padding: 10px 16px;
+}
+.tab {
+  display: flex;
+  flex-shrink: 0;
+}
+.tabs .closeTab {
+  padding: 6px 8px;
+}
+.status {
+  background: #28543d;
+}
+
+.workbench {
+  font-size: 12px;
+}
+.menubar {
+  flex-basis: 36px;
+  gap: 16px;
+}
+.toolbar {
+  min-height: 36px;
+  padding: 4px 14px;
+}
+.activity {
+  width: 52px;
+}
+.activity button {
+  height: 58px;
+}
+.activity button small {
+  font-size: 10px;
+}
+.iconsOnly {
+  width: 42px;
+}
+.iconsOnly button {
+  height: 44px;
+}
+.heading {
+  padding: 12px 14px;
+}
+.heading strong {
+  font-size: 12px;
+}
+.tabs {
+  min-height: 34px;
+}
+.tabs button {
+  padding: 8px 13px;
+  font-size: 11px;
+}
+.tab > button:first-child {
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.status {
+  font-size: 10px;
+  min-height: 24px;
 }

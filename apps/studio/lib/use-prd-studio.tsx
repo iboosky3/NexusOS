@@ -15,7 +15,7 @@ import {
 } from "@/lib/prd-api";
 
 export const fields: {
-  key: Exclude<keyof Brief, "sources">;
+  key: Exclude<keyof Brief, "sources" | "prototype">;
   title: string;
   hint: string;
   rows: number;
@@ -84,7 +84,14 @@ const message = (error: unknown) =>
   error instanceof Error ? error.message : "操作失败，请重试";
 
 export function usePrdStudio() {
-  const [brief, setBrief] = useState<Brief>(emptyBrief);
+  const [brief, updateBrief] = useState<Brief>(emptyBrief);
+  function setBrief(next: Brief) {
+    const inputs = (value: Brief) =>
+      JSON.stringify({ ...value, prototype: undefined });
+    if (next.prototype?.confirmed && inputs(next) !== inputs(brief))
+      next = { ...next, prototype: { ...next.prototype, confirmed: false } };
+    updateBrief(next);
+  }
   const [content, setContent] = useState("");
   const [document, setDocument] = useState<PrdDocument | null>(null);
   const [documents, setDocuments] = useState<DocumentSummary[]>([]);
@@ -94,7 +101,16 @@ export function usePrdStudio() {
     null,
   );
   const [tab, setTab] = useState<
-    "brief" | "document" | "history" | "trace" | "assets" | "drawing"
+    | "prototype"
+    | "brief"
+    | "document"
+    | "history"
+    | "trace"
+    | "assets"
+    | "drawing"
+    | "files"
+    | "capabilities"
+    | "settings"
   >("brief");
   const [editing, setEditing] = useState(false);
   const [instruction, setInstruction] = useState("");
@@ -129,7 +145,7 @@ export function usePrdStudio() {
   }
   function accept(item: PrdDocument) {
     setDocument(item);
-    setBrief(item.brief);
+    updateBrief(item.brief);
     setContent(item.content);
     storageKey.current = `nexus-studio:${item.id}`;
   }
@@ -153,6 +169,7 @@ export function usePrdStudio() {
           if (disposed) return;
           accept(item);
           if (item.content) setTab("document");
+          else if (item.brief.prototype) setTab("prototype");
           if (item.last_job_id) {
             const previousJob = await prdApi<Job>(`jobs/${item.last_job_id}`);
             if (disposed) return;
@@ -247,12 +264,15 @@ export function usePrdStudio() {
         const item = await prdApi<PrdDocument>(`documents/${document!.id}`);
         if (disposed) return;
         accept(item);
-        if (item.content) setTab("document");
+        if (current.action === "prototype") setTab("prototype");
+        else if (item.content) setTab("document");
         if (current.error) setError(current.error);
         else
           setNotice(
             current.status === "succeeded"
-              ? "任务已完成，文档已保存。请检查评审意见和待确认事项。"
+              ? current.action === "prototype"
+                ? "原型已生成，请预览并确认后编写 PRD。"
+                : "任务已完成，文档已保存。请检查评审意见和待确认事项。"
               : "任务已停止，已完成结果保留。",
           );
         await refreshList();
@@ -355,11 +375,19 @@ export function usePrdStudio() {
   }
 
   async function start(
-    action: "generate" | "revise" | "review",
+    action: "generate" | "revise" | "review" | "prototype",
     retryOf?: string,
     retryInstruction?: string,
     resumeOf?: string,
   ) {
+    if (
+      !resumeOf &&
+      ["generate", "revise"].includes(action) &&
+      !brief.prototype?.confirmed
+    ) {
+      setTab("prototype");
+      throw new Error("请先预览并确认原型，再编写或修订 PRD");
+    }
     if (!resumeOf && !brief.description.trim())
       throw new Error("请先描述产品构想与使用场景");
     if (!configuration?.configured)

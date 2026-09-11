@@ -22,6 +22,7 @@ from nexusos.core.models import AgentContext, Goal, Task
 from nexusos.models import ModelGateway, OpenAICompatibleGateway
 from nexusos.models.gateway import ModelGatewayRejected, ModelGatewayUnavailable
 from nexusos.prd.media import MediaReferences
+from nexusos.prd.prototype import PROTOTYPE_TASK, parse_prototype, prototype_appendix
 from nexusos.prd.review import inspect_traceability
 from nexusos.prd.schemas import Brief, ModelReview, clarification_questions
 from nexusos.prd.store import PrdStore
@@ -72,6 +73,9 @@ AUTHORING_RULES = """你在编写供真实研发、设计、测试评审的软�
 需求应具体到角色、触发条件、前置条件、主流程、业务规则、数据字段、权限、异常与恢复。
 为功能需求分配稳定的 FR-001 编号，验收条件 AC-001 等引用对应需求，用 Given/When/Then
 或“前提/操作/预期结果”描述可观察的结果。修改文档时保留已有编号和未要求修改的内容。
+若简报包含原型，使用页面 reference（P1/P2 等）关联功能需求：说明对应页面、触发操作、
+前置条件、成功状态、失败提示和返回路径；只依据结构化页面与交互说明，不声称看到了图片像素。
+原型截图和完整页面说明由系统附入文末，不要自行生成截图 URL 或重复输出原型附录。
 不得把实现了几个标题、模型评审意见或主观评分等同于已经通过业务验收。
 只输出本阶段要求的内容，不要寒暄、描述写作过程或用代码围栏包裹整篇 Markdown。
 """
@@ -202,7 +206,7 @@ class PrdWorkflow:
             elif isinstance(exc, MergeValidationError):
                 error = f"PRD 分段合并校验失败：{exc}。请重新生成或补充需求后重试。"
             elif isinstance(exc, ValidationError):
-                error = "模型返回的评审格式不符合要求。已生成的正文保留，可单独重新评审。"
+                error = "模型返回的结构不符合要求，请查看运行记录后重试；已保存内容保留。"
             else:
                 error = "任务执行失败，请检查服务日志与 runtime 依赖；已保存内容不受影响。"
             self.store.update_job(
@@ -229,7 +233,11 @@ class PrdWorkflow:
             model=self.model,
             checkpointer=checkpointer,
             response_validator=lambda task, response: (
-                parse_review(response.content) if task.id == "review" else None
+                parse_review(response.content)
+                if task.id == "review"
+                else parse_prototype(response.content)
+                if task.id == "prototype"
+                else None
             ),
         )
         if job["action"] == "generate":
@@ -242,10 +250,13 @@ class PrdWorkflow:
                 "write-3",
                 "review",
             ]
+        elif job["action"] == "prototype":
+            stage_order = ["prototype"]
         elif job["action"] == "revise":
             stage_order = ["write-1", "write-2", "write-3", "review"]
         else:
             stage_order = ["review"]
+        self.store.update_job(job_id, plan=stage_order)
         self.store.record_event(
             job_id,
             "job.configured",
@@ -261,11 +272,33 @@ class PrdWorkflow:
             },
         )
         source_data = brief.model_dump(exclude={"sources"})
+        if brief.prototype:
+            source_data["prototype"] = brief.prototype.model_dump(
+                exclude={"pages": {"__all__": {"screenshot"}}, "input_digest": True}
+            )
+            for index, page in enumerate(source_data["prototype"]["pages"], 1):
+                page["reference"] = f"P{index}"
         source_data["sources"] = [
             {"id": f"S{i}", **source.model_dump()} for i, source in enumerate(brief.sources, 1)
         ]
         media = MediaReferences()
         original_content = document["content"]
+        if brief.prototype:
+            original_content = re.sub(
+                r"<!-- nexus-prototype:start -->[\s\S]*?<!-- nexus-prototype:end -->",
+                "",
+                original_content,
+            )
+            for page in brief.prototype.pages:
+                original_content = (
+                    re.sub(
+                        r"!\[[^\]\n]*\]\(" + re.escape(page.screenshot) + r"\)",
+                        "",
+                        original_content,
+                    )
+                    if page.screenshot
+                    else original_content
+                )
         source_text = media.protect(json.dumps(source_data, ensure_ascii=False))
         media.protect(original_content)
         analyses: list[str] = []
@@ -465,6 +498,18 @@ class PrdWorkflow:
             )
             return result.content
 
+        if job["action"] == "prototype":
+            raw = await stage(
+                "prototype",
+                "设计交互原型",
+                PROTOTYPE_TASK,
+                ("user_flow",),
+                ["原型修改要求：" + job["instruction"]],
+                output_tokens=6000,
+            )
+            self.store.publish(job_id, prototype=parse_prototype(raw).model_dump())
+            self.store.update_job(job_id, status="succeeded", stage="原型已生成，等待确认")
+            return
         if job["action"] == "generate":
             analyses.append(
                 await stage(
@@ -498,7 +543,7 @@ class PrdWorkflow:
                     analyses.copy(),
                 )
             )
-        content = document["content"]
+        content = document["content"] if job["action"] == "review" else original_content
         if job["action"] != "review":
             if job["action"] == "revise":
                 analyses = [
@@ -532,6 +577,11 @@ class PrdWorkflow:
             else:
                 logger.info("Generating PRD in bounded sections for %s", self.model)
                 content = media.restore(await sectioned_write(), original_content)
+                if brief.prototype and brief.prototype.confirmed:
+                    # Screenshots are captured by the client, never invented by the text model.
+                    content += "\n\n" + prototype_appendix(brief.prototype)
+                    if len(content) > 200000:
+                        raise ValueError("包含原型截图的正文超过 200,000 字符")
             self.store.publish(job_id, content=content)
         raw_review = await stage(
             "review",

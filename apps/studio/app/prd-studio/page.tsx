@@ -9,55 +9,83 @@ import {
   PanelHeading,
   WorkbenchCommand,
 } from "@/components/workbench/workbench";
-import {
-  Capability,
-  CapabilityBrowser,
-} from "@/components/workbench/capability-browser";
+import type { Capability } from "@/components/workbench/capability-browser";
+
 import {
   DocumentRenderer,
   FlowDiagram,
-  imageToDataUrl,
 } from "@/components/workbench/document-renderer";
 import { BriefEditor } from "@/components/prd-studio/brief-editor";
 import { MarkdownEditor } from "@/components/workbench/markdown-editor";
 import { PrdAssistant } from "@/components/prd-studio/assistant";
-import { PrdRecovery } from "@/components/prd-recovery";
+import { PrdRunPanel } from "@/components/prd-studio/run-panel";
+import { PrototypeEditor } from "@/components/prd-studio/prototype-editor";
 import { Job, prdApi } from "@/lib/prd-api";
 import { usePrdStudio } from "@/lib/use-prd-studio";
+import { preparePrdAttachments } from "@/lib/prd-attachments";
 import s from "@/components/prd-studio/studio.module.css";
 
-const PrdTrace = dynamic(
-  () => import("@/components/prd-trace").then((module) => module.PrdTrace),
-  { loading: () => <p>正在载入追溯面板…</p> },
+const CapabilityBrowser = dynamic(() =>
+  import("@/components/workbench/capability-browser").then(
+    (module) => module.CapabilityBrowser,
+  ),
 );
+
 type Tab = ReturnType<typeof usePrdStudio>["tab"];
 const tabs = [
   { id: "brief", label: "需求简报", icon: "▤" },
+  { id: "prototype", label: "原型设计", icon: "▧" },
   { id: "document", label: "PRD.md", icon: "#" },
   { id: "drawing", label: "流程图", icon: "⌘" },
   { id: "assets", label: "参考材料", icon: "♧" },
   { id: "history", label: "版本", icon: "◴" },
-  { id: "trace", label: "追溯", icon: "⑂" },
-];
-const views = [
-  { id: "capabilities", label: "能力", icon: "◇" },
-  { id: "files", label: "文件", icon: "▤" },
-  { id: "assets", label: "素材", icon: "▧" },
-  { id: "history", label: "版本", icon: "◴" },
-  { id: "settings", label: "设置", icon: "⚙" },
+  { id: "files", label: "文档库", icon: "▤" },
+  { id: "settings", label: "使用说明", icon: "?" },
 ];
 
 export default function PrdStudio() {
   const w = usePrdStudio();
-  const [side, setSide] = useState("capabilities");
+  const [runPanel, setRunPanel] = useState(false);
+  const [runFocus, setRunFocus] = useState(0);
+  function openRun() {
+    setRunPanel(true);
+    setRunFocus((value) => value + 1);
+  }
+  useEffect(() => {
+    if (w.job?.id) openRun();
+  }, [w.job?.id]);
+  const [attachmentBusy, setAttachmentBusy] = useState(false);
+  const [side, setSide] = useState("workspace");
+  const [showLabels, setShowLabels] = useState(true);
+  useEffect(() => {
+    try {
+      setShowLabels(
+        localStorage.getItem("nexus-workbench:activity-labels") !== "false",
+      );
+    } catch {
+      /* Optional display preference. */
+    }
+  }, []);
+  function toggleLabels() {
+    const next = !showLabels;
+    setShowLabels(next);
+    try {
+      localStorage.setItem("nexus-workbench:activity-labels", String(next));
+    } catch {
+      /* Display still updates for this session. */
+    }
+  }
+  const [sidebarFocus, setSidebarFocus] = useState(0);
+  function showCapabilities(kind: "agents" | "skills" = "agents") {
+    setSide(kind);
+    setSidebarFocus((value) => value + 1);
+  }
   const [catalog, setCatalog] = useState<{
     agents: Capability[];
     skills: Capability[];
   }>({ agents: [], skills: [] });
   const [catalogError, setCatalogError] = useState("");
   const [focusChat, setFocusChat] = useState(0);
-  const [chatMode, setChatMode] = useState<"clarify" | "revise">("clarify");
-  const [bottom, setBottom] = useState("tasks");
   const [flow, setFlow] = useState("");
   const [split, setSplit] = useState(false);
   const [fileSearch, setFileSearch] = useState("");
@@ -65,11 +93,24 @@ export default function PrdStudio() {
   const sourceInput = useRef<HTMLInputElement>(null);
   const documentInput = useRef<HTMLInputElement>(null);
   const imageInput = useRef<HTMLInputElement>(null);
-  const locked = w.active || w.busy || !w.ready || Boolean(w.recovery);
+  const locked =
+    w.active || w.busy || attachmentBusy || !w.ready || Boolean(w.recovery);
+  async function attachFiles(files: File[]) {
+    const result = await preparePrdAttachments(files, w.brief, w.content);
+    w.setBrief(result.brief);
+    w.setContent(result.content);
+    if (result.images) w.setTab("prototype");
+    w.setNotice(
+      result.images
+        ? "原型图已加入工作区，请在原型设计中补充页面与交互说明并确认。"
+        : "附件已加入参考材料，下一次对话和生成会使用这些材料；请在文件菜单保存。",
+    );
+  }
   useEffect(() => {
     setChatKey(new URLSearchParams(window.location.search).get("id") || "new");
   }, []);
   useEffect(() => {
+    if (side !== "agents" && side !== "skills") return;
     let disposed = false;
     prdApi<typeof catalog>("capabilities")
       .then((value) => {
@@ -81,7 +122,7 @@ export default function PrdStudio() {
     return () => {
       disposed = true;
     };
-  }, []);
+  }, [side]);
   useEffect(() => {
     const save = (event: KeyboardEvent) => {
       if ((event.ctrlKey || event.metaKey) && event.key === "s") {
@@ -102,10 +143,6 @@ export default function PrdStudio() {
       ),
     );
   };
-  function view(id: string) {
-    setSide(id);
-    if (["assets", "history"].includes(id)) w.setTab(id as Tab);
-  }
   function insert(value: string) {
     const next = `${w.content}${w.content ? "\n\n" : ""}${value}`;
     if (next.length > 200000)
@@ -116,13 +153,29 @@ export default function PrdStudio() {
     w.setNotice("已插入文档，点击保存后保存到文档库。");
   }
   const run = () => {
-    if (w.content) {
-      setChatMode("revise");
+    if (!w.brief.prototype?.confirmed) {
+      w.setTab("prototype");
+      w.setNotice("请先生成或导入原型，预览并确认后再编写 PRD。");
+      return;
+    }
+    const hasProse = w.content.replace(/!\[[^\]\n]*\]\([^\s)]+\)/g, "").trim();
+    if (hasProse) {
+      w.setTab("document");
       setFocusChat((value) => value + 1);
       w.setNotice("请在右侧说明修改要求，然后提交修订。");
     } else void w.perform(() => w.start("generate"));
   };
   const commands: WorkbenchCommand[] = [
+    {
+      id: "activity-labels",
+      label: showLabels ? "隐藏侧边栏文字" : "显示侧边栏文字",
+      run: toggleLabels,
+    },
+    {
+      id: "skills",
+      label: "查看 Skill 注册清单",
+      run: () => showCapabilities("skills"),
+    },
     {
       id: "new",
       label: "新建 PRD 工作区",
@@ -156,6 +209,7 @@ export default function PrdStudio() {
       run: () => w.download("html"),
       disabled: !w.content,
     },
+    { id: "prototype", label: "原型设计", run: () => w.setTab("prototype") },
     { id: "brief", label: "编辑需求简报", run: () => w.setTab("brief") },
     {
       id: "edit",
@@ -176,21 +230,21 @@ export default function PrdStudio() {
     },
     {
       id: "image",
-      label: "插入配图",
+      label: "导入原型图",
       run: () => imageInput.current?.click(),
       disabled: locked,
     },
     { id: "flow", label: "编辑流程图", run: () => w.setTab("drawing") },
     {
       id: "catalog",
-      label: "查看 Agent / Skill 注册清单",
-      run: () => setSide("capabilities"),
+      label: "查看 Agent 注册清单",
+      run: () => showCapabilities("agents"),
     },
     {
       id: "clarify",
       label: "开始需求澄清",
       run: () => {
-        setChatMode("clarify");
+        w.setTab("brief");
         setFocusChat((value) => value + 1);
       },
     },
@@ -219,8 +273,25 @@ export default function PrdStudio() {
       disabled: !w.active || w.busy,
     },
     { id: "history", label: "版本历史", run: () => w.setTab("history") },
-    { id: "trace", label: "全程追溯", run: () => w.setTab("trace") },
-    { id: "help", label: "使用说明与模型配置", run: () => setSide("settings") },
+    { id: "trace", label: "运行面板与追溯", run: openRun },
+    { id: "files", label: "打开文档库", run: () => w.setTab("files") },
+    {
+      id: "legacy",
+      label: "打开旧版 PRD",
+      run: () => {
+        window.open(
+          w.document ? `/prd?id=${w.document.id}` : "/prd",
+          "_blank",
+          "noopener,noreferrer",
+        );
+      },
+    },
+    { id: "sources", label: "参考材料", run: () => w.setTab("assets") },
+    {
+      id: "help",
+      label: "使用说明与模型配置",
+      run: () => w.setTab("settings"),
+    },
   ];
   const menu = (label: string, ids: string[]) => ({
     label,
@@ -247,56 +318,25 @@ export default function PrdStudio() {
       }
       menus={[
         menu("文件", ["new", "save", "import", "export-md", "export-html"]),
-        menu("编辑", ["brief", "edit", "image", "flow"]),
-        menu("视图", ["split", "history", "trace"]),
-        menu("Agent", ["catalog", "clarify"]),
-        menu("Skill", ["catalog", "flow"]),
-        menu("运行", ["generate", "review", "stop"]),
-        menu("帮助", ["help"]),
+        menu("编辑", ["brief", "prototype", "edit"]),
+        menu("视图", ["split", "activity-labels", "files", "history", "trace"]),
+        menu("运行", ["generate", "review", "stop", "trace"]),
+        menu("帮助", ["help", "legacy"]),
       ]}
-      commands={commands}
-      toolbar={
-        <>
-          <div className={s.identity}>
-            <strong>▤ {w.brief.title || "未命名 PRD"}</strong>
-            <span role="status">● {status}</span>
-          </div>
-          <div className={s.actions}>
-            <Link
-              href={w.document ? `/prd?id=${w.document.id}` : "/prd"}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              旧版 ↗
-            </Link>
-            <button disabled={locked} onClick={() => void w.perform(w.save)}>
-              保存
-            </button>
-            <details className={s.exportMenu}>
-              <summary>⇧ 导出</summary>
-              <button disabled={!w.content} onClick={() => w.download("md")}>
-                Markdown
-              </button>
-              <button disabled={!w.content} onClick={() => w.download("html")}>
-                HTML
-              </button>
-            </details>
-            <button
-              className={s.primary}
-              disabled={locked || !w.configuration?.configured}
-              onClick={run}
-            >
-              ▷ {w.content ? "修订文档" : "运行工作流"}
-            </button>
-          </div>
-        </>
-      }
-      views={views}
+      views={[
+        { id: "workspace", label: "资源", icon: "▤" },
+        { id: "agents", label: "Agent", icon: "◇" },
+        { id: "skills", label: "Skill", icon: "✧" },
+      ]}
+      showActivityLabels={showLabels}
       activeView={side}
-      onView={view}
+      onView={setSide}
+      sidebarFocusToken={sidebarFocus}
       sidebar={
-        side === "capabilities" ? (
+        side === "agents" || side === "skills" ? (
           <CapabilityBrowser
+            key={side}
+            kind={side === "agents" ? "agents" : "skills"}
             {...catalog}
             used={w.job?.steps.flatMap((step) => [
               step.agent_id,
@@ -304,85 +344,63 @@ export default function PrdStudio() {
             ])}
             error={catalogError}
           />
-        ) : side === "settings" ? (
-          <>
-            <PanelHeading>工作区设置</PanelHeading>
-            <div className={s.sidebarContent}>
-              <h3>模型连接</h3>
-              <p>
-                {w.configuration?.configured
-                  ? `已配置：${w.configuration.model}`
-                  : "模型尚未配置"}
-              </p>
-              <p>生成、修订和 AI 澄清使用 API 服务配置的模型。</p>
-              <p>
-                在服务器 .env 设置
-                NEXUS_MODEL_NAME、NEXUS_MODEL_BASE_URL、NEXUS_MODEL_API_KEY，重启
-                API 后刷新页面。
-              </p>
-              <h3>操作说明</h3>
-              <p>简报填写 → AI 澄清 → 应用建议 → 保存 → 生成 → 编辑 / 评审。</p>
-              <p>
-                Ctrl / ⌘ S 保存。侧栏可拖动右下角调整宽度，底部按钮可收起面板。
-              </p>
-              <p>
-                配图支持 PNG、JPG、WebP；文本资料支持 Markdown /
-                TXT。流程图按每行一个节点编辑。
-              </p>
-              <p>未配置图像生成服务，配图可手动导入。AI 不会分析配图像素。</p>
-            </div>
-          </>
         ) : (
           <>
-            <PanelHeading>
-              {side === "files"
-                ? "资源管理器"
-                : side === "history"
-                  ? "版本管理"
-                  : "素材管理"}
-            </PanelHeading>
-            <div className={s.sidebarContent}>
-              {tabs.slice(0, 4).map((tab) => (
-                <button
-                  className={s.file}
-                  key={tab.id}
-                  onClick={() => w.setTab(tab.id as Tab)}
-                >
-                  {tab.icon}{" "}
-                  {tab.id === "document"
-                    ? `${w.brief.title || "未命名 PRD"}.md`
-                    : tab.label}
+            <PanelHeading>项目资源</PanelHeading>
+            <div className={s.projectResources}>
+              <button onClick={() => w.setTab("assets")}>
+                <span>♧ 参考材料</span>
+                <small>{w.brief.sources.length || "添加"}</small>
+              </button>
+              {w.brief.sources.length > 0 && (
+                <ul>
+                  {w.brief.sources.map((source, index) => (
+                    <li key={index} title={source.name}>
+                      S{index + 1} · {source.name || "未命名材料"}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {w.document && (
+                <button onClick={() => w.setTab("history")}>
+                  <span>◴ 版本历史</span>
+                  <small>v{w.document.version}</small>
                 </button>
-              ))}
-              <h3>文档库</h3>
-              <input
-                placeholder="搜索文档"
-                aria-label="搜索文档"
-                value={fileSearch}
-                onChange={(event) => setFileSearch(event.target.value)}
-              />
-              {w.documents
-                .filter((item) =>
-                  item.title.toLowerCase().includes(fileSearch.toLowerCase()),
-                )
-                .map((item) => (
-                  <a
-                    className={s.libraryItem}
-                    key={item.id}
-                    href={`/prd-studio?id=${item.id}`}
-                  >
-                    <strong>{item.title}</strong>
-                    <small>
-                      {item.active_job_id ? "正在处理" : `v${item.version}`} ·{" "}
-                      {new Date(item.updated_at).toLocaleDateString("zh-CN")}
-                    </small>
-                  </a>
-                ))}
-              {!w.documents.length && <p>保存第一份需求后，会出现在这里。</p>}
+              )}
+              <hr />
+              <button onClick={() => w.setTab("files")}>
+                <span>▤ 文档库</span>
+                <small>{w.documents.length}</small>
+              </button>
             </div>
           </>
         )
       }
+      bottomFocusToken={runFocus}
+      bottom={
+        runPanel ? (
+          <PrdRunPanel
+            hasBrief={Boolean(w.brief.title && w.brief.description)}
+            prototypeState={
+              w.brief.prototype?.confirmed
+                ? "confirmed"
+                : w.brief.prototype
+                  ? "draft"
+                  : "none"
+            }
+            job={w.job}
+            documentId={w.document?.id}
+            showThinking={w.showThinking}
+            locked={locked}
+            dirty={w.dirty}
+            onExecute={execute}
+            onClose={() => setRunPanel(false)}
+          />
+        ) : undefined
+      }
+      status={<span role="status">◉ {status}</span>}
+      statusRight={<span>Markdown · 本地工作区</span>}
+      commands={commands}
       assistantFocusToken={focusChat}
       assistant={
         <PrdAssistant
@@ -395,142 +413,43 @@ export default function PrdStudio() {
           showThinking={w.showThinking}
           onThinking={w.setShowThinking}
           job={w.job}
+          onPrototype={(instruction) =>
+            w.perform(() => w.start("prototype", undefined, instruction))
+          }
           onRevise={(instruction) =>
             w.perform(() => w.start("revise", undefined, instruction))
           }
           onNotice={w.setNotice}
           focusToken={focusChat}
-          requestedMode={chatMode}
+          requestedMode={
+            w.tab === "document"
+              ? "revise"
+              : w.tab === "prototype"
+                ? "prototype"
+                : "clarify"
+          }
           documentKey={w.document?.id || chatKey}
+          onUpload={attachFiles}
+          onUploadBusy={setAttachmentBusy}
+          onOpenSources={() => w.setTab("assets")}
+          onOpenDocument={() => w.setTab("prototype")}
         />
-      }
-      bottom={
-        <>
-          <nav className={s.bottomNav}>
-            {[
-              ["tasks", "工作流"],
-              ["output", "输出"],
-              ["issues", `待确认 ${w.missing.length}`],
-            ].map(([id, label]) => (
-              <button
-                key={id}
-                aria-pressed={bottom === id}
-                onClick={() => setBottom(id)}
-              >
-                {label}
-              </button>
-            ))}
-            <button onClick={() => w.setTab("trace")}>追溯 ↗</button>
-            {w.active && (
-              <button
-                disabled={w.busy}
-                onClick={() =>
-                  commands.find((command) => command.id === "stop")?.run()
-                }
-              >
-                停止任务
-              </button>
-            )}
-          </nav>
-          {bottom === "tasks" ? (
-            <div className={s.steps}>
-              {w.job?.steps.length
-                ? w.job.steps.map((step) => (
-                    <div key={step.id}>
-                      <span
-                        className={
-                          step.status === "succeeded" ? s.done : undefined
-                        }
-                      >
-                        {step.status === "succeeded"
-                          ? "✓"
-                          : step.status === "running"
-                            ? "◌"
-                            : "·"}
-                      </span>
-                      <div>
-                        <strong>{step.title}</strong>
-                        <small>
-                          {step.status === "succeeded"
-                            ? "已完成"
-                            : step.status === "running"
-                              ? "运行中"
-                              : step.status === "failed"
-                                ? "失败"
-                                : step.status === "cancelled"
-                                  ? "已停止"
-                                  : "等待"}
-                        </small>
-                      </div>
-                    </div>
-                  ))
-                : ["需求澄清", "需求分析", "撰写 PRD", "独立评审"].map(
-                    (label, index) => (
-                      <div key={label}>
-                        <span>{index + 1}</span>
-                        <div>
-                          <strong>{label}</strong>
-                          <small>
-                            {index
-                              ? "等待"
-                              : w.missing.length
-                                ? "完善需求简报"
-                                : "可以生成草稿"}
-                          </small>
-                        </div>
-                      </div>
-                    ),
-                  )}
-            </div>
-          ) : bottom === "output" ? (
-            <pre className={s.output}>
-              {w.job?.stream?.content ||
-                "尚无任务输出。运行工作流后，这里实时显示阶段内容。"}
-            </pre>
-          ) : (
-            <div className={s.issueLinks}>
-              {w.missing.map((field) => (
-                <button
-                  key={field.key}
-                  onClick={() => {
-                    w.setTab("brief");
-                    setTimeout(
-                      () =>
-                        document.getElementById(`studio-${field.key}`)?.focus(),
-                      0,
-                    );
-                  }}
-                >
-                  {field.title} ↗
-                </button>
-              ))}
-              {!w.missing.length && (
-                <span>信息已填写，仍需确认假设与生成内容。</span>
-              )}
-            </div>
-          )}
-        </>
-      }
-      status={
-        <>
-          <span>◉ {status}</span>
-          <span>{w.missing.length} 项待补充</span>
-        </>
-      }
-      statusRight={
-        <>
-          <span>{w.configuration?.model || "模型未配置"}</span>
-          <span>
-            Token：
-            {(
-              (w.job?.input_tokens || 0) + (w.job?.output_tokens || 0)
-            ).toLocaleString()}
-          </span>
-        </>
       }
     >
       <EditorTabs
-        tabs={tabs}
+        tabs={tabs
+          .filter((tab, index) => index < 3 || tab.id === w.tab)
+          .map((tab) =>
+            tab.id === "document"
+              ? { ...tab, label: `${w.brief.title || "未命名"}.md` }
+              : tab,
+          )}
+        onClose={
+          w.tab === "brief" || w.tab === "document" || w.tab === "prototype"
+            ? undefined
+            : () => w.setTab(w.content ? "document" : "brief")
+        }
+        closableIds={tabs.slice(3).map((tab) => tab.id)}
         value={w.tab}
         onChange={(id) => w.setTab(id as Tab)}
       />
@@ -575,24 +494,88 @@ export default function PrdStudio() {
       {!w.configuration?.configured && w.ready && (
         <div className={s.banner}>
           可以填写、编辑和保存。生成前请配置模型。
-          <button onClick={() => setSide("settings")}>查看配置</button>
+          <button onClick={() => w.setTab("settings")}>查看配置</button>
         </div>
       )}
       <div className={s.viewport}>
-        {!w.active && w.job && (
-          <PrdRecovery
-            job={w.job}
+        {w.tab === "prototype" && (
+          <PrototypeEditor
+            content={w.content}
+            brief={w.brief}
+            onBrief={w.setBrief}
             disabled={locked}
-            dirty={w.dirty}
-            onExecute={execute}
+            onBusy={setAttachmentBusy}
+            onGenerate={(instruction) => {
+              openRun();
+              void w.perform(() =>
+                w.start("prototype", undefined, instruction),
+              );
+            }}
+            onImport={() => imageInput.current?.click()}
           />
+        )}
+        {w.tab === "settings" && (
+          <section className={s.assetEditor}>
+            <h1>使用说明</h1>
+            <p>
+              填写简报 → 设计并确认原型 → 编写 PRD → 编辑或与 AI 修订 →
+              保存与导出。
+            </p>
+            <p>
+              在原型设计中管理页面与截图，正文可插入流程图；参考材料与版本在左侧管理，运行详情集中在底部面板。
+            </p>
+            <p>Ctrl / ⌘ S 保存，Ctrl / ⌘ Shift P 搜索命令。</p>
+            <h2>模型配置</h2>
+            <p>
+              {w.configuration?.configured
+                ? `已配置：${w.configuration.model}`
+                : "尚未配置模型"}
+            </p>
+            <p>
+              在 API 服务环境中设置 NEXUS_MODEL_NAME、NEXUS_MODEL_BASE_URL 和
+              NEXUS_MODEL_API_KEY，重启服务后刷新。使用 .env
+              时需要由启动脚本加载。
+            </p>
+            <p>
+              支持导入原型图、AI
+              生成可点击线框页面、截图入文和顺序流程图。导入图片需要补充交互说明，当前不进行图像识别。
+            </p>
+          </section>
+        )}
+        {w.tab === "files" && (
+          <section className={s.assetEditor}>
+            <h1>文档库</h1>
+            <input
+              placeholder="搜索文档"
+              aria-label="搜索文档"
+              value={fileSearch}
+              onChange={(event) => setFileSearch(event.target.value)}
+            />
+            {w.documents
+              .filter((item) =>
+                item.title.toLowerCase().includes(fileSearch.toLowerCase()),
+              )
+              .map((item) => (
+                <a
+                  className={s.libraryItem}
+                  key={item.id}
+                  href={`/prd-studio?id=${item.id}`}
+                >
+                  <strong>{item.title}</strong>
+                  <small>
+                    {item.active_job_id ? "正在处理" : `v${item.version}`} ·{" "}
+                    {new Date(item.updated_at).toLocaleDateString("zh-CN")}
+                  </small>
+                </a>
+              ))}
+            {!w.documents.length && <p>保存第一份文档后，会出现在这里。</p>}
+          </section>
         )}
         {w.tab === "brief" && (
           <BriefEditor
             brief={w.brief}
             onChange={w.setBrief}
             disabled={locked}
-            onSources={() => w.setTab("assets")}
           />
         )}
         {w.tab === "document" && (
@@ -611,9 +594,9 @@ export default function PrdStudio() {
                 <>
                   <button
                     disabled={locked}
-                    onClick={() => imageInput.current?.click()}
+                    onClick={() => w.setTab("prototype")}
                   >
-                    ▧ 配图
+                    ▧ 原型图
                   </button>
                   <button onClick={() => w.setTab("drawing")}>⌘ 流程图</button>
                   <button
@@ -660,8 +643,8 @@ export default function PrdStudio() {
         )}
         {w.tab === "assets" && (
           <section className={s.assetEditor}>
-            <h1>参考材料与配图</h1>
-            <p>文本材料供模型引用；配图插入正文，随版本保存与导出。</p>
+            <h1>参考材料</h1>
+            <p>添加访谈记录、业务规则等，供编写时引用。</p>
             <div className={s.actions}>
               <button
                 disabled={locked}
@@ -680,18 +663,8 @@ export default function PrdStudio() {
               >
                 粘贴材料
               </button>
-              <button
-                disabled={locked}
-                onClick={() => imageInput.current?.click()}
-              >
-                ▧ 插入配图
-              </button>
-              <button onClick={() => w.setTab("drawing")}>编辑流程图</button>
             </div>
-            <p className={s.muted}>
-              最多 12 份文本材料，合计 50,000 字符。PNG / JPG / WebP
-              会压缩后嵌入正文。
-            </p>
+            <p className={s.muted}>最多 12 份文本材料，合计 50,000 字符。</p>
             {w.brief.sources.map((source, index) => (
               <fieldset key={index} disabled={locked} className={s.sourceCard}>
                 <label>
@@ -835,18 +808,6 @@ export default function PrdStudio() {
             )}
           </section>
         )}
-        {w.tab === "trace" &&
-          (w.document ? (
-            <PrdTrace
-              documentId={w.document.id}
-              refreshKey={`${w.document.revision}:${w.job?.stage}:${w.job?.status}`}
-              disabled={locked}
-              dirty={w.dirty}
-              onExecute={execute}
-            />
-          ) : (
-            <div className={s.empty}>保存文档后可查看全程追溯。</div>
-          ))}
       </div>
       <input
         hidden
@@ -876,14 +837,11 @@ export default function PrdStudio() {
         ref={imageInput}
         type="file"
         accept="image/png,image/jpeg,image/webp"
+        multiple
         onChange={(event) => {
-          const file = event.target.files?.[0];
-          if (file)
-            void w.perform(async () => {
-              const url = await imageToDataUrl(file);
-              insert(`![${file.name.replace(/[\[\]\\\n\r]/g, "_")}](${url})`);
-            });
+          const files = Array.from(event.target.files || []);
           event.target.value = "";
+          if (files.length) void w.perform(() => attachFiles(files));
         }}
       />
     </Workbench>

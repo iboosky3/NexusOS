@@ -196,17 +196,17 @@ def create_prd_router(store: PrdStore, workflow: PrdWorkflow) -> APIRouter:
             raise HTTPException(404, "任务不存在") from exc
 
         async def events():
-            last_sequence = -1
+            last_updated = ""
             heartbeat = 0
             while not await request.is_disconnected():
                 current = store.job(job_id)
-                sequence = int((current.get("stream") or {}).get("sequence", 0))
+                updated = current["updated_at"]
                 terminal = current["status"] in {
                     "succeeded",
                     "failed",
                     "cancelled",
                 }
-                if sequence != last_sequence or terminal:
+                if updated != last_updated or terminal:
                     event = {
                         key: value
                         for key, value in current.items()
@@ -215,7 +215,7 @@ def create_prd_router(store: PrdStore, workflow: PrdWorkflow) -> APIRouter:
                     if terminal:
                         event["recovery"] = store.recovery_info(job_id)
                     yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
-                    last_sequence = sequence
+                    last_updated = updated
                     if terminal:
                         return
                 heartbeat += 1
@@ -249,6 +249,14 @@ def create_prd_router(store: PrdStore, workflow: PrdWorkflow) -> APIRouter:
         document(document_id)
         try:
             return store.timeline(document_id, after=after, limit=limit)
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from exc
+
+    @router.get("/jobs/{job_id}/events")
+    async def job_events(job_id: str, after: int = 0, limit: int = 100) -> dict[str, Any]:
+        await get_job(job_id)
+        try:
+            return store.job_events(job_id, after=after, limit=limit)
         except ValueError as exc:
             raise HTTPException(422, str(exc)) from exc
 

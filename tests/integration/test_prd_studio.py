@@ -139,3 +139,19 @@ class StudioTests(unittest.TestCase):
         self.assertEqual(media.restore(protected, image), image)
         with self.assertRaises(ValueError):
             media.restore("x" * 200001)
+
+    def test_generate_with_prepared_images_retains_images_and_protects_existing_text(self):
+        from nexusos.prd.workflow import PrdWorkflow
+
+        brief = {"title": "排班", "description": "护士长排班"}
+        doc = self.store.create(brief)
+        image = "![配图](data:image/png;base64,YWJjZA==)"
+        doc = self.store.save(doc["id"], doc["revision"], brief, image, "test")
+        job = self.store.start_job(doc["id"], doc["revision"], "generate", "")
+        asyncio.run(PrdWorkflow(ROOT, self.store, self.gateway, "test-model")._run(job["id"]))
+        self.assertEqual(self.store.job(job["id"])["status"], "succeeded")
+        generated = self.store.get(doc["id"])
+        self.assertIn(image, generated["content"])
+        self.assertIn("FR-001", generated["content"])
+        with self.assertRaisesRegex(ValueError, "已有文档"):
+            self.store.start_job(doc["id"], generated["revision"], "generate", "")

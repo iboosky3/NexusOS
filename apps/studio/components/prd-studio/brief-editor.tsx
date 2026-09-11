@@ -31,12 +31,10 @@ export function BriefEditor({
   brief,
   onChange,
   disabled,
-  onSources,
 }: {
   brief: Brief;
   onChange: (brief: Brief) => void;
   disabled: boolean;
-  onSources: () => void;
 }) {
   const complete = fields.filter(
     (field) => field.key !== "template" && brief[field.key].trim(),
@@ -45,7 +43,6 @@ export function BriefEditor({
     <div className={s.brief}>
       <header className={s.briefHeader}>
         <div>
-          <span className={s.documentIcon}>▤</span>
           <div>
             <h1>需求简报</h1>
             <p>填写关键信息，或在右侧与 AI 对话，逐步完善需求。</p>
@@ -56,7 +53,6 @@ export function BriefEditor({
             信息填写 <b>{complete} / 7</b>
           </span>
           <progress value={complete} max={7} />
-          <small>{7 - complete} 项待补充</small>
         </div>
       </header>
       <fieldset disabled={disabled}>
@@ -65,14 +61,6 @@ export function BriefEditor({
             <header>
               <span>{index + 1}</span>
               <h2>{group.title}</h2>
-              <p>{group.hint}</p>
-              <small>
-                {group.keys.every((key) =>
-                  brief[key as keyof Omit<Brief, "sources">].trim(),
-                )
-                  ? "已填写"
-                  : "待填写"}
-              </small>
             </header>
             <div className={s.fields}>
               {fields
@@ -138,16 +126,6 @@ export function BriefEditor({
           />
         </details>
       </fieldset>
-      <button className={s.sourceStrip} onClick={onSources}>
-        <span>♧</span>
-        <strong>附加资料</strong>
-        <span>
-          {brief.sources.length
-            ? `${brief.sources.length} 份来源材料`
-            : "添加访谈、业务规则、参考文档或配图"}
-        </span>
-        <b>＋</b>
-      </button>
     </div>
   );
 }
