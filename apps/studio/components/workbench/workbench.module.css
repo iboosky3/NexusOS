@@ -152,7 +152,7 @@
   width: 240px;
   min-width: 190px;
   max-width: 360px;
-  resize: horizontal;
+  resize: none;
   overflow: auto;
   flex-shrink: 0;
   border-right: 1px solid #dfe6e1;
@@ -162,7 +162,7 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  min-width: 340px;
+  min-width: 320px;
   min-height: 0;
   background: white;
 }
@@ -207,7 +207,7 @@
 }
 .bottom {
   flex-shrink: 0;
-  max-height: 65vh;
+  min-height: 0;
   overflow: auto;
   border-top: 1px solid #dfe6e1;
   background: #f9fbf9;
@@ -412,4 +412,25 @@
 .status {
   font-size: 10px;
   min-height: 24px;
+}
+
+/* Panel dimensions are owned by the workbench, never by the business contents. */
+.sidebar,
+.assistant {
+  min-width: 0;
+  max-width: none;
+  border: 0;
+}
+.editorArea {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+.bottom {
+  border: 0;
+  box-sizing: border-box;
+  overflow: auto;
 }

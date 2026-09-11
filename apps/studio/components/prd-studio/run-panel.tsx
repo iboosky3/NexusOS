@@ -69,6 +69,8 @@ const eventNames: Record<string, string> = {
 };
 
 export function PrdRunPanel({
+  expanded,
+  onToggleExpanded,
   hasBrief,
   prototypeState,
   job,
@@ -79,6 +81,8 @@ export function PrdRunPanel({
   onExecute,
   onClose,
 }: {
+  expanded: boolean;
+  onToggleExpanded: () => void;
   hasBrief: boolean;
   prototypeState: "none" | "draft" | "confirmed";
   job: Job | null;
@@ -96,7 +100,6 @@ export function PrdRunPanel({
   >("overview");
   const [follow, setFollow] = useState(true);
   const [view, setView] = useState<"output" | "events" | "history">("output");
-  const [expanded, setExpanded] = useState(false);
   const [events, setEvents] = useState<Event[]>([]);
   const [error, setError] = useState("");
   useEffect(() => {
@@ -249,10 +252,7 @@ export function PrdRunPanel({
     }
   }
   return (
-    <section
-      className={`${s.panel} ${expanded ? s.expanded : ""}`}
-      aria-label="运行工作区"
-    >
+    <section className={s.panel} aria-label="运行工作区">
       <header className={s.header}>
         <strong>运行</strong>
         <span role="status">
@@ -263,7 +263,7 @@ export function PrdRunPanel({
         <button aria-pressed={follow} onClick={() => setFollow(!follow)}>
           跟随进度
         </button>
-        <button onClick={() => setExpanded(!expanded)}>
+        <button onClick={onToggleExpanded}>
           {expanded ? "还原高度" : "展开面板"}
         </button>
         <button aria-label="收起运行面板" onClick={onClose}>

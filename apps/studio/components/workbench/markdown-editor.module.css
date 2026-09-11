@@ -31,13 +31,13 @@
   font:
     13px/1.9 ui-monospace,
     monospace;
-  resize: vertical;
+  resize: none;
   color: #35583e;
   background: #fcfdfb;
 }
 .split {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  align-items: stretch;
 }
 .split > * {
   min-width: 0;
@@ -48,9 +48,4 @@
 }
 .document img {
   max-width: 100%;
-}
-@media (max-width: 950px) {
-  .split {
-    grid-template-columns: 1fr;
-  }
 }

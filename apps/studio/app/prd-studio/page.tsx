@@ -378,25 +378,29 @@ export default function PrdStudio() {
       }
       bottomFocusToken={runFocus}
       bottom={
-        runPanel ? (
-          <PrdRunPanel
-            hasBrief={Boolean(w.brief.title && w.brief.description)}
-            prototypeState={
-              w.brief.prototype?.confirmed
-                ? "confirmed"
-                : w.brief.prototype
-                  ? "draft"
-                  : "none"
-            }
-            job={w.job}
-            documentId={w.document?.id}
-            showThinking={w.showThinking}
-            locked={locked}
-            dirty={w.dirty}
-            onExecute={execute}
-            onClose={() => setRunPanel(false)}
-          />
-        ) : undefined
+        runPanel
+          ? ({ expanded, toggleExpanded }) => (
+              <PrdRunPanel
+                expanded={expanded}
+                onToggleExpanded={toggleExpanded}
+                hasBrief={Boolean(w.brief.title && w.brief.description)}
+                prototypeState={
+                  w.brief.prototype?.confirmed
+                    ? "confirmed"
+                    : w.brief.prototype
+                      ? "draft"
+                      : "none"
+                }
+                job={w.job}
+                documentId={w.document?.id}
+                showThinking={w.showThinking}
+                locked={locked}
+                dirty={w.dirty}
+                onExecute={execute}
+                onClose={() => setRunPanel(false)}
+              />
+            )
+          : undefined
       }
       status={<span role="status">◉ {status}</span>}
       statusRight={<span>Markdown · 本地工作区</span>}

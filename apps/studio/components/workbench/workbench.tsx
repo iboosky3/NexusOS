@@ -1,7 +1,14 @@
 "use client";
 
-import { ReactNode, useEffect, useRef, useState } from "react";
+import { ReactNode, useEffect, useId, useRef, useState } from "react";
+import { PanelSplitter } from "./panel-splitter";
+import { usePanelLayout } from "./use-panel-layout";
 import styles from "./workbench.module.css";
+
+export interface WorkbenchPanelControls {
+  expanded: boolean;
+  toggleExpanded: () => void;
+}
 
 export interface WorkbenchCommand {
   id: string;
@@ -35,6 +42,7 @@ export function Workbench({
   status,
   statusRight,
   showActivityLabels = true,
+  layoutStorageKey = "nexus-workbench:layout:v1",
 }: {
   title: string;
   home: ReactNode;
@@ -50,10 +58,11 @@ export function Workbench({
   assistantFocusToken?: number;
   sidebarFocusToken?: number;
   bottomFocusToken?: number;
-  bottom?: ReactNode;
+  bottom?: ReactNode | ((controls: WorkbenchPanelControls) => ReactNode);
   status?: ReactNode;
   statusRight?: ReactNode;
   showActivityLabels?: boolean;
+  layoutStorageKey?: string;
 }) {
   const [menu, setMenu] = useState<string | null>(null);
   const [search, setSearch] = useState("");
@@ -61,7 +70,16 @@ export function Workbench({
   const [left, setLeft] = useState(true);
   const [right, setRight] = useState(true);
   const [panel, setPanel] = useState(true);
-  useEffect(() => { if (bottomFocusToken) setPanel(true); }, [bottomFocusToken]);
+  const regionId = useId();
+  const layout = usePanelLayout({
+    storageKey: layoutStorageKey,
+    leftVisible: left && Boolean(sidebar),
+    rightVisible: right && Boolean(assistant),
+    railWidth: views.length ? (showActivityLabels ? 52 : 42) : 0,
+  });
+  useEffect(() => {
+    if (bottomFocusToken) setPanel(true);
+  }, [bottomFocusToken]);
   useEffect(() => {
     if (sidebarFocusToken) setLeft(true);
   }, [sidebarFocusToken]);
@@ -147,12 +165,12 @@ export function Workbench({
             aria-label="打开命令搜索"
             onClick={() => setPalette(true)}
           >
-            ⌕ <span>搜索命令… Ctrl/⌘ ⇧ P</span>
+            ⌕ <span>搜索命令…</span>
           </button>
         )}
       </header>
       {toolbar && <div className={styles.toolbar}>{toolbar}</div>}
-      <div className={styles.body}>
+      <div ref={layout.body} className={styles.body}>
         {views.length > 0 && (
           <nav
             className={`${styles.activity} ${showActivityLabels ? "" : styles.iconsOnly}`}
@@ -178,17 +196,77 @@ export function Workbench({
             ))}
           </nav>
         )}
-        {left && sidebar && <aside className={styles.sidebar}>{sidebar}</aside>}
+        {left && sidebar && (
+          <>
+            <aside
+              id={`${regionId}-left`}
+              aria-label="工作台侧栏"
+              className={styles.sidebar}
+              style={{ width: layout.left }}
+            >
+              {sidebar}
+            </aside>
+            <PanelSplitter
+              label="调整侧栏宽度"
+              orientation="vertical"
+              value={layout.left}
+              min={160}
+              max={layout.leftMax}
+              onChange={(value) => layout.set("left", value)}
+              onReset={() => layout.reset("left")}
+              controls={`${regionId}-left`}
+            />
+          </>
+        )}
         <main className={styles.center}>
-          {children}
+          <div className={styles.editorArea}>{children}</div>
           {panel && bottom && (
-            <section className={styles.bottom}>{bottom}</section>
+            <>
+              <PanelSplitter
+                label="调整运行面板高度"
+                orientation="horizontal"
+                value={layout.bottom}
+                min={Math.min(160, layout.bottomMax)}
+                max={layout.bottomMax}
+                direction={-1}
+                onChange={(value) => layout.set("bottom", value)}
+                onReset={() => layout.reset("bottom")}
+                controls={`${regionId}-bottom`}
+              />
+              <section
+                id={`${regionId}-bottom`}
+                className={styles.bottom}
+                style={{ height: layout.bottom }}
+              >
+                {typeof bottom === "function"
+                  ? bottom({
+                      expanded: layout.expanded,
+                      toggleExpanded: layout.toggleExpanded,
+                    })
+                  : bottom}
+              </section>
+            </>
           )}
         </main>
+        {assistant && right && (
+          <PanelSplitter
+            label="调整 AI 对话宽度"
+            orientation="vertical"
+            value={layout.right}
+            min={240}
+            max={layout.rightMax}
+            direction={-1}
+            onChange={(value) => layout.set("right", value)}
+            onReset={() => layout.reset("right")}
+            controls={`${regionId}-right`}
+          />
+        )}
         {assistant && (
           <aside
+            id={`${regionId}-right`}
+            aria-label="AI 对话面板"
             className={styles.assistant}
-            style={right ? undefined : { display: "none" }}
+            style={right ? { width: layout.right } : { display: "none" }}
             aria-hidden={!right}
           >
             {assistant}

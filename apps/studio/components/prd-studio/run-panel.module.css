@@ -1,12 +1,9 @@
 .panel {
-  height: 370px;
+  height: 100%;
   display: flex;
   flex-direction: column;
-  min-height: 160px;
+  min-height: 0;
   font-size: 12px;
-}
-.expanded {
-  height: 55vh;
 }
 .header {
   display: flex;
