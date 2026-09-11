@@ -75,6 +75,7 @@ class AssistantReply(StrictModel):
 
 
 class StartJob(StrictModel):
+    planning_mode: Literal["controlled_dynamic"] = "controlled_dynamic"
     expected_revision: int = Field(ge=1)
     action: Literal["generate", "revise", "review", "prototype"] = "generate"
     instruction: str = Field(default="", max_length=8000)

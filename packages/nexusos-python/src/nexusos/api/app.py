@@ -105,6 +105,9 @@ def create_app(
     except ImportError as exc:
         raise RuntimeError("install nexusos with the 'api' extra to run the HTTP service") from exc
 
+    from nexusos.planning.api import create_planning_router
+    from nexusos.planning.service import PlanningService
+    from nexusos.planning.store import PlanningStore
     from nexusos.prd.api import create_prd_router
     from nexusos.prd.store import PrdStore
     from nexusos.prd.workflow import PrdWorkflow
@@ -113,13 +116,18 @@ def create_app(
         os.getenv("NEXUS_PRD_DATABASE", str(Path(root) / "data/prd.sqlite3"))
     )
     workflow = PrdWorkflow(Path(root), documents, model_gateway, model_name)
+    planning = PlanningService(
+        Path(root), PlanningStore(documents.path), workflow.gateway, workflow.model
+    )
 
     @asynccontextmanager
     async def lifespan(app: Any):
         documents.recover()
+        planning.store.recover()
         try:
             yield
         finally:
+            await planning.close()
             await workflow.close()
 
     app = FastAPI(
@@ -129,6 +137,7 @@ def create_app(
         lifespan=lifespan,
     )
     app.include_router(create_prd_router(documents, workflow))
+    app.include_router(create_planning_router(planning))
     store = run_store or InMemoryRunReadStore()
     repository_root = Path(root)
     checks = readiness_checks or {

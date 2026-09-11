@@ -401,6 +401,7 @@ export function usePrdStudio() {
     const current = await prdApi<Job>(`documents/${item.id}/jobs`, "POST", {
       expected_revision: item.revision,
       action,
+      planning_mode: "controlled_dynamic",
       instruction: retryInstruction ?? instruction,
       show_thinking: showThinking,
       retry_of_job_id: retryOf || null,

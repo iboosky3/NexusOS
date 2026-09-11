@@ -6,7 +6,7 @@ NexusOS 采用“按负载特征选择语言”的多语言架构，不为展示
 
 | 模块 | 主要语言 | 原因 |
 | --- | --- | --- |
-| Planner、Agent 逻辑、LangGraph Runtime | Python | AI 生态、建模与实验效率 |
+| Intent Service、AI/受控 Planner、Plan Validator、Agent 逻辑、LangGraph Runtime | Python | AI 生态、领域建模、确定性校验与实验效率 |
 | Task Runtime、Scheduler | Go | 轻量并发、稳定部署与网络服务 |
 | MCP Gateway | Go | 多连接 IO、超时、限流和策略执行 |
 | Skill Router | Rust | 低延迟排序、批量计算与内存安全 |
@@ -30,7 +30,7 @@ Python 模块化单体仍是功能参考实现。Go 与 Rust 服务通过版本�
 
 ## 3. 数据所有权
 
-- Python Orchestrator 拥有任务计划与业务运行状态。
+- Python 智能平面拥有 Intent 决策、AI/受控计划提案、确定性校验、不可变计划版本与业务运行状态。
 - Go Runtime 拥有执行租约、队列消费与尝试记录，不拥有业务目标。
 - Rust Router 只接收轻量候选元数据并返回排序解释，不加载 Skill 正文。
 - MCP Gateway 拥有连接池和调用审计，不决定 Agent 是否有业务权限。

@@ -4,6 +4,8 @@
 
 > **纽带系统核心思想：以用户任务为中心，由 AI 分析需求，按需组装已注册的能力与界面组件。只显示当前任务需要的组件，同一功能保留一个主要入口，不重复铺设、不硬占位。** 该原则约束所有现有及后续工具的设计；详见[设计约束与实现边界](docs/development/studio-workbench.md)。
 
+核心演进方向是 **Intent-to-DAG**：面对任意已注册能力能够承接的任务，AI 识别意图并提出非模板化 Task DAG，NexusOS 在执行前完成无环、能力、权限、风险和预算校验，再冻结计划并调度。PRD 默认并长期保留“任务驱动的受控动态流程”。首页输入目标后进入 `/orchestrate`，自动识别意图、检索 Agent/Skill 并编排；用户调整并确认后进入 `/workspace`，使用筛选后的能力与通用软件式工作台执行文本 DAG；外部工具、审批和累计成本硬预算待实现，详见 [ADR-0006](docs/adr/0006-ai-planned-task-graphs.md) 与[实施设计](docs/development/ai-dag-planning.md#当前状态)。
+
 当前版本：**v0.1.0 参考基线**。这是可重复验证的工程参考实现，不代表已经达到生产可用标准。
 
 NexusOS 解决的不是“再做一个聊天机器人”，而是当系统拥有大量 Agent、Skill、模型和外部工具时，如何只选择当前真正需要的能力，在有限 Token 预算内规划、执行、评审并解释完整过程。
@@ -18,7 +20,7 @@ NexusOS 解决的不是“再做一个聊天机器人”，而是当系统拥有
 
 | 模块 | 当前状态 | 已有证据 |
 | --- | --- | --- |
-| Python 参考内核 | 可运行 | Planner、DAG、动态 Agent、Skill 路由、上下文预算、Memory、重规划和 PRD 端到端测试 |
+| Python 参考内核 | 可运行 | 受控 PRD Planner、DAG 校验/执行、动态 Agent、Skill 路由、上下文预算、Memory、重规划和端到端测试；另有文本 AI Planner 实验入口 |
 | HTTP API | 可运行 | FastAPI Liveness/Readiness、运行创建、列表和详情真实请求测试 |
 | Skill Intelligence | 可运行参考实现 | 7 个版本化 Skill、可解释混合排序、路由回归与 10,000 Skill 合成规模工具 |
 | Model Gateway | 可运行参考实现 | 统一用量、错误分类、受数据分类约束的有界降级 |

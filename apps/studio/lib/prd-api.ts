@@ -52,6 +52,7 @@ export interface DocumentSummary {
   active_job_id: string | null;
 }
 export interface Job {
+  planning_mode?: "controlled_dynamic";
   action: "generate" | "revise" | "review" | "prototype";
   instruction: string;
   show_thinking: boolean;

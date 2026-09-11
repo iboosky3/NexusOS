@@ -4,6 +4,8 @@
 
 运行可靠性专题按[关键运行问题台账](../development/critical-runtime-backlog.md)逐项实施，覆盖长任务、记忆、恢复、重试、追溯、并发、异步、限流、任务池、调度和优先级。当前优先项 RT-001 已实现个人 PRD 工作区的全程追溯；其余以台账验收条件为准。
 
+跨应用最高优先级能力是 [Intent-to-DAG](../development/ai-dag-planning.md)：AI 面向任意已注册能力可承接的任务提出 DAG，经确定性校验、策略授权和版本冻结后执行。PRD 的 `controlled_dynamic` 与通用 `ai_dynamic` 是长期并存的产品模式，不是从固定流程一次性迁移后删除旧模式。
+
 ## M0 · 参考内核（已完成）
 
 - Contract-first 核心模型与端口；
@@ -20,13 +22,16 @@
 
 ## M2 · 可恢复运行与互操作（进行中）
 
+- 定义 PlanningMode、IntentDecision、PlanProposal、PlanVersion 与验证问题契约；
+- 实现通用 Intent Service、Model Planner、DAG/能力/预算/Policy 预检和计划版本 Trace；
+- Studio 提供模式选择与计划预览，PRD 默认并保留 `controlled_dynamic`；
 - Go Runtime 并发、超时、重试和幂等；
 - LangGraph 适配边界；
 - MCP Gateway 核心策略；
 - A2A 生命周期；
 - 运行投影、Studio 与统一遥测。
 
-完成门：首次多语言 CI 全绿、Python 到 Go 远程任务契约测试、真实 MCP/A2A 互操作、进程重启后的 Run 恢复。
+完成门：四类真实任务的 AI DAG 评测通过，非法/越权提案在零副作用前拒绝，PRD 受控模式回归通过；首次多语言 CI 全绿、Python 到 Go 远程任务契约测试、真实 MCP/A2A 互操作、进程重启后的 Run 恢复。
 
 ## M3 · 单机 VM 集成（待验证）
 

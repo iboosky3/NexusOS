@@ -178,6 +178,7 @@ def create_prd_router(store: PrdStore, workflow: PrdWorkflow) -> APIRouter:
                 payload.retry_of_job_id,
                 payload.resume_of_job_id,
                 payload.show_thinking,
+                payload.planning_mode,
             )
         except ConflictError as exc:
             raise HTTPException(409, str(exc)) from exc

@@ -5,7 +5,8 @@
 | 容器 | 职责 | 当前实现 |
 | --- | --- | --- |
 | Nexus API | 身份上下文、请求校验、运行查询与产物链接 | Python/FastAPI 可选适配器 |
-| Orchestrator | Goal、Task DAG、Agent/Skill 选择、上下文与评审 | Python 参考内核 |
+| Intent / Planner | 意图识别、AI 或受控计划提案、DAG 校验与计划版本 | AI Planner 待实现；受控 PRD Planner 与 DAG 内核已实现 |
+| Orchestrator | 冻结 Task DAG、Agent/Skill 选择、上下文与评审 | Python 参考内核 |
 | Task Runtime | 执行租约、有界并发、超时、重试、幂等 | Go 核心实现 |
 | Skill Router | RRF、策略过滤、加权排序、预算选择 | Python 参考实现与 Rust 内核 |
 | MCP Gateway | Tool 发现、权限、风险、幂等与审计 | Go 核心实现 |
@@ -19,7 +20,8 @@
 ```mermaid
 flowchart TB
     Client["CLI / HTTP"] --> API["Nexus API"]
-    API --> Core["进程内 Orchestrator + Runtime + Router"]
+    API --> Plan["Intent + Planner + Validator"]
+    Plan --> Core["进程内 Orchestrator + Runtime + Router"]
     Core --> PG["PostgreSQL"]
     Core --> Redis["Redis"]
     Core --> Qdrant["Qdrant"]
@@ -35,7 +37,9 @@ flowchart TB
 ```mermaid
 flowchart TB
     Ingress["Ingress"] --> API["Nexus API"]
-    API --> Workflow["Temporal Workflow"]
+    API --> Planner["Intent + AI/Controlled Planner"]
+    Planner --> Validate["Plan Validator + Policy"]
+    Validate --> Workflow["Temporal Workflow"]
     Workflow --> Orch["Python Orchestrator Worker"]
     Orch --> Runtime["Go Task Runtime"]
     Orch --> Router["Rust Skill Router"]

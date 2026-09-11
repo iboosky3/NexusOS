@@ -277,6 +277,7 @@ class PrdWorkflow:
                 "generation_strategy": "sectioned-with-continuation",
                 "maximum_continuations_per_stage": 2,
                 "workflow_version": "prd-authoring/v3-checkpointed",
+                "planning_mode": job.get("planning_mode", "controlled_dynamic"),
                 "checkpoint_backend": "AsyncSqliteSaver + transactional stage checkpoints",
                 "implementation_hash": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
                 "stage_order": stage_order,

@@ -35,6 +35,7 @@ nav:
       - 多语言服务边界: adr/0003-polyglot-boundaries.md
       - MCP 与 A2A 分离: adr/0004-protocol-separation.md
       - 服务端策略: adr/0005-server-side-policy.md
+      - AI 自主规划与受控流程: adr/0006-ai-planned-task-graphs.md
   - 核心概念:
       - Agent 与动态发现: concepts/agent.md
       - Skill 与渐进加载: concepts/skill.md
@@ -75,6 +76,7 @@ nav:
   - 开发记录:
       - Studio 工作台组件: development/studio-workbench.md
       - 工作台插件与原型设计: development/studio-extensions.md
+      - AI 自主任务规划: development/ai-dag-planning.md
       - 关键运行问题台账: development/critical-runtime-backlog.md
       - RT-001 全程追溯: development/runtime-issues/001-end-to-end-tracing.md
       - 检查点恢复: development/runtime-issues/003-checkpoint-recovery.md

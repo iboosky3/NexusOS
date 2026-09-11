@@ -14,7 +14,7 @@ function IconOption({ type, label }: { type: "firefly"; label: string }) {
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  if (pathname === "/prd-studio") return <>{children}</>;
+  if (pathname === "/prd-studio" || pathname === "/workspace") return <>{children}</>;
   return (
     <div className="app-shell">
       <header className="topbar">

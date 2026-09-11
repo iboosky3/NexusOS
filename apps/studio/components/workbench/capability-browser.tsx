@@ -19,12 +19,14 @@ export function CapabilityBrowser({
   used = [],
   error,
   kind,
+  scoped = false,
 }: {
   agents: Capability[];
   skills: Capability[];
   used?: string[];
   error?: string;
   kind?: "agents" | "skills";
+  scoped?: boolean;
 }) {
   const [search, setSearch] = useState("");
   return (
@@ -94,7 +96,7 @@ export function CapabilityBrowser({
                       {item.id} · v{item.version}
                     </small>
                     <p>能力：{item.capabilities.join("、")}</p>
-                    {(item.required_tools || item.allowed_tools)?.length ? (
+                    {!scoped && (item.required_tools || item.allowed_tools)?.length ? (
                       <small>
                         工具：
                         {(item.required_tools || item.allowed_tools)?.join(
@@ -107,7 +109,7 @@ export function CapabilityBrowser({
             </details>
           ))}
         <p style={{ color: "#7a877f", fontSize: 11 }}>
-          工作流按阶段自动选择能力。列表来自服务端注册清单。
+          {scoped ? "仅展示本任务已确认的能力；调整编排并重新确认后生成新的工作台。" : "工作流按阶段自动选择能力。列表来自服务端注册清单。"}
         </p>
       </div>
     </>

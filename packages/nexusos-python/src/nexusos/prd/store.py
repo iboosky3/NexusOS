@@ -209,7 +209,10 @@ class PrdStore:
         retry_of_job_id: str | None = None,
         resume_of_job_id: str | None = None,
         show_thinking: bool = False,
+        planning_mode: str = "controlled_dynamic",
     ) -> dict[str, Any]:
+        if planning_mode != "controlled_dynamic":
+            raise ValueError("PRD 当前仅支持任务驱动的受控动态流程")
         with self.connection() as db:
             item = self._get(db, "prd_documents", document_id)
             self._check(item, revision)
@@ -254,6 +257,7 @@ class PrdStore:
                 "action": action,
                 "instruction": instruction,
                 "show_thinking": show_thinking,
+                "planning_mode": planning_mode,
                 "status": "queued",
                 "stage": "等待执行",
                 "steps": [],
@@ -295,6 +299,7 @@ class PrdStore:
                     "action": action,
                     "instruction": instruction,
                     "show_thinking": show_thinking,
+                    "planning_mode": planning_mode,
                     "input_hash": job["input_hash"],
                     "input": get_object(db, job["input_hash"]),
                     "retry_of_job_id": retry_of_job_id,

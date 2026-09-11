@@ -1,6 +1,6 @@
 # Go Task Runtime
 
-Go Runtime 是 Python Orchestrator 的可选远程执行服务，负责有界并发、超时、任务尝试和幂等去重。业务 DAG、Agent 选择和 Skill 内容仍由智能平面管理。
+Go Runtime 是 Python Orchestrator 的可选远程执行服务，负责有界并发、超时、任务尝试和幂等去重。业务 DAG、Agent 选择和 Skill 内容仍由智能平面管理。无论 DAG 来自 `ai_dynamic` 还是 `controlled_dynamic`，Go Runtime 只接收已经校验、授权和冻结的计划任务；它不执行 AI 原始提案，也不允许任务在运行时扩大依赖或权限。
 
 ## 运行语义
 

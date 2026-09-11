@@ -587,6 +587,13 @@ export default function PrdStudio() {
         {w.tab === "settings" && (
           <section className={s.assetEditor}>
             <h1>使用说明</h1>
+            <label>规划模式
+              <select aria-label="PRD 规划模式" value="controlled_dynamic" onChange={() => {}}>
+                <option value="controlled_dynamic">任务驱动的受控动态流程（默认）</option>
+                <option value="ai_dynamic" disabled>AI 自主规划 DAG（PRD 接入待验收）</option>
+              </select>
+            </label>
+            <p>PRD 按任务选择阶段并保留写作与评审流程。<Link href="/">从首页描述目标，组装任务工作台</Link></p>
             <p>
               填写简报 → 编写 PRD（可选原型设计） → 编辑或与 AI 修订 →
               保存与导出。
