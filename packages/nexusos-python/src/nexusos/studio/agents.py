@@ -58,6 +58,8 @@ class InvocationService:
                     parent["status"] not in {"failed", "cancelled", "interrupted"}
                     or parent["request"]["resourceId"] != resource["id"]
                     or parent["request"]["capabilityId"] != request["capabilityId"]
+                    or parent["request"].get("input", {}) != request.get("input", {})
+                    or parent["request"]["instruction"] != request["instruction"]
                 ):
                     raise ConflictError("INVALID_RETRY")
             self.store.check_revision(resource, request["revision"])
@@ -102,25 +104,29 @@ class InvocationService:
                 self.event_in(db, item, "running", {})
             resource = item["snapshot"]
             plugin = plugin_for(resource["resourceType"])
-            read_only = plugin.read_only(item["request"]["capabilityId"])
+            action = plugin.action(item["request"]["capabilityId"])
+            if action.version != item["execution"]["capabilityVersion"]:
+                raise ValueError("CAPABILITY_VERSION_UNAVAILABLE")
+            read_only = action.read_only
             response = await asyncio.wait_for(self.execution.execute(item), timeout=180)
             raw = response.content.strip()
             if raw.startswith("```") and raw.endswith("```"):
                 raw = raw.split("\n", 1)[1].rsplit("```", 1)[0]
             value = json.loads(raw)
+            if action.output_model:
+                value = action.output_model.model_validate(value).model_dump()
             if read_only:
-                if (
-                    not isinstance(value, dict)
-                    or set(value) != {"answer"}
-                    or not isinstance(value.get("answer"), str)
-                    or not value["answer"].strip()
-                    or len(value["answer"]) > 20000
-                ):
-                    raise ValueError("无效的分析结果")
-                result = {"answer": value["answer"][:20000]}
+                result = value
             else:
-                value = plugin.proposal(value, resource["payload"])
-                result = {"payload": value, "digest": digest(value)}
+                inputs = action.validate_input(item["request"].get("input", {}))
+                payload = (
+                    plugin.validate(action.propose(value, resource["payload"], inputs))
+                    if action.propose
+                    else plugin.proposal(value, resource["payload"])
+                )
+                result = {"payload": payload, "digest": digest(payload)}
+                if action.output_model and "answer" in value:
+                    result["answer"] = value["answer"]
             with self.store.documents.connection() as db:
                 current = self.store.get_in(db, workspace, identifier, "invocation")
                 if current["status"] != "running":
@@ -180,6 +186,8 @@ class InvocationService:
             item = self.store.get_in(db, workspace, identifier, "invocation")
             self.store.require_plugin(db, workspace, item["pluginId"])
             if not item["result"] or item["result"].get("digest") != approval_digest:
+                raise ConflictError("APPROVAL_STALE")
+            if digest(item["result"].get("payload")) != approval_digest:
                 raise ConflictError("APPROVAL_STALE")
             if item["appliedRevision"]:
                 return item

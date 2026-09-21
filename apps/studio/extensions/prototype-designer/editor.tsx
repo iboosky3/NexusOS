@@ -165,6 +165,11 @@ function SourceEditor({
         ![390, 960].includes(parsed.width) || !Array.isArray(parsed.content))
         throw new Error("代码必须保留 engine、version、width 和 content 字段");
       validateDesign(parsed);
+      // Applying remounts Puck. Clear the consumed draft before its child is unmounted.
+      if (draftStorageKey) {
+        try { sessionStorage.removeItem(draftStorageKey); }
+        catch { throw new Error("代码草稿存储不可用，请复制代码后重试。"); }
+      }
       setDirty(false);
       setError("");
       onApply(parsed);
@@ -228,6 +233,14 @@ export default function Designer({
   useEffect(() => {
     if (!disabled && !page.design) onChangeRef.current(initial);
   }, [disabled, initial, page.design]);
+  // Approved server proposals update the resource without changing its page ID.
+  useEffect(() => {
+    if (!page.design || JSON.stringify(page.design) === JSON.stringify(latest.current)) return;
+    latest.current = page.design;
+    setData(page.design);
+    setWidth(page.design.width);
+    setRevision((value) => value + 1);
+  }, [page.design]);
   const pageOptions = JSON.stringify(pages.map(({ id, title }) => ({ id, title })));
   const config = useMemo(() => designerConfig(JSON.parse(pageOptions)), [pageOptions]);
   const publish = useCallback((next: PrototypeDesign, remount = false) => {

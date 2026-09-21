@@ -29,7 +29,7 @@ export interface StudioPlugin {
   schemaVersion: 1; hostApiVersion: "1"; dependencies: readonly string[];
   commands: readonly { id: string; label: string; menu: "file" | "view" | "editor.toolbar" | "resource.context"; validate(args: unknown): void }[];
   id: string; name: string; resourceType: string; icon: string;
-  capabilities: { id: string; label: string }[];
+  capabilities: { id: string; label: string; prepareInput?(selection: unknown): ResourcePayload }[];
   agent?: AgentProfile;
   acceptsArtifacts?: string[];
   initialPayload(): ResourcePayload;

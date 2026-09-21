@@ -56,6 +56,7 @@ class Invocation(StrictModel):
     instruction: str = Field(min_length=1, max_length=12000)
     clientRequestId: str = Field(min_length=1, max_length=200)
     retryOf: str | None = None
+    input: dict[str, Any] = Field(default_factory=dict)
 
 
 class Publish(StrictModel):

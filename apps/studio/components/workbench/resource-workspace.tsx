@@ -16,7 +16,7 @@ import s from "./resource-workspace.module.css";
 
 type Workspace = { id: string; title: string; revision: number; plugins: string[]; layouts: Record<string, unknown> };
 type Session = { base: StudioResource; payload: ResourcePayload };
-type Invocation = { id: string; status: string; error: string | null; request: { resourceId: string; revision: number; capabilityId: string; instruction: string }; result?: { answer?: string; payload?: ResourcePayload; digest?: string } };
+type Invocation = { id: string; status: string; error: string | null; request: { resourceId: string; revision: number; capabilityId: string; instruction: string; input?: ResourcePayload }; result?: { answer?: string; payload?: ResourcePayload; digest?: string } };
 type Artifact = { id: string; artifactType: string; sourceResourceId: string; sourceRevision: number; digest: string; payload: { pages: unknown[] } };
 type Handoff = { id: string; targetId: string; status: string; proposal: ResourcePayload; proposalDigest: string; artifactDigest: string; expectedRevision: number };
 const editors = new Map(studioPlugins.map((plugin) => [plugin.id, dynamic(plugin.load, { ssr: false, loading: () => <p>正在加载编辑器…</p> })]));
@@ -213,10 +213,15 @@ export function ResourceWorkspace() {
   async function invoke(retry?: Invocation) {
     const current = retry ? sessions[retry.request.resourceId] : active;
     if (!current) throw new Error("请先选择资源");
+    const definition = owner(current.base);
+    const actionId = retry?.request.capabilityId || capability || definition?.capabilities[0]?.id;
+    const action = definition?.capabilities.find((item) => item.id === actionId);
+    if (!action) throw new Error("此资源没有可用的 Agent 能力");
+    const input = retry ? retry.request.input || {} : action.prepareInput?.(selection) || {};
     const saved = dirty(current) ? await save(current.base.id) : current.base;
     if (dirty(sessionsRef.current[saved.id])) throw new Error("仍有新编辑未保存，请保存当前内容后再发送。");
     await api("/invocations", "POST", { resourceId: saved.id, revision: saved.revision,
-      capabilityId: retry?.request.capabilityId || capability || plugin?.capabilities[0]?.id,
+      capabilityId: action.id, input,
       instruction: retry?.request.instruction || instruction, clientRequestId: createComponentId(), retryOf: retry?.id || null });
     setInstruction(""); await refresh(workspace!.id);
   }
@@ -273,6 +278,8 @@ export function ResourceWorkspace() {
           })}>确认并应用</button>}
         </section>)}
       </> : side === "tasks" ? invocations.slice().reverse().map((task) => <section key={task.id}><strong>{task.status}</strong><p>{task.request.instruction}</p><p>{task.error}</p>
+        <p>资源 r{task.request.revision} · {task.request.capabilityId}</p>
+        {task.request.input && Object.keys(task.request.input).length > 0 && <details><summary>本次调用范围</summary><pre>{JSON.stringify(task.request.input, null, 2)}</pre></details>}
         {task.result?.answer && <p>{task.result.answer}</p>}
         {task.result?.payload && <details><summary>查看修改提案</summary><pre>{JSON.stringify(task.result.payload, null, 2)}</pre></details>}
         {task.status === "waiting_confirmation" && <button disabled={busy || Boolean(sessions[task.request.resourceId] && dirty(sessions[task.request.resourceId]))} onClick={() => void perform(async () => {

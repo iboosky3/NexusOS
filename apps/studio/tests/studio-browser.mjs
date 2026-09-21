@@ -35,6 +35,18 @@ try {
   assert.equal(await editor.inputValue(), "# 尚未保存的浏览器草稿");
   await apply.click();
   await page.waitForFunction(() => document.querySelector('textarea[aria-label="PRD 正文"]')?.value.includes("Agent 草稿"));
+  // Clarification changes only the brief, and only after approval.
+  const originalContent = await editor.inputValue();
+  await page.getByRole("button", { name: "需求简报", exact: true }).click();
+  await page.getByRole("combobox", { name: "Agent 能力" }).selectOption("clarify");
+  await page.getByRole("textbox", { name: "给 Agent 的指令" }).fill("澄清目标用户");
+  await page.getByRole("button", { name: "发送（保存上下文并生成提案）" }).click();
+  await page.getByRole("button", { name: "应用到原资源 r4" }).waitFor();
+  assert.equal(await page.locator("#studio-audience").inputValue(), "");
+  await page.getByRole("button", { name: "应用到原资源 r4" }).click();
+  await page.waitForFunction(() => document.querySelector("#studio-audience")?.value === "设计师与产品经理");
+  assert.equal(await editor.inputValue(), originalContent);
+  await page.getByRole("button", { name: "收起需求简报", exact: true }).click();
   await page.getByRole("button", { name: "资源", exact: true }).click();
   await page.getByRole("button", { name: "文件", exact: true }).click();
   await page.getByRole("button", { name: "新建原型设计", exact: true }).click();
@@ -49,6 +61,22 @@ try {
   design.content = [{ type: "Heading", props: { id: "browser-heading", label: "欢迎使用", detail: "", target: "", tone: "green", left: [], right: [] } }];
   await code.fill(JSON.stringify(design, null, 2));
   await page.getByRole("button", { name: "应用代码", exact: true }).click();
+  assert.equal(await page.evaluate(() => Object.keys(sessionStorage).some((key) => key.startsWith("nexus-studio:code:"))), false);
+  await page.getByRole("combobox", { name: "Agent 能力" }).selectOption("component");
+  await page.getByRole("textbox", { name: "给 Agent 的指令" }).fill("修改标题");
+  await page.getByRole("button", { name: "发送（保存上下文并生成提案）" }).click();
+  await page.getByRole("alert").filter({ hasText: "请先在原型画布中选择组件" }).waitFor();
+  await page.getByRole("button", { name: "设计", exact: true }).click();
+  await page.getByRole("heading", { name: "欢迎使用", exact: true }).click();
+  await page.getByRole("button", { name: "发送（保存上下文并生成提案）" }).click();
+  await page.getByText("仅修改所选组件", { exact: true }).waitFor();
+  const componentTask = page.locator("section").filter({ has: page.getByText("仅修改所选组件", { exact: true }) });
+  await componentTask.getByText("本次调用范围", { exact: true }).click();
+  assert.match(await componentTask.textContent(), /browser-heading/);
+  await componentTask.getByRole("button", { name: /应用到原资源/ }).click();
+  await page.getByRole("heading", { name: "Agent 修改的标题", exact: true }).waitFor();
+  await page.getByRole("button", { name: "代码", exact: true }).click();
+  assert.equal(JSON.parse(await code.inputValue()).content[0].props.label, "Agent 修改的标题");
   await page.getByRole("button", { name: "页面", exact: true }).click();
   await page.getByRole("textbox", { name: "页面与交互说明", exact: true }).fill("浏览器用户可以查看欢迎信息。");
   await page.getByLabel("原型操作", { exact: true }).click();
@@ -113,5 +141,5 @@ try {
   await page.waitForFunction(() => document.querySelector('textarea[maxlength="20000"]')?.value === "整理后的便签");
   await page.screenshot({ path: "/tmp/nexus-plugin-workspace-browser.png", fullPage: true });
   assert.deepEqual(failures, []);
-  console.log("PASS: create/save, draft recovery, Agent approval, prototype JSON recovery, screenshot handoff, two-window isolation, CAS, disable/re-enable, focus and third plugin editor/view/Agent; real API + deterministic model");
+  console.log("PASS: create/save, draft recovery, Agent approval, clarification, scoped component suggestions, prototype JSON recovery, screenshot handoff, two-window isolation, CAS, disable/re-enable, focus and third plugin editor/view/Agent; real API + deterministic model");
 } finally { await browser.close(); }

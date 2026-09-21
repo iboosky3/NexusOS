@@ -113,7 +113,7 @@ async def test_runtime_selection_versions_and_stale_approval(platform):
     )
     assert item["execution"]["agent"]["id"] == "writer"
     assert item["execution"]["agent"]["version"] == "1.0.0"
-    assert item["execution"]["handlerVersion"] == "studio-proposal/1"
+    assert item["execution"]["handlerVersion"] == "studio-proposal/2"
     store.save(workspace, resource["id"], 1, {**resource["payload"], "content": "人工内容"})
     await asyncio.gather(*service.tasks.values())
     proposal = store.get(workspace, item["id"], "invocation")
