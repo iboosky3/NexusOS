@@ -74,6 +74,7 @@ nav:
       - 策略与人工审批: security/policy.md
       - 初始威胁模型: security/threat-model.md
   - 开发记录:
+      - 需求与产品出发点: development/requirements-log.md
       - Studio 工作台组件: development/studio-workbench.md
       - 工作台插件与原型设计: development/studio-extensions.md
       - AI 自主任务规划: development/ai-dag-planning.md

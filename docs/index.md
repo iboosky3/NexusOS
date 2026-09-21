@@ -14,6 +14,6 @@ NexusOS 是一个面向复杂任务的多智能体协作基础设施。“纽带
 
 ## 文档原则
 
-架构文档与代码同仓维护。任何影响系统边界、核心抽象或技术职责的调整，都必须在[架构方案与演进](architecture/architecture-evolution.md)中记录日期、内容、原因和影响。
+架构文档与代码同仓维护。产品功能和交互变更先在[需求与产品出发点日志](development/requirements-log.md)中保留原始动机、范围和验收标准；任何影响系统边界、核心抽象或技术职责的调整，还必须在[架构方案与演进](architecture/architecture-evolution.md)中记录日期、内容、原因和影响。
 
 查看[项目实现状态](project/status.md)可以逐项确认本地验证、外部 CI 和生产可用之间的边界；实际开发、部署和使用问题统一保留在[问题与解决记录](development/problem-log.md)。
