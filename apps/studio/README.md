@@ -11,10 +11,15 @@
 ```bash
 cd apps/studio
 npm ci
-NEXUS_API_URL=http://127.0.0.1:8000 npm run dev -- --hostname 127.0.0.1
+cd ../..
+bash scripts/start-studio.sh
 ```
 
-打开 `http://127.0.0.1:3000/prd`。也可在 `.env.local` 设置 `NEXUS_API_URL`。
+打开 `http://127.0.0.1:3000/prd-studio`。脚本默认连接 `http://127.0.0.1:8000`，可使用 `NEXUS_API_URL`、`NEXUS_STUDIO_HOST` 和 `NEXUS_STUDIO_PORT` 覆盖默认配置：
+
+```bash
+NEXUS_API_URL=http://localhost:8000 NEXUS_STUDIO_HOST=0.0.0.0 NEXUS_STUDIO_PORT=3001 bash scripts/start-studio.sh
+```
 
 ```bash
 npm run typecheck

@@ -47,13 +47,14 @@ python -m unittest discover -s tests -v
 nexus prd "设计一个面向大学生的 AI 学习平台" --root . --output artifacts
 ```
 
-Windows PowerShell 激活命令为 `.\.venv\Scripts\Activate.ps1`。启动 HTTP API：
+Windows PowerShell 激活命令为 `.\.venv\Scripts\Activate.ps1`。在两个终端分别启动 HTTP API 与 Studio：
 
 ```bash
-python -m uvicorn nexusos.api:create_app --factory --host 0.0.0.0 --port 8000
+bash scripts/start-api.sh
+bash scripts/start-studio.sh
 ```
 
-打开 `http://localhost:8000/docs`，或检查 `http://localhost:8000/readyz`。完整步骤见[快速开始](docs/getting-started/quick-start.md)。
+Studio 默认使用 `http://127.0.0.1:8000` 作为 API 地址并监听 `http://127.0.0.1:3000`。首次启动前需在 `apps/studio` 执行 `npm ci`。打开 `http://127.0.0.1:3000/prd-studio`，API 文档位于 `http://127.0.0.1:8000/docs`。完整步骤见[快速开始](docs/getting-started/quick-start.md)。
 
 ## 架构主线
 
