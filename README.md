@@ -54,7 +54,7 @@ bash scripts/start-api.sh
 bash scripts/start-studio.sh
 ```
 
-Studio 默认使用 `http://127.0.0.1:8000` 作为 API 地址并监听 `http://127.0.0.1:3000`。首次启动前需在 `apps/studio` 执行 `npm ci`。打开 `http://127.0.0.1:3000/prd-studio`，API 文档位于 `http://127.0.0.1:8000/docs`。完整步骤见[快速开始](docs/getting-started/quick-start.md)。
+Studio 默认使用 `http://127.0.0.1:8000` 作为 API 地址并监听所有网络接口的 `3000` 端口。首次启动前需在 `apps/studio` 执行 `npm ci`。本机打开 `http://127.0.0.1:3000/prd-studio`，API 文档位于 `http://127.0.0.1:8000/docs`。完整步骤见[快速开始](docs/getting-started/quick-start.md)。
 
 ## 架构主线
 

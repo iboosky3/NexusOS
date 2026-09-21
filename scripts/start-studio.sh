@@ -11,7 +11,7 @@ if [[ ! -d "${studio_root}/node_modules" ]]; then
 fi
 
 export NEXUS_API_URL="${NEXUS_API_URL:-http://127.0.0.1:8000}"
-studio_host="${NEXUS_STUDIO_HOST:-127.0.0.1}"
+studio_host="${NEXUS_STUDIO_HOST:-0.0.0.0}"
 studio_port="${NEXUS_STUDIO_PORT:-3000}"
 
 cd "${studio_root}"

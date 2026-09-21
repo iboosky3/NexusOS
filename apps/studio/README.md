@@ -15,7 +15,7 @@ cd ../..
 bash scripts/start-studio.sh
 ```
 
-打开 `http://127.0.0.1:3000/prd-studio`。脚本默认连接 `http://127.0.0.1:8000`，可使用 `NEXUS_API_URL`、`NEXUS_STUDIO_HOST` 和 `NEXUS_STUDIO_PORT` 覆盖默认配置：
+打开 `http://127.0.0.1:3000/prd-studio`。脚本默认监听 `0.0.0.0:3000` 并连接 `http://127.0.0.1:8000`，可使用 `NEXUS_API_URL`、`NEXUS_STUDIO_HOST` 和 `NEXUS_STUDIO_PORT` 覆盖默认配置：
 
 ```bash
 NEXUS_API_URL=http://localhost:8000 NEXUS_STUDIO_HOST=0.0.0.0 NEXUS_STUDIO_PORT=3001 bash scripts/start-studio.sh
