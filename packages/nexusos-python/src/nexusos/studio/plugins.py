@@ -8,6 +8,7 @@ from pydantic import Field
 from nexusos.prd.prototype import Prototype
 from nexusos.prd.schemas import DraftBrief
 from nexusos.prd.schemas_base import StrictModel
+from nexusos.studio.example_notes import NotePayload
 
 
 class PrdPayload(StrictModel):
@@ -60,6 +61,15 @@ class DomainPlugin:
 
 
 PLUGINS = (
+    DomainPlugin(
+        "nexus.example-notes",
+        "nexus.note",
+        NotePayload,
+        ("revise",),
+        "你是便签整理 Agent。根据用户指令整理便签，保留原始事实。",
+        "structured_writing",
+        default_enabled=False,
+    ),
     DomainPlugin(
         "nexus.prd-writer",
         "nexus.prd",

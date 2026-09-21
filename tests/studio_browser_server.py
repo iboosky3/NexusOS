@@ -13,10 +13,13 @@ from nexusos.prd.store import PrdStore
 
 class BrowserGateway:
     async def complete(self, request):
+        payload = (
+            {"title": "Agent 便签", "content": "整理后的便签"}
+            if "便签整理 Agent" in request.messages[0].content
+            else {"brief": {"title": "浏览器验收 PRD"}, "content": "# Agent 草稿\n等待人工确认。"}
+        )
         return ModelResponse(
-            json.dumps(
-                {"brief": {"title": "浏览器验收 PRD"}, "content": "# Agent 草稿\n等待人工确认。"}
-            ),
+            json.dumps(payload),
             "test",
             request.model,
             TokenUsage(1, 1),

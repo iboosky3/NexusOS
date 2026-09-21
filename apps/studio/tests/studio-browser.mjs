@@ -89,7 +89,21 @@ try {
   await page.getByRole("button", { name: "专注全屏", exact: true }).click();
   await page.getByRole("button", { name: "退出专注", exact: true }).click();
 
+  await page.getByRole("button", { name: "插件", exact: true }).click();
+  const notes = page.locator("section").filter({ has: page.locator("strong", { hasText: "示例便签" }) });
+  await notes.getByRole("button", { name: "启用", exact: true }).click();
+  await notes.getByRole("button", { name: "新建", exact: true }).click();
+  const note = page.getByRole("textbox", { name: "便签正文", exact: true });
+  await note.fill("第三插件的独立内容");
+  await note.press("Control+s");
+  await page.getByRole("status").filter({ hasText: "已保存 r2" }).waitFor();
+  await page.getByRole("button", { name: "便签列表", exact: true }).click();
+  await page.getByRole("region", { name: "便签资源" }).getByRole("button", { name: "未命名便签 · r2", exact: true }).waitFor();
+  await page.getByRole("textbox", { name: "给 Agent 的指令" }).fill("整理便签");
+  await page.getByRole("button", { name: "发送（保存上下文并生成提案）" }).click();
+  await page.getByRole("button", { name: "应用到原资源 r2" }).click();
+  await page.waitForFunction(() => document.querySelector('textarea[maxlength="20000"]')?.value === "整理后的便签");
   await page.screenshot({ path: "/tmp/nexus-plugin-workspace-browser.png", fullPage: true });
   assert.deepEqual(failures, []);
-  console.log("PASS: create/save, draft recovery, Agent approval, prototype JSON recovery, screenshot handoff, two-window isolation and CAS; real API + deterministic model");
+  console.log("PASS: create/save, draft recovery, Agent approval, prototype JSON recovery, screenshot handoff, two-window isolation, CAS, disable/re-enable, focus and third plugin editor/view/Agent; real API + deterministic model");
 } finally { await browser.close(); }
