@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Brief, Job, prdApi } from "@/lib/prd-api";
 import { fields } from "@/lib/use-prd-studio";
+import type { PrototypeSelection } from "@/lib/prototype";
 import {
   PanelHeading,
   CloseAssistantButton,
@@ -42,6 +43,7 @@ export function PrdAssistant({
   onUploadBusy,
   onOpenSources,
   onOpenDocument,
+  prototypeSelection,
 }: {
   brief: Brief;
   onBrief: (brief: Brief) => void;
@@ -62,6 +64,7 @@ export function PrdAssistant({
   onUploadBusy: (busy: boolean) => void;
   onOpenSources: () => void;
   onOpenDocument: () => void;
+  prototypeSelection: PrototypeSelection | null;
 }) {
   const [mode, setMode] = useState<"clarify" | "revise" | "prototype">(
     "clarify",
@@ -138,8 +141,15 @@ export function PrdAssistant({
       pendingRef.current = true;
       setPending(true);
       try {
+        const selectionContext = prototypeSelection
+          ? `当前只处理页面“${prototypeSelection.pageTitle}”中的选中组件。组件 ID：${prototypeSelection.block.props.id}；组件类型：${prototypeSelection.block.type}；当前属性：${JSON.stringify(prototypeSelection.block.props)}。保持其他页面和组件不变，并保留这个稳定组件 ID。`
+          : "";
+        const maximumText = Math.max(1, 8000 - selectionContext.length - 2);
+        const instruction = selectionContext
+          ? `${text.trim().slice(0, maximumText)}\n\n${selectionContext}`
+          : text.trim();
         await (mode === "prototype"
-          ? onPrototype(text.trim())
+          ? onPrototype(instruction)
           : onRevise(text.trim()));
       } finally {
         pendingRef.current = false;
@@ -235,6 +245,14 @@ export function PrdAssistant({
             area.scrollHeight - area.scrollTop - area.clientHeight < 80;
         }}
       >
+        {mode === "prototype" && prototypeSelection && (
+          <section className={s.componentContext} aria-label="当前原型组件上下文">
+            <span>当前组件</span>
+            <strong>{prototypeSelection.block.props.label || prototypeSelection.block.type}</strong>
+            <code>{prototypeSelection.block.props.id}</code>
+            <small>AI 请求将携带当前属性，并要求保留其他组件。</small>
+          </section>
+        )}
         {!entries.length && !job && (
           <section className={s.question}>
             <h3>

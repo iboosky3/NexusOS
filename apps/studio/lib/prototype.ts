@@ -63,6 +63,27 @@ export interface PrototypeDesign {
   content: DesignBlock[];
 }
 
+export interface PrototypeSelection {
+  pageId: string;
+  pageTitle: string;
+  block: DesignBlock;
+}
+
+export function findDesignBlock(
+  blocks: DesignBlock[],
+  id: string,
+): DesignBlock | undefined {
+  for (const block of blocks) {
+    if (block.props.id === id) return block;
+    const nested = findDesignBlock(
+      [...(block.props.left || []), ...(block.props.right || [])],
+      id,
+    );
+    if (nested) return nested;
+  }
+  return undefined;
+}
+
 export function designElements(design: PrototypeDesign): PrototypeElement[] {
   const elements: PrototypeElement[] = [];
   function visit(blocks: DesignBlock[]) {

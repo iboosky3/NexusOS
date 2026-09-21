@@ -1,11 +1,16 @@
 import type { WorkbenchExtension } from "@/lib/workbench-extensions";
-import type { PrototypeDesign, PrototypePage } from "@/lib/prototype";
+import type {
+  PrototypeDesign,
+  PrototypePage,
+  PrototypeSelection,
+} from "@/lib/prototype";
 
 export interface DesignerProps {
   page: PrototypePage;
   pages: PrototypePage[];
   disabled: boolean;
   onChange: (design: PrototypeDesign) => void;
+  onSelection?: (selection: PrototypeSelection | null) => void;
 }
 
 export const prototypeDesigner: WorkbenchExtension<DesignerProps> = {

@@ -26,6 +26,7 @@ import { PrototypeEditor } from "@/components/prd-studio/prototype-editor";
 import { Job, prdApi } from "@/lib/prd-api";
 import { usePrdStudio } from "@/lib/use-prd-studio";
 import { preparePrdAttachments } from "@/lib/prd-attachments";
+import type { PrototypeSelection } from "@/lib/prototype";
 import s from "@/components/prd-studio/studio.module.css";
 
 const CapabilityBrowser = dynamic(() =>
@@ -90,6 +91,8 @@ export default function PrdStudio() {
   }>({ agents: [], skills: [] });
   const [catalogError, setCatalogError] = useState("");
   const [focusChat, setFocusChat] = useState(0);
+  const [prototypeSelection, setPrototypeSelection] =
+    useState<PrototypeSelection | null>(null);
   const [flow, setFlow] = useState("");
   const [split, setSplit] = useState(false);
   const [fileSearch, setFileSearch] = useState("");
@@ -482,6 +485,9 @@ export default function PrdStudio() {
           onUploadBusy={setAttachmentBusy}
           onOpenSources={() => w.setTab("assets")}
           onOpenDocument={() => w.setTab("prototype")}
+          prototypeSelection={
+            w.tab === "prototype" ? prototypeSelection : null
+          }
         />
       }
     >
@@ -582,6 +588,7 @@ export default function PrdStudio() {
               );
             }}
             onImport={() => imageInput.current?.click()}
+            onSelection={setPrototypeSelection}
           />
         )}
         {w.tab === "settings" && (

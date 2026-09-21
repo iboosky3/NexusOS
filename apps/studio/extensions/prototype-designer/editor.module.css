@@ -1,82 +1,191 @@
 .designer {
-  border: 1px solid #dbe4de;
-  border-radius: 6px;
-  overflow: hidden;
   margin-top: 12px;
-  background: #f0f4f1;
-  color: #233d2d;
+  overflow: hidden;
+  border: 1px solid #d8e1db;
+  border-radius: 10px;
+  color: #1f3329;
+  background: #edf2ef;
+  box-shadow: 0 12px 34px rgb(28 63 45 / 8%);
   --puck-font-size-xxs: 11px;
   --puck-font-size-xs: 12px;
-  --puck-color-azure-04: #2c7654;
+  --puck-color-azure-04: #24704f;
+}
+.designer > p[role="alert"] {
+  margin: 0;
+  padding: 9px 14px;
+  color: #8a3d2e;
+  background: #fff1ec;
 }
 .toolbar {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 8px;
-  background: #f9fbfa;
-  border-bottom: 1px solid #dbe4de;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 14px;
+  min-height: 48px;
+  padding: 7px 10px;
+  border-bottom: 1px solid #d8e1db;
+  background: #fbfcfb;
 }
-.toolbar > div {
+.modeSwitch, .panelToggles, .toolbarActions {
   display: flex;
+  align-items: center;
   gap: 5px;
 }
-.toolbar button[aria-pressed="true"] {
-  background: #dcece2;
+.toolbarActions { justify-content: flex-end; }
+.toolbar button, .toolbar select, .palette header button, .inspector header button, .sourcePane button {
+  min-height: 30px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 5px 9px;
+  color: #52645a;
+  background: transparent;
+  font: inherit;
 }
+.toolbar button:hover, .palette header button:hover,
+.inspector header button:hover, .sourcePane button:hover {
+  color: #1d5e42;
+  background: #e9f2ec;
+}
+.toolbar button[aria-pressed="true"], .inspector header button[aria-pressed="true"] {
+  color: #174f37;
+  border-color: #c7dbcf;
+  background: #dfeee5;
+}
+.toolbar select { border-color: #d7e0da; background: white; }
 .body {
   display: grid;
-  grid-template-columns: 180px minmax(0, 1fr);
-  height: 640px;
-  max-height: 75vh;
-  min-height: 380px;
-}
-.tools {
-  display: flex;
-  flex-direction: column;
+  height: min(690px, 76vh);
+  min-height: 460px;
   overflow: auto;
+}
+.palette, .inspector, .sourcePane, .canvasShell {
+  min-width: 0;
+  min-height: 0;
   background: #fff;
-  border-right: 1px solid #dbe4de;
+}
+.palette { overflow: auto; border-right: 1px solid #dce4df; }
+.palette > header, .inspector > header, .canvasShell > header, .sourcePane > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 45px;
+  padding: 7px 11px;
+  border-bottom: 1px solid #e1e8e3;
+  background: #fafcfa;
+}
+.palette > header span, .canvasShell > header strong, .sourcePane > header strong {
   font-size: 12px;
-}
-.palette {
-  overflow: auto;
-  min-height: 160px;
-}
-.tools:has(.inspector) .palette {
-  max-height: 40%;
-  flex-shrink: 0;
+  font-weight: 700;
 }
 .palette > p {
-  padding: 0 12px;
-  line-height: 1.6;
+  margin: 0;
+  padding: 11px 12px 2px;
+  color: #748179;
+  font-size: 11px;
+  line-height: 1.55;
 }
-.tools h2 {
-  font-size: 12px;
-  margin: 12px;
+.canvasShell {
+  display: flex;
+  flex-direction: column;
+  background: #e9eeeb;
 }
-.inspector {
-  overflow: auto;
-  flex: 1;
-  min-height: 180px;
-  border-top: 1px solid #dbe4de;
+.canvasShell > header > div, .sourcePane > header > div:first-child {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.canvasShell > header small, .sourcePane > header small {
+  overflow: hidden;
+  color: #7a877f;
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.canvasShell > header > span {
+  border-radius: 999px;
+  padding: 3px 8px;
+  color: #557065;
+  background: #edf3ef;
+  font-size: 10px;
 }
 .scroll {
+  flex: 1;
+  min-height: 0;
   overflow: auto;
-  padding: 20px;
+  padding: 28px;
+  background:
+    linear-gradient(90deg, rgb(39 82 58 / 4%) 1px, transparent 1px),
+    linear-gradient(rgb(39 82 58 / 4%) 1px, transparent 1px),
+    #edf1ef;
+  background-size: 20px 20px;
 }
 .canvas {
-  background: white;
   min-height: 600px;
   margin: 0 auto;
-  box-shadow: 0 2px 8px #1a3d2312;
+  overflow: hidden;
+  border: 1px solid #d7dfda;
+  border-radius: 8px;
+  background: white;
+  box-shadow: 0 18px 45px rgb(26 57 42 / 13%);
 }
-@media (max-width: 900px) {
-  .body {
-    grid-template-columns: 145px minmax(0, 1fr);
-  }
-  .scroll {
-    padding: 12px;
-  }
+.inspector { overflow: auto; border-left: 1px solid #dce4df; }
+.inspector > header > div { display: flex; gap: 3px; }
+.selectionSummary {
+  display: grid;
+  gap: 4px;
+  margin: 10px;
+  border: 1px solid #dce7e0;
+  border-radius: 7px;
+  padding: 10px;
+  background: #f5f9f6;
+}
+.selectionSummary code, .componentContext code {
+  overflow: hidden;
+  color: #56806c;
+  font-size: 10px;
+  text-overflow: ellipsis;
+}
+.inspectorEmpty {
+  margin: 28px 18px;
+  color: #7a877f;
+  line-height: 1.65;
+  text-align: center;
+}
+.sourcePane {
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid #dce4df;
+  background: #142019;
+}
+.sourcePane > header {
+  color: #dceae1;
+  background: #1c2d24;
+  border-bottom-color: #314239;
+}
+.sourcePane > header > div:last-child { display: flex; gap: 4px; }
+.sourcePane button { color: #d3e3d9; border-color: #40534a; }
+.sourcePane button:disabled { opacity: .45; }
+.sourcePane textarea {
+  flex: 1;
+  min-height: 0;
+  resize: none;
+  border: 0;
+  outline: 0;
+  padding: 16px;
+  color: #d9e9df;
+  background: #142019;
+  font: 12px/1.55 "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  tab-size: 2;
+}
+.sourcePane > p {
+  margin: 0;
+  padding: 9px 12px;
+  color: #ffc8ba;
+  background: #4b2b24;
+  font-size: 11px;
+}
+@media (max-width: 1180px) {
+  .body { min-width: 860px; }
+  .toolbar { min-width: 760px; }
 }

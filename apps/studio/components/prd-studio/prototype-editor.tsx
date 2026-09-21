@@ -8,6 +8,7 @@ import {
   designElements,
   embedPrototype,
   DesignBlock,
+  PrototypeSelection,
   archivePrototype,
   validateDesign,
 } from "@/lib/prototype";
@@ -39,6 +40,7 @@ export function PrototypeEditor({
   onOpenExtensions,
   onEmbed,
   onSave,
+  onSelection,
 }: {
   content: string;
   brief: Brief;
@@ -51,6 +53,7 @@ export function PrototypeEditor({
   onOpenExtensions: () => void;
   onEmbed: (content: string) => void;
   onSave: (prototype: Prototype) => Promise<void>;
+  onSelection: (selection: PrototypeSelection | null) => void;
 }) {
   const [selected, setSelected] = useState("");
   const [instruction, setInstruction] = useState("");
@@ -93,6 +96,9 @@ export function PrototypeEditor({
     setSelected(id);
     setEdit(true);
   }, [brief, designerEnabled, disabled, onBrief, prototype]);
+  useEffect(() => {
+    onSelection(null);
+  }, [onSelection, page?.id]);
   function update(next: Prototype) {
     setFeedback("");
     onBrief({
@@ -402,6 +408,7 @@ export function PrototypeEditor({
                   onChange={(design) =>
                     patch({ design, elements: designElements(design) })
                   }
+                  onSelection={onSelection}
                 />
               ) : (
                 <div className={s.canvas}>
