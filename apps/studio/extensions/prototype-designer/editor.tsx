@@ -11,6 +11,9 @@ import { designerConfig, pageDesign } from "./config";
 import type { DesignerProps } from "./manifest";
 import s from "./editor.module.css";
 
+const panelPreferencesKey = "nexus-prd:designer-panels:v1";
+// Keep layout preferences independent from document content.
+
 function HistoryButtons() {
   const { history, appState } = usePuck();
   const settled =
@@ -95,11 +98,12 @@ function ComponentPatchBridge({
 }
 
 function SourceEditor({
-  design, selectedId, disabled, onApply,
+  design, selectedId, disabled, active, onApply,
 }: {
   design: PrototypeDesign;
   selectedId?: string;
   disabled: boolean;
+  active: boolean;
   onApply: (design: PrototypeDesign) => void;
 }) {
   const { appState } = usePuck();
@@ -107,15 +111,18 @@ function SourceEditor({
     ...design, content: appState.data.content as DesignBlock[],
   }, null, 2);
   const [source, setSource] = useState(liveSource);
+  const [sourceBase, setSourceBase] = useState(liveSource);
   const [dirty, setDirty] = useState(false);
   const [error, setError] = useState("");
   const editor = useRef<HTMLTextAreaElement>(null);
   const lastLocatedId = useRef<string>("");
   useEffect(() => {
-    if (!dirty) setSource(liveSource);
+    if (!dirty) { setSource(liveSource); setSourceBase(liveSource); }
   }, [dirty, liveSource]);
   useEffect(() => {
-    if (!selectedId || lastLocatedId.current === selectedId) return;
+    if (!active) { lastLocatedId.current = ""; return; }
+    if (!selectedId) { lastLocatedId.current = ""; return; }
+    if (lastLocatedId.current === selectedId) return;
     lastLocatedId.current = selectedId;
     const marker = `"id": "${selectedId}"`;
     const start = source.indexOf(marker);
@@ -128,9 +135,11 @@ function SourceEditor({
       area.scrollTop = Math.max(0, source.slice(0, start).split("\n").length * 19 - area.clientHeight / 3);
     });
     return () => cancelAnimationFrame(frame);
-  }, [selectedId, source]);
+  }, [active, selectedId, source]);
   function apply() {
     try {
+      if (sourceBase !== liveSource)
+        throw new Error("画布在编辑代码期间发生变化；请先复制代码并还原，再基于最新原型编辑。");
       const parsed = JSON.parse(source) as PrototypeDesign;
       if (parsed.engine !== "puck" || parsed.version !== 1 ||
         ![390, 960].includes(parsed.width) || !Array.isArray(parsed.content))
@@ -143,7 +152,8 @@ function SourceEditor({
       setError(err instanceof Error ? err.message : "原型代码格式无效");
     }
   }
-  return <section className={s.sourcePane} aria-label="原型代码编辑器">
+  return <section className={s.sourcePane} aria-label="原型代码编辑器"
+    style={active ? undefined : { display: "none" }}>
     <header><div><strong>prototype.json</strong><small>
       {selectedId ? `已定位 ${selectedId}` : "点击画布组件以定位代码"}
     </small></div><div>
@@ -151,7 +161,10 @@ function SourceEditor({
       <button disabled={disabled || !dirty} onClick={apply}>应用代码</button>
     </div></header>
     <textarea ref={editor} value={source} disabled={disabled} spellCheck={false}
-      onChange={(event) => { setSource(event.target.value); setDirty(true); setError(""); }}
+      onChange={(event) => {
+        if (!dirty) setSourceBase(liveSource);
+        setSource(event.target.value); setDirty(true); setError("");
+      }}
       aria-label="结构化原型 JSON" />
     {error && <p role="alert">{error}</p>}
   </section>;
@@ -171,9 +184,26 @@ export default function Designer({
   const [inspectorVisible, setInspectorVisible] = useState(true);
   const [selection, setSelection] = useState<PrototypeSelection | null>(null);
   const [error, setError] = useState("");
+  const [panelsReady, setPanelsReady] = useState(false);
   const latest = useRef(initial);
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(panelPreferencesKey) || "null");
+      if (typeof saved?.palette === "boolean") setPaletteVisible(saved.palette);
+      if (typeof saved?.inspector === "boolean") setInspectorVisible(saved.inspector);
+    } catch { /* Storage is optional; retain usable defaults. */ }
+    setPanelsReady(true);
+  }, []);
+  useEffect(() => {
+    if (!panelsReady) return;
+    try {
+      localStorage.setItem(panelPreferencesKey, JSON.stringify({
+        palette: paletteVisible, inspector: inspectorVisible,
+      }));
+    } catch { /* Storage is optional; keep the current session usable. */ }
+  }, [panelsReady, paletteVisible, inspectorVisible]);
   useEffect(() => {
     if (!disabled && !page.design) onChangeRef.current(initial);
   }, [disabled, initial, page.design]);
@@ -240,9 +270,9 @@ export default function Designer({
             onClick={() => setPaletteVisible(false)}>×</button></header>
           <p>拖入画布构建页面；布局组件可以继续嵌套内容。</p><Puck.Components />
         </aside>}
-        {mode === "code" && <SourceEditor design={data}
+        <SourceEditor design={data} active={mode === "code"}
           selectedId={selection?.block.props.id} disabled={disabled}
-          onApply={(next) => publish(next, true)} />}
+          onApply={(next) => publish(next, true)} />
         <main className={s.canvasShell}>
           <header><div><strong>{page.title}</strong><small>
             {selection ? `${selection.block.type} · ${selection.block.props.id}` : "点击组件以编辑属性或定位代码"}

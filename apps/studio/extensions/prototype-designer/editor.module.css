@@ -189,3 +189,25 @@
   .body { min-width: 860px; }
   .toolbar { min-width: 760px; }
 }
+@media (max-width: 740px) {
+  .toolbar {
+    grid-template-columns: auto 1fr;
+    gap: 5px;
+    min-width: 0;
+  }
+  .panelToggles { justify-content: flex-end; }
+  .toolbarActions { grid-column: 1 / -1; justify-content: flex-start; }
+  .body {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+    height: auto;
+    overflow: visible;
+  }
+  .palette { max-height: 230px; border-right: 0; border-bottom: 1px solid #dce4df; }
+  .sourcePane { height: 330px; border-right: 0; border-bottom: 1px solid #dce4df; }
+  .canvasShell { height: 520px; }
+  .scroll { padding: 12px; }
+  .inspector { max-height: 350px; border-left: 0; border-top: 1px solid #dce4df; }
+}
