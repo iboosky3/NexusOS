@@ -29,6 +29,27 @@ class DomainPlugin:
     payload_model: type[StrictModel]
     capabilities: tuple[str, ...]
     instruction: str
+    generation_capability: str
+    version: str = "1.0.0"
+
+    def read_only(self, capability: str) -> bool:
+        return capability in {"review", "clarify"}
+
+    def agent_capabilities(self, capability: str) -> tuple[str, ...]:
+        return {"review": ("quality_review",), "clarify": ("requirement_analysis",)}.get(
+            capability, (self.generation_capability,)
+        )
+
+    def proposal(self, value: dict, source: dict) -> dict:
+        value = self.validate(value)
+        if self.resource_type == "nexus.prototype" and value.get("prototype"):
+            value["prototype"]["confirmed"] = False
+            value["prototype"].pop("input_digest", None)
+            for page in value["prototype"]["pages"]:
+                page["screenshot"] = ""
+        if self.resource_type == "nexus.prd":
+            value["provenance"] = source.get("provenance", [])
+        return self.validate(value)
 
     def validate(self, value: dict[str, Any]) -> dict[str, Any]:
         payload = self.payload_model.model_validate(value).model_dump()
@@ -44,6 +65,7 @@ PLUGINS = (
         PrdPayload,
         ("draft", "revise", "review", "clarify"),
         "你是产品需求文档 Agent。保留已确认要求，不虚构来源。根据用户指令编写或修订 PRD。",
+        "prd_generation",
     ),
     DomainPlugin(
         "nexus.prototype-designer",
@@ -51,6 +73,7 @@ PLUGINS = (
         PrototypePayload,
         ("design", "revise", "review"),
         "你是原型设计 Agent。创建声明式页面和交互，不生成可执行脚本。保留稳定组件 ID。",
+        "user_flow",
     ),
 )
 
