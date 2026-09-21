@@ -442,9 +442,9 @@ export function EditorTabs({
   closableIds = [],
 }: {
   tabs: WorkbenchView[];
-  value: string;
+  value: string | null;
   onChange: (id: string) => void;
-  onClose?: () => void;
+  onClose?: (id: string) => void;
   closableIds?: string[];
 }) {
   return (
@@ -462,7 +462,7 @@ export function EditorTabs({
             <button
               className={styles.closeTab}
               aria-label={`关闭${tab.label}`}
-              onClick={onClose}
+              onClick={() => onClose(tab.id)}
             >
               ×
             </button>

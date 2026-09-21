@@ -42,7 +42,7 @@ const CapabilityBrowser = dynamic(() =>
 );
 const PrdWriter = dynamic(prdWriter.load, { loading: () => <p>正在加载 PRD 编写插件…</p> });
 
-type Tab = ReturnType<typeof usePrdStudio>["tab"];
+type Tab = NonNullable<ReturnType<typeof usePrdStudio>["tab"]>;
 const tabs = [
   { id: "brief", label: "需求简报", icon: "▤" },
   { id: "prototype", label: "原型设计", icon: "▧" },
@@ -57,6 +57,10 @@ const tabs = [
 export function StudioWorkspace({ mode = "prd" }: { mode?: "prd" | "prototype" }) {
   const standalonePrototype = mode === "prototype";
   const w = usePrdStudio(standalonePrototype ? "prototype" : undefined);
+  const [prototypeOpened, setPrototypeOpened] = useState(standalonePrototype);
+  useEffect(() => {
+    if (w.tab === "prototype") setPrototypeOpened(true);
+  }, [w.tab]);
   const extensions = useWorkbenchExtensions();
   const [runPanel, setRunPanel] = useState(false);
   const [runFocus, setRunFocus] = useState(0);
@@ -520,7 +524,7 @@ export function StudioWorkspace({ mode = "prd" }: { mode?: "prd" | "prototype" }
           content={w.content}
           model={w.configuration?.model || ""}
           configured={Boolean(w.configuration?.configured)}
-          locked={locked || !extensions.enabled(w.tab === "prototype" ? prototypeDesigner.manifest.id : prdWriter.manifest.id)}
+          locked={locked || !w.tab || !extensions.enabled(w.tab === "prototype" ? prototypeDesigner.manifest.id : prdWriter.manifest.id)}
           showThinking={w.showThinking}
           onThinking={w.setShowThinking}
           job={w.job}
@@ -567,20 +571,15 @@ export function StudioWorkspace({ mode = "prd" }: { mode?: "prd" | "prototype" }
         />
       }
     >
-      {!(standalonePrototype && w.tab === "prototype") && <EditorTabs
-        tabs={tabs
-          .filter((tab, index) => index < 3 || tab.id === w.tab)
+      {w.openTabs.length > 0 && <EditorTabs
+        tabs={w.openTabs.flatMap((id) => tabs.filter((tab) => tab.id === id))
           .map((tab) =>
             tab.id === "document"
               ? { ...tab, label: `${w.brief.title || "未命名"}.md` }
               : tab,
           )}
-        onClose={
-          w.tab === "brief" || w.tab === "document" || w.tab === "prototype"
-            ? undefined
-            : () => w.setTab(w.content ? "document" : "brief")
-        }
-        closableIds={tabs.slice(3).map((tab) => tab.id)}
+        onClose={(id) => w.closeTab(id as Tab)}
+        closableIds={w.openTabs}
         value={w.tab}
         onChange={(id) => w.setTab(id as Tab)}
       />}
@@ -629,7 +628,14 @@ export function StudioWorkspace({ mode = "prd" }: { mode?: "prd" | "prototype" }
         </div>
       )}
       <div className={s.viewport}>
-        {w.tab === "prototype" && (
+        {!w.tab && <section className={s.empty}>
+          <h2>选择工具继续工作</h2>
+          <p>关闭标签不会删除文档，也不会停止正在运行的任务。</p>
+          <button onClick={() => w.setTab("brief")}>需求简报</button>
+          <button onClick={() => w.setTab("prototype")}>原型设计</button>
+          <button onClick={() => w.setTab("document")}>PRD 编写</button>
+        </section>}
+        {(prototypeOpened || w.tab === "prototype") && <div hidden={w.tab !== "prototype"}>
           <PrototypeEditor
             standalone={standalonePrototype}
             onOpenBrowser={(pageId) => void openPrototypeBrowser(pageId)}
@@ -661,7 +667,7 @@ export function StudioWorkspace({ mode = "prd" }: { mode?: "prd" | "prototype" }
             content={w.content}
             brief={w.brief}
             onBrief={w.setBrief}
-            disabled={locked}
+            disabled={locked || w.tab !== "prototype"}
             onBusy={setAttachmentBusy}
             onImport={() => imageInput.current?.click()}
             onSelection={setPrototypeSelection}
@@ -672,7 +678,7 @@ export function StudioWorkspace({ mode = "prd" }: { mode?: "prd" | "prototype" }
               else w.setNotice("组件修改已应用到原型草稿；请预览并通过文件菜单保存。");
             }}
           />
-        )}
+        </div>}
         {w.tab === "settings" && (
           <section className={s.assetEditor}>
             <h1>使用说明</h1>

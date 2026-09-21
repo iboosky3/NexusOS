@@ -1,6 +1,7 @@
 "use client";
 
 import { validateDesign } from "./prototype";
+import { useEditorTabs } from "@/components/workbench/use-editor-tabs";
 
 import { useEffect, useRef, useState } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -103,7 +104,7 @@ export function usePrdStudio(initialTab?: "prototype") {
   const [configuration, setConfiguration] = useState<Configuration | null>(
     null,
   );
-  const [tab, setTab] = useState<
+  const { tab, setTab, openTabs, closeTab } = useEditorTabs<
     | "prototype"
     | "brief"
     | "document"
@@ -114,7 +115,7 @@ export function usePrdStudio(initialTab?: "prototype") {
     | "files"
     | "capabilities"
     | "settings"
-  >(initialTab || "brief");
+  >(initialTab ? [initialTab] : ["brief", "prototype", "document"], initialTab || "brief");
   const [editing, setEditing] = useState(false);
   const [instruction, setInstruction] = useState("");
   const [showThinking, setShowThinking] = useState(false);
@@ -509,6 +510,8 @@ export function usePrdStudio(initialTab?: "prototype") {
     configuration,
     tab,
     setTab,
+    openTabs,
+    closeTab,
     editing,
     setEditing,
     instruction,
