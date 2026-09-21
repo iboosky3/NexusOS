@@ -17,6 +17,19 @@ class CreateWorkspace(StrictModel):
     clientRequestId: str = Field(min_length=1, max_length=200)
 
 
+class ImportedResource(StrictModel):
+    resourceType: str
+    schemaVersion: int = Field(default=1, ge=1)
+    payload: dict[str, Any]
+
+
+class ImportWorkspace(StrictModel):
+    schemaVersion: int = Field(ge=1, le=1)
+    title: str = Field(min_length=1, max_length=200)
+    resources: list[ImportedResource] = Field(max_length=100)
+    clientRequestId: str = Field(min_length=1, max_length=200)
+
+
 class Configuration(StrictModel):
     expectedRevision: int = Field(ge=1)
     plugins: list[str] = Field(max_length=100)
@@ -96,6 +109,15 @@ def create_studio_router(store: StudioStore, agents: InvocationService):
     @router.post("")
     def create_workspace(payload: CreateWorkspace):
         return call(store.create_workspace, payload.title, payload.clientRequestId)
+
+    @router.post("/import")
+    def import_workspace(payload: ImportWorkspace):
+        return call(
+            store.import_workspace,
+            payload.title,
+            [resource.model_dump() for resource in payload.resources],
+            payload.clientRequestId,
+        )
 
     @router.get("/{workspace}/configuration")
     def configuration(workspace: str):

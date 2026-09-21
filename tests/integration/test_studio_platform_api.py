@@ -63,3 +63,30 @@ def test_configuration_resource_errors_and_old_routes(tmp_path):
             == 403
         )
         assert client.get(path).status_code == 200
+
+
+def test_project_import_http_is_atomic(tmp_path):
+    with TestClient(
+        create_app(root=ROOT, prd_store=PrdStore(tmp_path / "import.sqlite"))
+    ) as client:
+        payload = {
+            "schemaVersion": 1,
+            "title": "HTTP 导入项目",
+            "clientRequestId": "import",
+            "resources": [{"resourceType": "nexus.prd", "payload": {"brief": {"title": "文档"}}}],
+        }
+        created = client.post(f"{BASE}/import", json=payload)
+        assert created.status_code == 200
+        identifier = created.json()["id"]
+        assert len(client.get(f"{BASE}/{identifier}/resources").json()) == 1
+        assert client.post(f"{BASE}/import", json=payload).json()["id"] == identifier
+        invalid = {
+            **payload,
+            "clientRequestId": "bad",
+            "resources": [
+                *payload["resources"],
+                {"resourceType": "nexus.note", "payload": {"title": ""}},
+            ],
+        }
+        assert client.post(f"{BASE}/import", json=invalid).status_code == 422
+        assert len(client.get(BASE).json()) == 1

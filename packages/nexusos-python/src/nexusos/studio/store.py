@@ -120,6 +120,58 @@ class StudioStore:
             self.receipt_in(db, "local_user", "workspace.create", request_id, title, item)
             return item
 
+    def import_workspace(self, title: str, resources: Sequence[dict[str, Any]], request_id: str):
+        """Import a current-project JSON file as one new workspace transaction."""
+        if not title.strip() or len(title) > 200 or len(resources) > 100:
+            raise ValueError("项目名称无效或资源超过 100 个")
+        prepared = []
+        for source in resources:
+            if source.get("schemaVersion", 1) != 1:
+                raise ValueError("SCHEMA_INCOMPATIBLE")
+            plugin = plugin_for(source["resourceType"])
+            payload = plugin.validate(source["payload"])
+            plugin.validate_manual_write(payload)
+            prepared.append((plugin, payload))
+        request = {"title": title, "resources": resources}
+        with self.documents.connection() as db:
+            previous = self.request_in(db, "local_user", "workspace.import", request_id, request)
+            if previous:
+                return previous
+            identifier = uuid4().hex
+            workspace: dict[str, Any] = {
+                "id": identifier,
+                "workspaceId": identifier,
+                "title": title,
+                "revision": 1,
+                "plugins": [plugin.id for plugin in PLUGINS if plugin.default_enabled],
+                "layouts": {},
+                "createdAt": now(),
+            }
+            workspace["plugins"] = list(
+                dict.fromkeys(
+                    [
+                        *workspace["plugins"],
+                        *(plugin.id for plugin, _ in prepared),
+                    ]
+                )
+            )
+            self.put_in(db, workspace, "workspace")
+            for plugin, payload in prepared:
+                resource = {
+                    "id": uuid4().hex,
+                    "workspaceId": identifier,
+                    "resourceType": plugin.resource_type,
+                    "schemaVersion": 1,
+                    "revision": 1,
+                    "payload": payload,
+                    "createdAt": now(),
+                    "updatedAt": now(),
+                    "deleted": False,
+                }
+                self.put_resource_in(db, resource)
+            self.receipt_in(db, "local_user", "workspace.import", request_id, request, workspace)
+            return workspace
+
     def configure(self, workspace: str, revision: int, plugins: Sequence[str], layouts: dict):
         if len(plugins) != len(set(plugins)) or set(plugins) - {p.id for p in PLUGINS}:
             raise ValueError("Unknown or duplicate plugin")
