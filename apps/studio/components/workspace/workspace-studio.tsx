@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import {
   type DragEvent,
   type FormEvent,
@@ -249,6 +250,7 @@ export function WorkspaceStudio({ projectId }: WorkspaceStudioProps) {
       <header className="workspace-toolbar">
         <div>
           <span className="workspace-breadcrumb">PROJECT / {projectId}</span>
+          <small>历史本地工作区 · 新版请使用 <Link href="/prd-studio">PRD Studio</Link></small>
           <input
             className="workspace-title"
             value={workspace.title}

@@ -9,6 +9,7 @@ import {
   embedPrototype,
   DesignBlock,
   PrototypeSelection,
+  PrototypePatchRequest,
   archivePrototype,
   validateDesign,
 } from "@/lib/prototype";
@@ -41,6 +42,8 @@ export function PrototypeEditor({
   onEmbed,
   onSave,
   onSelection,
+  componentPatch,
+  onPatchApplied,
 }: {
   content: string;
   brief: Brief;
@@ -54,6 +57,8 @@ export function PrototypeEditor({
   onEmbed: (content: string) => void;
   onSave: (prototype: Prototype) => Promise<void>;
   onSelection: (selection: PrototypeSelection | null) => void;
+  componentPatch: PrototypePatchRequest | null;
+  onPatchApplied: (error?: string) => void;
 }) {
   const [selected, setSelected] = useState("");
   const [instruction, setInstruction] = useState("");
@@ -409,6 +414,8 @@ export function PrototypeEditor({
                     patch({ design, elements: designElements(design) })
                   }
                   onSelection={onSelection}
+                  componentPatch={componentPatch}
+                  onPatchApplied={onPatchApplied}
                 />
               ) : (
                 <div className={s.canvas}>

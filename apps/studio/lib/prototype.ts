@@ -69,6 +69,20 @@ export interface PrototypeSelection {
   block: DesignBlock;
 }
 
+export type ComponentPropsPatch = Partial<
+  Pick<DesignBlock["props"], "label" | "detail" | "tone" | "target">
+> & {
+  appearance?: NonNullable<DesignBlock["props"]["appearance"]>;
+};
+
+export interface PrototypePatchRequest {
+  nonce: string;
+  pageId: string;
+  componentId: string;
+  before: string;
+  patch: ComponentPropsPatch;
+}
+
 export function findDesignBlock(
   blocks: DesignBlock[],
   id: string,
@@ -181,19 +195,44 @@ export function embedPrototype(content: string, prototype: Prototype) {
 }
 
 export function validateDesign(design: PrototypeDesign) {
+  if (design.engine !== "puck" || design.version !== 1 ||
+      ![390, 960].includes(design.width) || !Array.isArray(design.content))
+    throw new Error("原型代码必须包含有效的引擎、版本、画布尺寸和组件列表");
   let count = 0;
   const ids = new Set<string>();
   function visit(blocks: DesignBlock[], depth: number) {
     if (depth > 4) throw new Error("布局最多嵌套 4 层");
     for (const block of blocks) {
+      if (!block || ![
+        "Heading", "Text", "Input", "Button", "Card", "List", "Divider", "Columns", "Row",
+      ].includes(block.type) || !block.props || typeof block.props !== "object")
+        throw new Error("原型组件类型或属性无效");
+      if (typeof block.props.id !== "string" || !block.props.id ||
+          block.props.id.length > 100 ||
+          !["label", "detail", "target"].every((key) =>
+            typeof block.props[key as "label" | "detail" | "target"] === "string") ||
+          !["green", "blue", "gray"].includes(block.props.tone))
+        throw new Error("原型组件编号、文字或色调无效");
+      if (!Array.isArray(block.props.left) || !Array.isArray(block.props.right) ||
+          (block.type !== "Columns" && block.type !== "Row" &&
+            (block.props.left.length > 0 || block.props.right.length > 0)) ||
+          (block.type === "Row" && block.props.right.length > 0) ||
+          (block.type !== "Button" && block.props.target))
+        throw new Error("组件插槽或跳转属性无效");
       if (++count > 64) throw new Error("每页最多 64 个组件，请拆分页面");
       if (ids.has(block.props.id))
         throw new Error("组件编号重复，请删除重复组件");
       ids.add(block.props.id);
-      if (block.props.label.length > 80 || block.props.detail.length > 200)
+      if (block.props.label.length > 80 || block.props.detail.length > 200 ||
+          block.props.target.length > 40)
         throw new Error("组件名称最多 80 字，说明最多 200 字");
       const appearance = block.props.appearance;
       if (appearance) {
+        if (typeof appearance !== "object" ||
+            (appearance.align && !["start", "center", "end", "stretch"].includes(appearance.align)) ||
+            (appearance.justify && !["start", "center", "end", "space-between"].includes(appearance.justify)) ||
+            (appearance.wrap && !["wrap", "nowrap"].includes(appearance.wrap)))
+          throw new Error("布局属性无效");
         for (const [key, min, max] of [
           ["width", 0, 1920],
           ["height", 0, 2000],

@@ -112,6 +112,44 @@ class StudioTests(unittest.TestCase):
         )
         self.assertEqual(self.ask(history=[{"role": "user", "content": "x"}] * 9).status_code, 422)
 
+    def test_component_suggestion_is_bounded_and_does_not_write_document(self):
+        payload = {
+            "brief": {"title": "排班"},
+            "instruction": "把提交按钮改为蓝色并增加圆角",
+            "page_id": "home",
+            "page_title": "首页",
+            "component_type": "Button",
+            "component": {"id": "submit", "label": "提交"},
+        }
+        self.gateway.answer = (
+            '{"answer":"改为蓝色按钮","patch":{"tone":"blue","appearance":{"radius":12}}}'
+        )
+        response = self.client.post("/v1/prd/prototype/component-suggestion", json=payload)
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(response.json()["patch"], {"tone": "blue", "appearance": {"radius": 12}})
+        request = self.gateway.requests[-1]
+        self.assertEqual(request.maximum_output_tokens, 1200)
+        self.assertIn("submit", request.messages[-1].content)
+        self.assertEqual(self.store.list_documents(), [])
+
+        for invalid in (
+            '{"answer":"ok","patch":{"id":"other","label":"提交"}}',
+            '{"answer":"ok","patch":{"appearance":{"radius":999}}}',
+            '{"answer":"ok","patch":{}}',
+            '{"answer":"ok","patch":{"target":"missing"}}',
+        ):
+            with self.subTest(invalid=invalid):
+                self.gateway.answer = invalid
+                result = self.client.post("/v1/prd/prototype/component-suggestion", json=payload)
+                self.assertEqual(result.status_code, 502)
+
+        payload["component"]["id"] = "submit"
+        payload["component"]["unexpected"] = "invalid"
+        self.assertEqual(
+            self.client.post("/v1/prd/prototype/component-suggestion", json=payload).status_code,
+            422,
+        )
+
     def test_revise_preserves_omitted_images_and_flow_without_sending_bytes(self):
         brief = {"title": "排班", "description": "护士长排班"}
         doc = self.store.create(brief)

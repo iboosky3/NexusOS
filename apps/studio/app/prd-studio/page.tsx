@@ -26,7 +26,13 @@ import { PrototypeEditor } from "@/components/prd-studio/prototype-editor";
 import { Job, prdApi } from "@/lib/prd-api";
 import { usePrdStudio } from "@/lib/use-prd-studio";
 import { preparePrdAttachments } from "@/lib/prd-attachments";
-import type { PrototypeSelection } from "@/lib/prototype";
+import {
+  type ComponentPropsPatch,
+  type PrototypePatchRequest,
+  type PrototypeSelection,
+  findDesignBlock,
+} from "@/lib/prototype";
+import { createComponentId } from "@/lib/browser-crypto";
 import s from "@/components/prd-studio/studio.module.css";
 
 const CapabilityBrowser = dynamic(() =>
@@ -93,6 +99,7 @@ export default function PrdStudio() {
   const [focusChat, setFocusChat] = useState(0);
   const [prototypeSelection, setPrototypeSelection] =
     useState<PrototypeSelection | null>(null);
+  const [componentPatch, setComponentPatch] = useState<PrototypePatchRequest | null>(null);
   const [flow, setFlow] = useState("");
   const [split, setSplit] = useState(false);
   const [fileSearch, setFileSearch] = useState("");
@@ -488,6 +495,23 @@ export default function PrdStudio() {
           prototypeSelection={
             w.tab === "prototype" ? prototypeSelection : null
           }
+          onApplyComponent={(selection: PrototypeSelection, patch: ComponentPropsPatch) => {
+            if (locked || w.tab !== "prototype" || componentPatch)
+              throw new Error("原型暂时不可编辑，请稍后重试。");
+            const page = w.brief.prototype?.pages.find((item) => item.id === selection.pageId);
+            const current = page?.design
+              ? findDesignBlock(page.design.content, selection.block.props.id)
+              : undefined;
+            if (!current || JSON.stringify(current) !== JSON.stringify(selection.block))
+              throw new Error("组件在对话期间已变更，请重新选择组件并提问。");
+            setComponentPatch({
+              nonce: createComponentId(),
+              pageId: selection.pageId,
+              componentId: selection.block.props.id,
+              before: JSON.stringify(selection.block),
+              patch,
+            });
+          }}
         />
       }
     >
@@ -589,6 +613,12 @@ export default function PrdStudio() {
             }}
             onImport={() => imageInput.current?.click()}
             onSelection={setPrototypeSelection}
+            componentPatch={componentPatch}
+            onPatchApplied={(error) => {
+              setComponentPatch(null);
+              if (error) w.setError(error);
+              else w.setNotice("组件修改已应用到原型草稿；请预览并通过文件菜单保存。");
+            }}
           />
         )}
         {w.tab === "settings" && (

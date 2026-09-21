@@ -68,7 +68,7 @@ const defaults: Props = {
   left: [],
   right: [],
 };
-const tones = { green: "#287454", blue: "#315fba", gray: "#596773" };
+const tones = { green: "#197358", blue: "#355ec9", gray: "#52647a" };
 const blockStyle = { padding: "14px 18px", overflowWrap: "anywhere" as const };
 const appearanceDefaults = {
   width: 0,
@@ -76,7 +76,7 @@ const appearanceDefaults = {
   padding: 14,
   margin: 0,
   fontSize: 14,
-  radius: 5,
+  radius: 12,
   color: "",
   background: "",
   gap: 12,
@@ -195,7 +195,7 @@ export function designerConfig(
         "--control-height": a?.height ? `${a.height}px` : undefined,
         "--block-padding": a ? `${a.padding ?? 14}px` : undefined,
         "--block-margin": a ? `${a.margin ?? 0}px` : undefined,
-        "--block-radius": a ? `${a.radius ?? 5}px` : undefined,
+        "--block-radius": a ? `${a.radius ?? 12}px` : undefined,
         "--block-font": a?.fontSize ? `${a.fontSize}px` : undefined,
         "--block-color": a?.color || undefined,
         "--block-background":
@@ -222,11 +222,11 @@ export function designerConfig(
       render: ({ children }) => (
         <div
           style={{
-            fontFamily: 'Arial, "Microsoft YaHei", sans-serif',
-            color: "#203a2b",
-            background: "#fff",
+            fontFamily: 'Inter, "Microsoft YaHei", system-ui, sans-serif',
+            color: "#20342b",
+            background: "#fbfcfa",
             minHeight: 600,
-            padding: "24px 12px",
+            padding: "30px 24px",
             boxSizing: "border-box",
           }}
         >
@@ -243,21 +243,35 @@ export function designerConfig(
     },
     components: {
       Heading: make("标题", ({ label, detail, tone }) => (
-        <div style={blockStyle}>
-          <h1 style={{ fontSize: 28, color: tones[tone], margin: "0 0 10px" }}>
+        <div style={{
+          ...blockStyle, padding: "38px 34px", margin: "0 0 12px",
+          border: "1px solid #dcece2", borderRadius: 18,
+          background: "linear-gradient(125deg,#f1f8f3,#fff 68%)",
+        }}>
+          <span style={{
+            color: tones[tone], fontSize: 11, fontWeight: 800,
+            letterSpacing: ".16em", textTransform: "uppercase",
+          }}>PRODUCT EXPERIENCE</span>
+          <h1 style={{
+            fontSize: "clamp(28px, 4vw, 40px)", letterSpacing: "-.035em",
+            color: "#193a2b", margin: "10px 0 12px", lineHeight: 1.2,
+          }}>
             {label}
           </h1>
-          {detail && <p style={{ fontSize: 14, margin: 0 }}>{detail}</p>}
+          {detail && <p style={{
+            fontSize: 15, lineHeight: 1.75, color: "#62796c", maxWidth: 620, margin: 0,
+          }}>{detail}</p>}
         </div>
       )),
       Text: make("文字", ({ label, detail }) => (
-        <div style={{ ...blockStyle, fontSize: 15, lineHeight: 1.8 }}>
-          <strong>{label}</strong>
-          <p style={{ margin: "6px 0 0", whiteSpace: "pre-wrap" }}>{detail}</p>
+        <div style={{ ...blockStyle, fontSize: 15, lineHeight: 1.8, color: "#30473a" }}>
+          <strong style={{ fontSize: 17, letterSpacing: "-.015em" }}>{label}</strong>
+          <p style={{ margin: "7px 0 0", color: "#687e70", whiteSpace: "pre-wrap" }}>{detail}</p>
         </div>
       )),
       Input: make("输入框", ({ label, detail }) => (
-        <label style={{ ...blockStyle, display: "block", fontSize: 14 }}>
+        <label style={{ ...blockStyle, display: "block", fontSize: 13,
+          fontWeight: 650, color: "#314e3b" }}>
           {label}
           <input
             aria-label={label}
@@ -266,13 +280,14 @@ export function designerConfig(
               display: "block",
               boxSizing: "border-box",
               width: "100%",
-              padding: 12,
+              padding: "13px 15px",
               marginTop: 8,
               background: "#fff",
-              border: "1px solid #cad7ce",
-              borderRadius: 5,
+              border: "1px solid #cbded1",
+              borderRadius: 11,
               font: "inherit",
               color: "#203a2b",
+              boxShadow: "0 3px 10px rgb(29 72 48 / 4%)",
             }}
           />
         </label>
@@ -285,13 +300,15 @@ export function designerConfig(
               onClick={() => !puck.isEditing && target && onNavigate?.(target)}
               title={detail}
               style={{
-                padding: "11px 24px",
+                padding: "12px 24px",
                 border: 0,
-                borderRadius: 5,
+                borderRadius: 11,
                 background: tones[tone],
                 color: "#fff",
                 fontSize: 14,
+                fontWeight: 700,
                 cursor: "pointer",
+                boxShadow: `0 8px 18px ${tones[tone]}34`,
               }}
             >
               {label}
@@ -324,17 +341,19 @@ export function designerConfig(
             <div
               style={{
                 padding: 22,
-                border: "1px solid #dce5df",
+                border: "1px solid #e0e9e2",
                 borderTop: `3px solid ${tones[tone]}`,
-                borderRadius: 8,
-                background: "#f8faf9",
+                borderRadius: 15,
+                background: "#fff",
+                boxShadow: "0 12px 30px rgb(28 66 44 / 6%)",
               }}
             >
-              <strong style={{ fontSize: 18 }}>{label}</strong>
+              <strong style={{ fontSize: 18, color: "#234334" }}>{label}</strong>
               <p
                 style={{
                   fontSize: 14,
                   lineHeight: 1.8,
+                  color: "#657c6e",
                   whiteSpace: "pre-wrap",
                 }}
               >
@@ -349,16 +368,18 @@ export function designerConfig(
         "列表",
         ({ label, detail }) => (
           <div style={blockStyle}>
-            <strong>{label}</strong>
+            <strong style={{ fontSize: 17, color: "#234334" }}>{label}</strong>
             {(detail || "列表项一\n列表项二\n列表项三")
               .split("\n")
               .map((line, index) => (
                 <div
                   key={index}
                   style={{
-                    padding: "14px 0",
+                    padding: "14px 12px",
                     borderBottom: "1px solid #e2e9e5",
                     fontSize: 14,
+                    background: index % 2 ? "#f8fbf8" : "#fff",
+                    borderRadius: 8,
                   }}
                 >
                   {line}
@@ -374,7 +395,7 @@ export function designerConfig(
         defaultProps: defaults,
         render: () => (
           <div style={blockStyle}>
-            <hr style={{ border: 0, borderTop: "1px solid #dae4dd" }} />
+            <hr style={{ border: 0, borderTop: "1px solid #d6e5da", margin: "10px 0" }} />
           </div>
         ),
       },

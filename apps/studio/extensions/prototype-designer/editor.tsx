@@ -5,7 +5,7 @@ import { Puck, usePuck } from "@puckeditor/core";
 import "@puckeditor/core/puck.css";
 import {
   type DesignBlock, type PrototypeDesign, type PrototypeSelection,
-  findDesignBlock, validateDesign,
+  type PrototypePatchRequest, findDesignBlock, validateDesign,
 } from "@/lib/prototype";
 import { designerConfig, pageDesign } from "./config";
 import type { DesignerProps } from "./manifest";
@@ -40,6 +40,57 @@ function SelectionBridge({
     previous.current = next;
     onSelection(block ? { pageId, pageTitle, block } : null);
   }, [pageId, pageTitle, signature, onSelection, block]);
+  return null;
+}
+
+function ComponentPatchBridge({
+  request, pageId, onApplied,
+}: {
+  request?: PrototypePatchRequest | null;
+  pageId: string;
+  onApplied: (error?: string) => void;
+}) {
+  const { appState, dispatch } = usePuck();
+  const handled = useRef("");
+  useEffect(() => {
+    if (!request || request.pageId !== pageId || handled.current === request.nonce) return;
+    handled.current = request.nonce;
+    const current = findDesignBlock(
+      appState.data.content as DesignBlock[], request.componentId,
+    );
+    if (!current || JSON.stringify(current) !== request.before) {
+      onApplied("组件在建议期间已变更，请重新选择组件并提问。");
+      return;
+    }
+    const updated: DesignBlock = {
+      ...current,
+      props: {
+        ...current.props,
+        ...request.patch,
+        appearance: request.patch.appearance
+          ? { ...current.props.appearance, ...request.patch.appearance }
+          : current.props.appearance,
+      },
+    };
+    const replace = (blocks: DesignBlock[]): DesignBlock[] => blocks.map((block) => {
+      if (block.props.id === request.componentId) return updated;
+      if (block.type !== "Columns" && block.type !== "Row") return block;
+      return { ...block, props: { ...block.props,
+        left: replace(block.props.left || []), right: replace(block.props.right || []),
+      } };
+    });
+    const content = replace(appState.data.content as DesignBlock[]);
+    try {
+      validateDesign({
+        engine: "puck", version: 1, width: 960,
+        content,
+      });
+      dispatch({ type: "setData", data: { content } });
+      onApplied();
+    } catch (error) {
+      onApplied(error instanceof Error ? error.message : "组件修改不符合原型约束。");
+    }
+  }, [request, pageId, appState.data.content, dispatch, onApplied]);
   return null;
 }
 
@@ -108,6 +159,7 @@ function SourceEditor({
 
 export default function Designer({
   page, pages, disabled, onChange, onSelection = () => {},
+  componentPatch, onPatchApplied = () => {},
 }: DesignerProps) {
   const [initial] = useState(() => pageDesign(page));
   const [data, setData] = useState(initial);
@@ -160,6 +212,7 @@ export default function Designer({
         "plugin-components": "组件", "header-undo": "撤销", "header-redo": "重做",
       }}>
       <SelectionBridge pageId={page.id} pageTitle={page.title} onSelection={handleSelection} />
+      <ComponentPatchBridge request={componentPatch} pageId={page.id} onApplied={onPatchApplied} />
       <div className={s.toolbar}>
         <div className={s.modeSwitch} aria-label="原型编辑模式">
           <button aria-pressed={mode === "design"} onClick={() => setMode("design")}>设计</button>

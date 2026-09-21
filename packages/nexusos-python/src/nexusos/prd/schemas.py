@@ -2,9 +2,9 @@
 
 from typing import Literal
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 
-from nexusos.prd.prototype import Prototype
+from nexusos.prd.prototype import DesignProps, Prototype
 from nexusos.prd.schemas_base import StrictModel
 
 
@@ -72,6 +72,55 @@ class AssistantReply(StrictModel):
         ],
         str,
     ] = Field(default_factory=dict)
+
+
+class ComponentAppearancePatch(StrictModel):
+    width: int | None = Field(default=None, ge=0, le=1920)
+    height: int | None = Field(default=None, ge=0, le=2000)
+    padding: int | None = Field(default=None, ge=0, le=200)
+    margin: int | None = Field(default=None, ge=0, le=200)
+    fontSize: int | None = Field(default=None, ge=8, le=120)
+    radius: int | None = Field(default=None, ge=0, le=200)
+    color: str | None = Field(default=None, pattern=r"^(|#[0-9a-fA-F]{6})$")
+    background: str | None = Field(default=None, pattern=r"^(|#[0-9a-fA-F]{6})$")
+    gap: int | None = Field(default=None, ge=0, le=200)
+    align: Literal["start", "center", "end", "stretch"] | None = None
+    justify: Literal["start", "center", "end", "space-between"] | None = None
+    wrap: Literal["wrap", "nowrap"] | None = None
+    ratio: int | None = Field(default=None, ge=10, le=90)
+
+
+class ComponentPatch(StrictModel):
+    label: str | None = Field(default=None, max_length=80)
+    detail: str | None = Field(default=None, max_length=200)
+    tone: Literal["green", "blue", "gray"] | None = None
+    target: str | None = Field(default=None, max_length=40)
+    appearance: ComponentAppearancePatch | None = None
+
+    @model_validator(mode="after")
+    def has_changes(self) -> "ComponentPatch":
+        if not self.model_dump(exclude_none=True, exclude_unset=True):
+            raise ValueError("组件修改建议不能为空")
+        if self.appearance is not None and not self.appearance.model_dump(exclude_none=True):
+            raise ValueError("样式修改建议不能为空")
+        return self
+
+
+class ComponentSuggestionRequest(StrictModel):
+    brief: DraftBrief
+    instruction: str = Field(min_length=1, max_length=4000)
+    page_id: str = Field(pattern=r"^[a-zA-Z0-9_-]{1,40}$")
+    page_title: str = Field(min_length=1, max_length=80)
+    component_type: Literal[
+        "Heading", "Text", "Input", "Button", "Card", "List", "Divider", "Columns", "Row"
+    ]
+    component: DesignProps
+    show_thinking: bool = False
+
+
+class ComponentSuggestionReply(StrictModel):
+    answer: str = Field(min_length=1, max_length=1200)
+    patch: ComponentPatch
 
 
 class StartJob(StrictModel):

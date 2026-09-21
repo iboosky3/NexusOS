@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Brief, Job, prdApi } from "@/lib/prd-api";
 import { fields } from "@/lib/use-prd-studio";
-import type { PrototypeSelection } from "@/lib/prototype";
+import type { ComponentPropsPatch, PrototypeSelection } from "@/lib/prototype";
 import {
   PanelHeading,
   CloseAssistantButton,
@@ -44,6 +44,7 @@ export function PrdAssistant({
   onOpenSources,
   onOpenDocument,
   prototypeSelection,
+  onApplyComponent,
 }: {
   brief: Brief;
   onBrief: (brief: Brief) => void;
@@ -65,6 +66,7 @@ export function PrdAssistant({
   onOpenSources: () => void;
   onOpenDocument: () => void;
   prototypeSelection: PrototypeSelection | null;
+  onApplyComponent: (selection: PrototypeSelection, patch: ComponentPropsPatch) => void;
 }) {
   const [mode, setMode] = useState<"clarify" | "revise" | "prototype">(
     "clarify",
@@ -76,6 +78,11 @@ export function PrdAssistant({
   const [proposal, setProposal] = useState<{
     result: Reply;
     before: Brief;
+  } | null>(null);
+  const [componentProposal, setComponentProposal] = useState<{
+    selection: PrototypeSelection;
+    patch: ComponentPropsPatch;
+    answer: string;
   } | null>(null);
   const [error, setError] = useState("");
   const [usage, setUsage] = useState(0);
@@ -137,19 +144,47 @@ export function PrdAssistant({
   }
   async function send() {
     if (!text.trim() || locked || pendingRef.current) return;
+    if (mode === "prototype" && prototypeSelection) {
+      const selected = structuredClone(prototypeSelection);
+      const instruction = text.trim();
+      pendingRef.current = true;
+      setPending(true);
+      setError("");
+      setComponentProposal(null);
+      const next: Entry[] = [...entries, { role: "user", text: instruction }];
+      updateEntries(next);
+      try {
+        const result = await prdApi<{
+          answer: string;
+          patch: ComponentPropsPatch;
+        }>("prototype/component-suggestion", "POST", {
+          brief,
+          instruction,
+          page_id: selected.pageId,
+          page_title: selected.pageTitle,
+          component_type: selected.block.type,
+          component: selected.block.props,
+          show_thinking: showThinking,
+        });
+        if (!mounted.current) return;
+        updateEntries([...next, { role: "assistant", text: result.answer }]);
+        setComponentProposal({ selection: selected, patch: result.patch, answer: result.answer });
+        setText("");
+      } catch (err) {
+        if (mounted.current)
+          setError(err instanceof Error ? err.message : "组件建议生成失败");
+      } finally {
+        pendingRef.current = false;
+        if (mounted.current) setPending(false);
+      }
+      return;
+    }
     if (mode === "revise" || mode === "prototype") {
       pendingRef.current = true;
       setPending(true);
       try {
-        const selectionContext = prototypeSelection
-          ? `当前只处理页面“${prototypeSelection.pageTitle}”中的选中组件。组件 ID：${prototypeSelection.block.props.id}；组件类型：${prototypeSelection.block.type}；当前属性：${JSON.stringify(prototypeSelection.block.props)}。保持其他页面和组件不变，并保留这个稳定组件 ID。`
-          : "";
-        const maximumText = Math.max(1, 8000 - selectionContext.length - 2);
-        const instruction = selectionContext
-          ? `${text.trim().slice(0, maximumText)}\n\n${selectionContext}`
-          : text.trim();
         await (mode === "prototype"
-          ? onPrototype(instruction)
+          ? onPrototype(text.trim())
           : onRevise(text.trim()));
       } finally {
         pendingRef.current = false;
@@ -250,7 +285,7 @@ export function PrdAssistant({
             <span>当前组件</span>
             <strong>{prototypeSelection.block.props.label || prototypeSelection.block.type}</strong>
             <code>{prototypeSelection.block.props.id}</code>
-            <small>AI 请求将携带当前属性，并要求保留其他组件。</small>
+            <small>AI 将只建议该组件的属性补丁，由你确认后应用。</small>
           </section>
         )}
         {!entries.length && !job && (
@@ -297,6 +332,23 @@ export function PrdAssistant({
               应用建议
             </button>
             <button onClick={() => setProposal(null)}>忽略</button>
+          </section>
+        )}
+        {mode === "prototype" && componentProposal && (
+          <section className={s.proposal} aria-label="组件修改建议">
+            <h3>建议修改 · {componentProposal.selection.block.props.label ||
+              componentProposal.selection.block.type}</h3>
+            <p>{componentProposal.answer}</p>
+            <pre>{JSON.stringify(componentProposal.patch, null, 2)}</pre>
+            <button disabled={locked || pending} onClick={() => {
+              try {
+                onApplyComponent(componentProposal.selection, componentProposal.patch);
+                setComponentProposal(null);
+              } catch (err) {
+                setError(err instanceof Error ? err.message : "无法应用组件修改");
+              }
+            }}>应用到选中组件</button>
+            <button onClick={() => setComponentProposal(null)}>忽略</button>
           </section>
         )}
         {pending && <p role="status">正在分析需求…</p>}
