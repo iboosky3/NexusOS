@@ -145,8 +145,7 @@ class StudioStore:
     def create_resource(self, workspace: str, resource_type: str, payload: dict, request_id: str):
         plugin = plugin_for(resource_type)
         value = plugin.validate(payload)
-        if value.get("provenance"):
-            raise ValueError("PROVENANCE_MANAGED_BY_PLATFORM")
+        plugin.validate_manual_write(value)
         request = {"type": resource_type, "payload": value}
         with self.documents.connection() as db:
             self.require_plugin(db, workspace, plugin.id)
@@ -202,10 +201,7 @@ class StudioStore:
                 previous = self.request_in(db, workspace, "resource.save", request_id, request)
                 if previous:
                     return previous
-            if current["resourceType"] == "nexus.prd" and (
-                payload.get("provenance", []) != current["payload"].get("provenance", [])
-            ):
-                raise ValueError("PROVENANCE_MANAGED_BY_PLATFORM")
+            plugin_for(current["resourceType"]).validate_manual_write(payload, current["payload"])
             result = self.save_in(db, workspace, identifier, revision, payload)
             if request_id:
                 self.receipt_in(db, workspace, "resource.save", request_id, request, result)
