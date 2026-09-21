@@ -353,26 +353,6 @@ export function PrototypeEditor({
           </nav>
           {edit ? (
             <>
-              <fieldset disabled={disabled} className={s.fields}>
-                <label>
-                  页面名称
-                  <input
-                    value={page.title}
-                    maxLength={80}
-                    onChange={(e) => patch({ title: e.target.value })}
-                  />
-                </label>
-                <label>
-                  页面与交互说明
-                  <textarea
-                    value={page.description}
-                    maxLength={2000}
-                    rows={2}
-                    placeholder="说明角色、操作、跳转以及异常状态；截图时会一同嵌入 PRD。"
-                    onChange={(e) => patch({ description: e.target.value })}
-                  />
-                </label>
-              </fieldset>
               {designerEnabled && (page.design || page.elements.length > 0) ? (
                 <Designer
                   key={page.id}
@@ -382,6 +362,7 @@ export function PrototypeEditor({
                   onChange={(design) =>
                     patch({ design, elements: designElements(design) })
                   }
+                  onPageChange={patch}
                   onSelection={onSelection}
                   componentPatch={componentPatch}
                   onPatchApplied={onPatchApplied}
@@ -397,6 +378,22 @@ export function PrototypeEditor({
               )}
               {!page.design && !page.elements.length && (
                 <p>导入图片保留为静态原型；添加页面可进行拖拽设计。</p>
+              )}
+              {(!designerEnabled || (!page.design && !page.elements.length)) && (
+                <details className={s.pageActions}>
+                  <summary>页面信息</summary>
+                  <fieldset disabled={disabled} className={s.fields}>
+                    <label>页面名称
+                      <input value={page.title} maxLength={80}
+                        onChange={(event) => patch({ title: event.target.value })} />
+                    </label>
+                    <label>页面与交互说明
+                      <textarea value={page.description} maxLength={2000} rows={5}
+                        placeholder="说明角色、操作、跳转以及异常状态；截图时会一同嵌入 PRD。"
+                        onChange={(event) => patch({ description: event.target.value })} />
+                    </label>
+                  </fieldset>
+                </details>
               )}
               <details className={s.pageActions}>
                 <summary>页面操作</summary>
@@ -426,9 +423,12 @@ export function PrototypeEditor({
                   )}
                 </div>
               )}
-              <p className={s.description}>
-                {page.description || "请编辑页面，补充操作、状态与异常说明。"}
-              </p>
+              <details className={s.pageActions}>
+                <summary>页面与交互说明</summary>
+                <p className={s.description}>
+                  {page.description || "请编辑页面，补充操作、状态与异常说明。"}
+                </p>
+              </details>
             </>
           )}
         </>

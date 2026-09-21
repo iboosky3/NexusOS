@@ -38,7 +38,7 @@ function SelectionBridge({
   const signature = block ? JSON.stringify(block) : "";
   const previous = useRef<string>("");
   useEffect(() => {
-    const next = `${pageId}:${signature}`;
+    const next = JSON.stringify([pageId, pageTitle, signature]);
     if (previous.current === next) return;
     previous.current = next;
     onSelection(block ? { pageId, pageTitle, block } : null);
@@ -171,7 +171,7 @@ function SourceEditor({
 }
 
 export default function Designer({
-  page, pages, disabled, onChange, onSelection = () => {},
+  page, pages, disabled, onChange, onPageChange, onSelection = () => {},
   componentPatch, onPatchApplied = () => {},
 }: DesignerProps) {
   const [initial] = useState(() => pageDesign(page));
@@ -179,13 +179,14 @@ export default function Designer({
   const [revision, setRevision] = useState(0);
   const [width, setWidth] = useState<960 | 390>(initial.width);
   const [mode, setMode] = useState<"design" | "code">("design");
-  const [inspectorPanel, setInspectorPanel] = useState<"fields" | "outline">("fields");
+  const [inspectorPanel, setInspectorPanel] = useState<"fields" | "outline" | "page">("page");
   const [paletteVisible, setPaletteVisible] = useState(true);
   const [inspectorVisible, setInspectorVisible] = useState(true);
   const [selection, setSelection] = useState<PrototypeSelection | null>(null);
   const [error, setError] = useState("");
   const [panelsReady, setPanelsReady] = useState(false);
   const latest = useRef(initial);
+  const selectedId = useRef("");
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
   useEffect(() => {
@@ -221,7 +222,12 @@ export default function Designer({
   }, []);
   const handleSelection = useCallback((next: PrototypeSelection | null) => {
     setSelection(next);
-    if (next) { setInspectorVisible(true); setInspectorPanel("fields"); }
+    const nextId = next?.block.props.id || "";
+    if (next && nextId !== selectedId.current) {
+      setInspectorVisible(true);
+      setInspectorPanel("fields");
+    }
+    selectedId.current = nextId;
     onSelection(next);
   }, [onSelection]);
   const columns = mode === "code"
@@ -253,6 +259,8 @@ export default function Designer({
             onClick={() => setPaletteVisible((value) => !value)}>组件库</button>}
           <button aria-pressed={inspectorVisible}
             onClick={() => setInspectorVisible((value) => !value)}>属性面板</button>
+          <button aria-pressed={inspectorVisible && inspectorPanel === "page"}
+            onClick={() => { setInspectorVisible(true); setInspectorPanel("page"); }}>页面信息</button>
         </div>
         <div className={s.toolbarActions}><HistoryButtons />
           <select aria-label="原型画布尺寸" value={width}
@@ -285,8 +293,21 @@ export default function Designer({
               onClick={() => setInspectorPanel("fields")}>属性</button>
             <button aria-pressed={inspectorPanel === "outline"}
               onClick={() => setInspectorPanel("outline")}>图层</button>
+            <button aria-pressed={inspectorPanel === "page"}
+              onClick={() => setInspectorPanel("page")}>页面</button>
           </div><button aria-label="隐藏属性面板" onClick={() => setInspectorVisible(false)}>×</button></header>
-          {inspectorPanel === "fields" ? selection ? <>
+          {inspectorPanel === "page" ? <fieldset className={s.pageFields} disabled={disabled}>
+            <label>页面名称
+              <input value={page.title} maxLength={80}
+                onChange={(event) => onPageChange({ title: event.target.value })} />
+            </label>
+            <label>页面与交互说明
+              <textarea value={page.description} maxLength={2000} rows={8}
+                placeholder="说明角色、操作、跳转以及异常状态；截图时会一同嵌入 PRD。"
+                onChange={(event) => onPageChange({ description: event.target.value })} />
+            </label>
+            <p>页面说明用于原型确认与 PRD 截图，不占用画布空间。</p>
+          </fieldset> : inspectorPanel === "fields" ? selection ? <>
             <div className={s.selectionSummary}>
               <strong>{selection.block.props.label || selection.block.type}</strong>
               <code>{selection.block.props.id}</code>

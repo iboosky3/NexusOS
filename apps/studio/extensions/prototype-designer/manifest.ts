@@ -11,6 +11,7 @@ export interface DesignerProps {
   pages: PrototypePage[];
   disabled: boolean;
   onChange: (design: PrototypeDesign) => void;
+  onPageChange: (patch: Partial<Pick<PrototypePage, "title" | "description">>) => void;
   onSelection?: (selection: PrototypeSelection | null) => void;
   componentPatch?: PrototypePatchRequest | null;
   onPatchApplied?: (error?: string) => void;

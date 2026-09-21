@@ -152,6 +152,46 @@
   line-height: 1.65;
   text-align: center;
 }
+.pageFields {
+  display: grid;
+  align-content: start;
+  gap: 16px;
+  margin: 0;
+  border: 0;
+  padding: 16px 13px;
+}
+.pageFields label {
+  display: grid;
+  gap: 7px;
+  color: #385644;
+  font-size: 12px;
+  font-weight: 650;
+}
+.pageFields input, .pageFields textarea {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  border: 1px solid #cadbcf;
+  border-radius: 7px;
+  padding: 9px 10px;
+  color: #203a2b;
+  background: #fff;
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.5;
+  font-weight: 400;
+}
+.pageFields textarea { min-height: 145px; resize: vertical; }
+.pageFields input:focus-visible, .pageFields textarea:focus-visible {
+  outline: 2px solid #5e9a76;
+  outline-offset: 1px;
+}
+.pageFields p {
+  margin: 0;
+  color: #77887e;
+  font-size: 11px;
+  line-height: 1.6;
+}
 .sourcePane {
   display: flex;
   flex-direction: column;
