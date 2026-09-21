@@ -4,6 +4,16 @@
 
 本文是[架构方案](../architecture/agent-plugin-workbench.md)的实施计划，目录、API、数据表除下述实施记录外均为**拟议契约**，不是现有能力清单。设计基线先于代码交付；每阶段记录验证证据和剩余边界。
 
+### 2026-09-22 新接口优先的 PRD 工作流（本批，M3 部分完成）
+
+用户最新决定：以新资源／Invocation 接口为准，旧 PRD 工作流不要求原样接入，保留工作流展示功能即可。本决定覆盖先前“必须适配旧 job、原发布行为和旧运行检查点”的实施要求；仍保留新版资源的人工批准、并发保护、阶段证据和可解释重试。不会为了兼容旧流程而在评审前保存正文。
+
+PRD 插件声明七阶段生成、四阶段修订和单阶段评审。核心提供 `AgentWorkflow`／`WorkflowStage` 通用执行契约；创建调用时固定阶段顺序、Agent／Skill 版本和指令。只复用旧代码中的写作规则、合并校验、评审与追溯检查，不调用旧 `PrdWorkflow` 或 `PrdStore.publish`。生成只改正文，保留简报、材料、来源和已采用设计区块；完整评审通过结构校验后才形成待批准提案。质量意见不会伪装为人工验收，用户仍须判断是否采用。
+
+工作流进度、阶段输出、摘要、用量进入新 Invocation 及其事件游标。取消后的晚回包不再启动后续阶段，停用后停止后续调度；失败、中断保留已完成阶段记录。重试从当前资源版本重新执行，不把“保留记录”宣称为断点续跑；不实施旧检查点迁移。前端复用 `ExecutionFlow` 和节点详情对话框，在中央标签显示实际执行图，支持查看 Agent／Skill 版本、阶段输出、缩放、键盘打开与 Escape 关闭。
+
+验证：全仓 Python 197 项测试及 27 个子测试、26 项前端测试、TypeScript、Ruff／格式／Mypy、独立生产构建和严格文档构建通过；两个 Chromium 回归配真实 API、临时 SQLite 和确定性模型通过。新增浏览器断言覆盖七阶段完成图、实际 Agent 版本、可读评审输出、Enter／Escape 与焦点返回、刷新恢复工作流标签及批准前正文不变。9 项新工作流测试覆盖审批隔离、评审失败、取消晚回包、插件停用、重试、独立评审、并发冲突、来源保留和第三插件声明流程。未做真实模型验收。剩余：两个宿主和写入路径尚未合一，默认首页仍保持此前恢复的前端；持久草稿、交接领域扩展／差异和重新确认、完整窄屏／键盘／真实模型及新数据备份恢复仍待完成。
+
 ### 2026-09-22 统一 Agent 能力适配（M1/M3 部分完成）
 
 通用 `AgentCapability` 契约声明版本、模型能力、严格输入／输出 schema、上下文提取及提案处理。PRD、原型、便签的服务端注册与能力处理分别进入 `studio/extensions`，装配文件只列插件，不再根据 `review`／`clarify` 名字决定业务行为。前端 capability 可贡献 `prepareInput`，核心透传输入，组件字段解释留在原型插件。
@@ -302,7 +312,7 @@ npm run typecheck
 NEXUS_STUDIO_DIST_DIR=.next-plugin-test npm run build
 ```
 
-浏览器：终端一在仓库根运行 `.venv/bin/python tests/studio_browser_server.py`（临时 SQLite、18123 端口）；终端二在 `apps/studio` 运行 `NEXUS_API_URL=http://127.0.0.1:18123 NEXUS_STUDIO_DIST_DIR=.next-plugin-test npm run start -- --port 13123 --hostname 127.0.0.1`；终端三运行 `PLAYWRIGHT_MODULE=<已安装 playwright 的 index.mjs 绝对路径> node tests/studio-browser.mjs`。脚本使用真实 Chromium，需已安装 Playwright 浏览器。截图输出 `/tmp/nexus-plugin-workspace-browser.png`，不作为用户数据提交。
+浏览器：终端一在仓库根运行 `.venv/bin/python -m tests.studio_browser_server`（临时 SQLite、18123 端口）；终端二在 `apps/studio` 运行 `NEXUS_API_URL=http://127.0.0.1:18123 NEXUS_STUDIO_DIST_DIR=.next-plugin-test npm run start -- --port 13123 --hostname 127.0.0.1`；终端三运行 `PLAYWRIGHT_MODULE=<已安装 playwright 的 index.mjs 绝对路径> node tests/studio-browser.mjs`。脚本使用真实 Chromium，需已安装 Playwright 浏览器。截图输出 `/tmp/nexus-plugin-workspace-browser.png`，不作为用户数据提交。
 
 本轮补齐新模块类型标注，同时修正基线两个类型标注错误及两处 Ruff 格式漂移后，全仓 Ruff 与 Mypy 均通过。测试仍有 Starlette 上游弃用提示；未影响通过结果。
 

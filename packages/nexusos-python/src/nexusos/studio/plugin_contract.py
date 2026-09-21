@@ -18,6 +18,30 @@ class AnalysisReply(StrictModel):
 
 
 @dataclass(frozen=True)
+class WorkflowStage:
+    id: str
+    title: str
+    objective: str
+    required_capabilities: tuple[str, ...]
+    system: str
+    context: Callable[[dict, dict[str, str]], dict]
+    output_tokens: int = 4000
+    validate: Callable[[str], Any] | None = None
+
+
+@dataclass(frozen=True)
+class AgentWorkflow:
+    version: str
+    stages: tuple[WorkflowStage, ...]
+    finish: Callable[[dict, dict[str, str]], dict]
+
+    def __post_init__(self):
+        ids = [stage.id for stage in self.stages]
+        if not self.version or not ids or len(ids) != len(set(ids)) or not all(ids):
+            raise ValueError("Invalid workflow declaration")
+
+
+@dataclass(frozen=True)
 class AgentCapability:
     id: str
     required_capabilities: tuple[str, ...]
@@ -28,6 +52,7 @@ class AgentCapability:
     output_model: type[StrictModel] | None = None
     context: Callable[[dict, dict], dict] | None = None
     propose: Callable[[dict, dict, dict], dict] | None = None
+    workflow: AgentWorkflow | None = None
 
     def validate_input(self, value: dict) -> dict:
         return self.input_model.model_validate(value).model_dump()

@@ -1,0 +1,7 @@
+.root { padding: 20px; min-width: 0; color: var(--foreground, #243c31); }
+.root header { margin-bottom: 16px; }
+.root h1 { margin: 0 0 12px; font-size: 21px; }
+.root p { line-height: 1.65; overflow-wrap: anywhere; }
+.root button { padding: 7px 12px; cursor: pointer; }
+.output { white-space: pre-wrap; overflow-wrap: anywhere; max-width: 100%; line-height: 1.7; font: inherit; }
+@media (max-width: 700px) { .root { padding: 12px; } }

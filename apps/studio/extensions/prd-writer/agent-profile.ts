@@ -7,7 +7,7 @@ export const prdAgentProfile: AgentProfile = {
   summary: "从需求简报出发，经过需求分析、流程与技术检查、分段编写和质量评审，形成可人工确认的 PRD。",
   usage: [
     "打开或新建 PRD，填写需求简报与参考材料。",
-    "在运行菜单启动 PRD 工作流；检查阶段进度、评审意见与待确认问题。",
+    "在 Agent 能力中选择编写、修订或评审；发送后从任务记录打开工作流，检查阶段与评审意见。",
     "需要原型时先确认设计，再将版本化设计产物交给 PRD。",
   ],
   selection: "capability",

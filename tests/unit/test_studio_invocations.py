@@ -1,7 +1,6 @@
 """Invocation lifecycle, fixed context, runtime selection and write approval."""
 
 import asyncio
-import json
 
 import pytest
 from nexusos.core.models import TokenUsage
@@ -9,6 +8,8 @@ from nexusos.models import ModelResponse
 from nexusos.prd.store import ConflictError, PrdStore
 from nexusos.studio.agents import InvocationService
 from nexusos.studio.store import StudioStore
+
+from tests.workflow_fixtures import stage_content
 
 
 @pytest.fixture
@@ -29,12 +30,7 @@ class Gateway:
             model="test",
             usage=TokenUsage(1, 1),
             finish_reason="stop",
-            content=json.dumps(
-                {
-                    "brief": {"title": "Agent 提案"},
-                    "content": "待确认正文",
-                }
-            ),
+            content=stage_content(request.metadata["stage_id"]),
         )
 
 
@@ -111,14 +107,14 @@ async def test_runtime_selection_versions_and_stale_approval(platform):
             "clientRequestId": "fixed",
         },
     )
-    assert item["execution"]["agent"]["id"] == "writer"
-    assert item["execution"]["agent"]["version"] == "1.0.0"
-    assert item["execution"]["handlerVersion"] == "studio-proposal/2"
+    assert item["execution"]["stages"][3]["agent"]["id"] == "writer"
+    assert item["execution"]["stages"][3]["agent"]["version"] == "1.0.0"
+    assert item["execution"]["handlerVersion"] == "studio-workflow/1"
     store.save(workspace, resource["id"], 1, {**resource["payload"], "content": "人工内容"})
     await asyncio.gather(*service.tasks.values())
     proposal = store.get(workspace, item["id"], "invocation")
     assert proposal["status"] == "waiting_confirmation"
-    assert proposal["tokenUsage"] == {"input": 1, "output": 1}
+    assert proposal["tokenUsage"] == {"input": 7, "output": 7}
     with pytest.raises(ConflictError, match="REVISION"):
         service.apply(workspace, item["id"], proposal["result"]["digest"])
     assert service.events(workspace, item["id"], 1)[0]["sequence"] == 2

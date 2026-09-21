@@ -4,6 +4,13 @@ from copy import deepcopy
 
 from nexusos.prd.schemas import AssistantReply
 from nexusos.studio.domain_payloads import PrdPayload, prd_proposal
+from nexusos.studio.extensions.prd_workflow import (
+    DRAFT,
+    REVIEW_ONLY,
+    REVISE,
+    AuthoringReply,
+    authoring_proposal,
+)
 from nexusos.studio.plugin_contract import AgentCapability, AnalysisReply, DomainPlugin
 
 
@@ -22,9 +29,30 @@ plugin = DomainPlugin(
     resource_type="nexus.prd",
     payload_model=PrdPayload,
     actions=(
-        AgentCapability("draft", ("prd_generation",)),
-        AgentCapability("revise", ("prd_generation",)),
-        AgentCapability("review", ("quality_review",), read_only=True, output_model=AnalysisReply),
+        AgentCapability(
+            "draft",
+            ("prd_generation",),
+            version="2",
+            workflow=DRAFT,
+            output_model=AuthoringReply,
+            propose=authoring_proposal,
+        ),
+        AgentCapability(
+            "revise",
+            ("prd_generation",),
+            version="2",
+            workflow=REVISE,
+            output_model=AuthoringReply,
+            propose=authoring_proposal,
+        ),
+        AgentCapability(
+            "review",
+            ("quality_review",),
+            version="2",
+            read_only=True,
+            output_model=AnalysisReply,
+            workflow=REVIEW_ONLY,
+        ),
         AgentCapability(
             "clarify",
             ("requirement_analysis",),

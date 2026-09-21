@@ -19,6 +19,9 @@ try {
   await page.getByRole("list", { name: "Agent 插件" }).getByRole("button", { name: /PRD 编写/ }).click();
   await page.getByRole("article", { name: "PRD 编写 Agent 详情" }).getByRole("button", { name: "运行 / 打开工作台" }).click();
   const editor = page.getByRole("textbox", { name: "PRD 正文", exact: true });
+  await page.getByRole("button", { name: "需求简报", exact: true }).click();
+  await page.locator("#studio-title").fill("浏览器验收 PRD");
+  await page.getByRole("button", { name: "收起需求简报", exact: true }).click();
   await editor.fill("# 手工编写\n这个草稿需要保留。");
   await editor.press("Control+s");
   await page.getByRole("status").filter({ hasText: "已保存 r2" }).waitFor();
@@ -32,6 +35,26 @@ try {
   await page.getByRole("button", { name: "发送（保存上下文并生成提案）" }).click();
   const apply = page.getByRole("button", { name: "应用到原资源 r3" });
   await apply.waitFor({ timeout: 15000 });
+  assert.equal(await editor.inputValue(), "# 尚未保存的浏览器草稿");
+  await page.getByRole("button", { name: "查看工作流", exact: true }).click();
+  const workflow = page.getByRole("article", { name: "Agent 工作流记录" });
+  await workflow.getByRole("status").filter({ hasText: "7 / 7 个阶段完成" }).waitFor();
+  assert.equal(await workflow.locator("[data-flow-node]").count(), 7);
+  const reviewNode = workflow.getByRole("button", { name: "质量评审 · 已完成", exact: true });
+  await reviewNode.focus();
+  await page.keyboard.press("Enter");
+  const dialog = page.getByRole("dialog", { name: "质量评审", exact: true });
+  await dialog.waitFor();
+  assert.match(await dialog.textContent(), /reviewer.*1.0.0/s);
+  assert.match(await dialog.textContent(), /请人工核验范围与验收要求/);
+  await page.keyboard.press("Escape");
+  await dialog.waitFor({ state: "hidden" });
+  assert.equal(await reviewNode.evaluate((element) => document.activeElement === element), true);
+  await page.screenshot({ path: "/tmp/nexus-agent-workflow-browser.png", fullPage: true });
+  await page.reload();
+  await workflow.getByRole("status").filter({ hasText: "7 / 7 个阶段完成" }).waitFor();
+  await workflow.getByRole("button", { name: "返回原资源", exact: true }).click();
+  await page.getByRole("button", { name: "任务", exact: true }).click();
   assert.equal(await editor.inputValue(), "# 尚未保存的浏览器草稿");
   await apply.click();
   await page.waitForFunction(() => document.querySelector('textarea[aria-label="PRD 正文"]')?.value.includes("Agent 草稿"));
@@ -141,5 +164,5 @@ try {
   await page.waitForFunction(() => document.querySelector('textarea[maxlength="20000"]')?.value === "整理后的便签");
   await page.screenshot({ path: "/tmp/nexus-plugin-workspace-browser.png", fullPage: true });
   assert.deepEqual(failures, []);
-  console.log("PASS: create/save, draft recovery, Agent approval, clarification, scoped component suggestions, prototype JSON recovery, screenshot handoff, two-window isolation, CAS, disable/re-enable, focus and third plugin editor/view/Agent; real API + deterministic model");
+  console.log("PASS: create/save, draft recovery, workflow graph/details/keyboard/reload, Agent approval, clarification, scoped component suggestions, prototype JSON recovery, screenshot handoff, two-window isolation, CAS, disable/re-enable, focus and third plugin editor/view/Agent; real API + deterministic model");
 } finally { await browser.close(); }

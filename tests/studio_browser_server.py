@@ -1,4 +1,4 @@
-"""Isolated real API for browser tests; never uses user data or a paid model."""
+"""Isolated API: run with python -m tests.studio_browser_server; no user data or paid model."""
 
 import json
 import tempfile
@@ -10,9 +10,19 @@ from nexusos.core.models import TokenUsage
 from nexusos.models import ModelResponse
 from nexusos.prd.store import PrdStore
 
+from tests.workflow_fixtures import stage_content
+
 
 class BrowserGateway:
     async def complete(self, request):
+        if request.metadata.get("stage_id"):
+            return ModelResponse(
+                stage_content(request.metadata["stage_id"]),
+                "test",
+                request.model,
+                TokenUsage(1, 1),
+                "stop",
+            )
         system = request.messages[0].content
         if "便签整理 Agent" in system:
             payload = {"title": "Agent 便签", "content": "整理后的便签"}

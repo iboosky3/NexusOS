@@ -11,12 +11,13 @@ import type { ResourcePayload, StudioPlugin, StudioResource } from "@/lib/plugin
 import { Workbench, EditorTabs, PanelHeading } from "./workbench";
 import { PluginErrorBoundary } from "./plugin-error-boundary";
 import { AgentDirectory, AgentDetail } from "./agent-catalog";
+import { InvocationFlow, type InvocationTrace } from "./invocation-flow";
 import { useEditorTabs } from "./use-editor-tabs";
 import s from "./resource-workspace.module.css";
 
 type Workspace = { id: string; title: string; revision: number; plugins: string[]; layouts: Record<string, unknown> };
 type Session = { base: StudioResource; payload: ResourcePayload };
-type Invocation = { id: string; status: string; error: string | null; request: { resourceId: string; revision: number; capabilityId: string; instruction: string; input?: ResourcePayload }; result?: { answer?: string; payload?: ResourcePayload; digest?: string } };
+type Invocation = InvocationTrace & { id: string; status: string; error: string | null; request: { resourceId: string; revision: number; capabilityId: string; instruction: string; input?: ResourcePayload }; result?: { answer?: string; payload?: ResourcePayload; digest?: string } };
 type Artifact = { id: string; artifactType: string; sourceResourceId: string; sourceRevision: number; digest: string; payload: { pages: unknown[] } };
 type Handoff = { id: string; targetId: string; status: string; proposal: ResourcePayload; proposalDigest: string; artifactDigest: string; expectedRevision: number };
 const editors = new Map(studioPlugins.map((plugin) => [plugin.id, dynamic(plugin.load, { ssr: false, loading: () => <p>正在加载编辑器…</p> })]));
@@ -56,6 +57,7 @@ export function ResourceWorkspace() {
   const { tab, openTabs, setTab, closeTab } = useEditorTabs<string>([], "");
   const active = tab ? sessions[tab] : undefined;
   const selectedAgent = tab?.startsWith("agent:") ? studioPlugins.find((item) => item.id === tab.slice(6) && item.agent) : undefined;
+  const selectedRun = tab?.startsWith("run:") ? invocations.find((item) => item.id === tab.slice(4)) : undefined;
   const plugin = active ? owner(active.base) : undefined;
   const enabled = (id: string) => Boolean(workspace?.plugins.includes(id));
   const api = <T,>(path: string, method = "GET", body?: unknown) => studioApi<T>(`/${workspace!.id}${path}`, method, body);
@@ -280,7 +282,8 @@ export function ResourceWorkspace() {
       </> : side === "tasks" ? invocations.slice().reverse().map((task) => <section key={task.id}><strong>{task.status}</strong><p>{task.request.instruction}</p><p>{task.error}</p>
         <p>资源 r{task.request.revision} · {task.request.capabilityId}</p>
         {task.request.input && Object.keys(task.request.input).length > 0 && <details><summary>本次调用范围</summary><pre>{JSON.stringify(task.request.input, null, 2)}</pre></details>}
-        {task.result?.answer && <p>{task.result.answer}</p>}
+        {task.execution?.stages && <button onClick={() => setTab(`run:${task.id}`)}>查看工作流</button>}
+        {task.result?.answer && <p style={{ whiteSpace: "pre-wrap" }}>{task.result.answer}</p>}
         {task.result?.payload && <details><summary>查看修改提案</summary><pre>{JSON.stringify(task.result.payload, null, 2)}</pre></details>}
         {task.status === "waiting_confirmation" && <button disabled={busy || Boolean(sessions[task.request.resourceId] && dirty(sessions[task.request.resourceId]))} onClick={() => void perform(async () => {
           await api(`/invocations/${task.id}/apply`, "POST", { proposalDigest: task.result!.digest }); await refresh(workspace.id);
@@ -302,6 +305,8 @@ export function ResourceWorkspace() {
     <EditorTabs tabs={openTabs.flatMap((id) => {
       const session = sessions[id];
       if (session) return [{ id, icon: owner(session.base)?.icon || "▤", label: `${owner(session.base)?.title(session.payload) || "资源"}${dirty(session) ? " ●" : ""}` }];
+      const run = id.startsWith("run:") ? invocations.find((item) => item.id === id.slice(4)) : undefined;
+      if (run) return [{ id, icon: "◇", label: `工作流 · ${run.request.instruction.slice(0, 20)}` }];
       const definition = id.startsWith("agent:") ? studioPlugins.find((item) => item.id === id.slice(6) && item.agent) : undefined;
       return definition ? [{ id, icon: definition.icon, label: `${definition.name} · Agent` }] : [];
     })}
@@ -309,7 +314,8 @@ export function ResourceWorkspace() {
     {error && <div role="alert" className={s.error}>{error}<button onClick={() => setError("")}>关闭</button></div>}
     {notice && <div role="status" className={s.notice}>{notice}<button onClick={() => setNotice("")}>关闭</button></div>}
     <div className={s.editors}>
-      {!active && !selectedAgent && <section className={s.empty}><h2>组合插件，开始工作</h2><p>关闭标签不会删除资源或取消任务。</p>{commands.slice(1).map((command) => <button key={command.id} disabled={command.disabled} onClick={command.run}>{command.label}</button>)}</section>}
+      {!active && !selectedAgent && !selectedRun && <section className={s.empty}><h2>组合插件，开始工作</h2><p>关闭标签不会删除资源或取消任务。</p>{commands.slice(1).map((command) => <button key={command.id} disabled={command.disabled} onClick={command.run}>{command.label}</button>)}</section>}
+      {selectedRun && <InvocationFlow key={selectedRun.id} task={selectedRun} onResource={() => setTab(selectedRun.request.resourceId)} />}
       {selectedAgent && <AgentDetail plugin={selectedAgent} enabled={enabled(selectedAgent.id)} busy={busy || !host} onRun={() => {
         if (host) void perform(() => host.execute(selectedAgent.agent!.launchCommand));
       }} />}

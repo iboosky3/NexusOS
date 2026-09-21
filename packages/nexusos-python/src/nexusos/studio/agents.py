@@ -40,6 +40,28 @@ class InvocationService:
         }
         db.execute("INSERT INTO studio_events VALUES(?,?,?)", (item["id"], row[0], canonical(body)))
 
+    def stage_event(self, workspace: str, identifier: str, event: str, payload: dict):
+        with self.store.documents.connection() as db:
+            item = self.store.get_in(db, workspace, identifier, "invocation")
+            if item["status"] != "running":
+                raise asyncio.CancelledError()
+            self.store.require_plugin(db, workspace, item["pluginId"])
+            progress = item.setdefault("progress", {})
+            stage = payload["stageId"]
+            progress[stage] = {
+                **progress.get(stage, {}),
+                **payload,
+                "status": "running" if event == "stage.started" else "succeeded",
+            }
+            self.store.put_in(db, item, "invocation")
+            self.event_in(db, item, event, payload)
+
+    @staticmethod
+    def settle_progress(item: dict, status: str):
+        for progress in item.get("progress", {}).values():
+            if progress["status"] == "running":
+                progress["status"] = status
+
     def create(self, workspace: str, request: dict):
         with self.store.documents.connection() as db:
             resource = self.store.get_in(db, workspace, request["resourceId"], "resource")
@@ -108,7 +130,14 @@ class InvocationService:
             if action.version != item["execution"]["capabilityVersion"]:
                 raise ValueError("CAPABILITY_VERSION_UNAVAILABLE")
             read_only = action.read_only
-            response = await asyncio.wait_for(self.execution.execute(item), timeout=180)
+            response = await asyncio.wait_for(
+                self.execution.execute(
+                    item,
+                    action,
+                    lambda event, payload: self.stage_event(workspace, identifier, event, payload),
+                ),
+                timeout=180 * max(1, len(item["execution"].get("stages", []))),
+            )
             raw = response.content.strip()
             if raw.startswith("```") and raw.endswith("```"):
                 raw = raw.split("\n", 1)[1].rsplit("```", 1)[0]
@@ -164,6 +193,8 @@ class InvocationService:
             if item["status"] in TERMINAL:
                 return item
             item.update(status=status, error=error)
+            if status in TERMINAL:
+                self.settle_progress(item, status)
             self.store.put_in(db, item, "invocation")
             self.event_in(db, item, status, {"error": error})
             return item
@@ -224,6 +255,7 @@ class InvocationService:
                 item = json.loads(body)
                 if item["status"] in {"queued", "running", "cancel_requested"}:
                     item.update(status="interrupted", error="服务重启，请检查后重试；不会自动重放")
+                    self.settle_progress(item, "interrupted")
                     self.store.put_in(db, item, "invocation")
                     self.event_in(db, item, "interrupted", {})
 
