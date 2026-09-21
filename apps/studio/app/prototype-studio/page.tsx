@@ -1,5 +1,5 @@
-import { StudioWorkspace } from "@/components/prd-studio/studio-workspace";
+import { redirect } from "next/navigation";
 
-export default function PrototypeStudioPage() {
-  return <StudioWorkspace mode="prototype" />;
+export default function RetiredStudioPage() {
+  redirect("/studio");
 }

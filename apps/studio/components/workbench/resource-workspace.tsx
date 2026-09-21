@@ -236,7 +236,7 @@ export function ResourceWorkspace() {
       const created = await studioApi<Workspace>("", "POST", { title, clientRequestId: createComponentId() }); window.location.assign(`/studio?workspace=${created.id}`);
     })}>创建工作区</button>
     {available.map((item) => <p key={item.id}><Link href={`/studio?workspace=${item.id}`}>{item.title}</Link></p>)}
-    <Link href="/prd-studio">旧 PRD 文档入口（保留原数据）</Link>
+    <Link href="/">返回首页</Link>
   </main>;
 
   return <Workbench title={workspace.title} home={<Link href="/studio" aria-label="切换工作区">◈</Link>}

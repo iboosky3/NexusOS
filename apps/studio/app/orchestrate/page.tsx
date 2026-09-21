@@ -109,6 +109,6 @@ export default function OrchestratePage() {
       })}>确认编排，打开专属工作台</button>
       {(dirty || changedGoal) && <p>存在未确认修改：目标变化需重新编排，节点调整需先校验保存。</p>}
     </>}
-    <p><Link href="/">返回首页</Link> · <Link href="/prd-studio">使用 PRD 受控动态流程</Link></p>
+    <p><Link href="/">返回首页</Link> · <Link href="/studio">打开插件工作区</Link></p>
   </section>;
 }
