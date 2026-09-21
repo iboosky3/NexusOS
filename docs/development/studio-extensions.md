@@ -4,6 +4,8 @@
 
 ## 选型与扩展边界
 
+本文记录现有实现。后续完整插件注册、生命周期、统一 Agent、独立资源和交接协议见 [Agent 插件工作台架构方案](../architecture/agent-plugin-workbench.md)与[实施说明](agent-plugin-workbench-implementation.md)。这些目标能力尚未完成，不能将当前组件加载/卸载等同于完整插件生命周期。
+
 原型设计器采用 [Puck](https://github.com/puckeditor/puck) 0.23.0（MIT），它是可嵌入 React / Next.js 的可视化组件编辑器，提供拖拽、嵌套布局、组件属性、图层以及撤销／重做。无需单独部署设计服务或开通云账户。[GrapesJS](https://grapesjs.com/docs/) 同样是通用开源页面编辑器；本项目优先复用 React 组件及声明式数据，因此选择 Puck。
 
 `apps/studio/lib/workbench-extensions.ts` 定义通用 `ExtensionManifest`、`WorkbenchExtension<Props>` 与浏览器启用状态。插件声明 ID、版本、说明、开源来源、能力以及动态加载入口。`components/workbench/extension-browser.tsx` 统一提供搜索、打开、启用／禁用；侧边栏插件图标沿用文字显示／隐藏与悬停提示规则。
