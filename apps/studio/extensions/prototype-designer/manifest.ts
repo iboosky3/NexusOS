@@ -26,6 +26,7 @@ export const prototypeDesigner: WorkbenchExtension<DesignerProps> = {
     license: "MIT · Puck",
     homepage: "https://github.com/puckeditor/puck",
     capabilities: ["prototype.edit", "prototype.capture"],
+    agentActions: ["prototype"],
   },
   load: () => import("./editor"),
 };

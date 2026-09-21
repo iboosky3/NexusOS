@@ -429,6 +429,7 @@
   min-width: 0;
   overflow: hidden;
 }
+.focusMode .menubar { display: none; }
 .bottom {
   border: 0;
   box-sizing: border-box;

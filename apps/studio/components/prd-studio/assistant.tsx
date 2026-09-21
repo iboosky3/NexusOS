@@ -270,7 +270,7 @@ export function PrdAssistant({
           </span>
         }
       >
-        <span className={s.spark}>✧</span> Nexus Copilot
+        <span className={s.spark}>✧</span> {mode === "prototype" ? "原型 Agent" : "PRD Agent"}
       </PanelHeading>
       <div
         className={s.chatScroll}
@@ -291,13 +291,13 @@ export function PrdAssistant({
         {!entries.length && !job && (
           <section className={s.question}>
             <h3>
-              {missing.length ? `首先，${missing[0].title}` : "需求信息已填写"}
+              {mode === "prototype" ? "一起构思页面与交互" : missing.length ? `首先，${missing[0].title}` : "需求信息已填写"}
             </h3>
             <p>
-              {missing[0]?.hint ||
+              {mode === "prototype" ? "描述你想要的页面、布局或操作流程；选中画布组件后，可以只修改该组件。" : missing[0]?.hint ||
                 "可以运行 PRD 工作流，或继续补充更具体的需求。"}
             </p>
-            <small>也可以直接告诉我你的构想，一起完善需求。</small>
+            <small>{mode === "prototype" ? "完成设计后，从“操作”菜单确认并交给 PRD 编写。" : "也可以直接告诉我你的构想，一起完善需求。"}</small>
           </section>
         )}
         {entries.map((entry, index) => (

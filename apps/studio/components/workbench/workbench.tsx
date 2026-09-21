@@ -43,6 +43,7 @@ export interface WorkbenchView {
   id: string;
   label: string;
   icon: ReactNode;
+  launch?: boolean;
 }
 
 /** Tool-neutral layout; business state and API calls belong to the caller. */
@@ -66,6 +67,7 @@ export function Workbench({
   statusRight,
   showActivityLabels = true,
   layoutStorageKey = "nexus-workbench:layout:v1",
+  initialSidebarVisible = true,
 }: {
   title: string;
   home: ReactNode;
@@ -86,19 +88,56 @@ export function Workbench({
   statusRight?: ReactNode;
   showActivityLabels?: boolean;
   layoutStorageKey?: string;
+  initialSidebarVisible?: boolean;
 }) {
   const [menu, setMenu] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [palette, setPalette] = useState(false);
-  const [left, setLeft] = useState(true);
+  const [left, setLeft] = useState(initialSidebarVisible);
   const [right, setRight] = useState(true);
   const [panel, setPanel] = useState(true);
+  const [rail, setRail] = useState(true);
+  const [visibilityReady, setVisibilityReady] = useState(false);
+  const [focus, setFocus] = useState(false);
+  const root = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(`${layoutStorageKey}:visibility`) || "null");
+      if (typeof saved?.left === "boolean") setLeft(saved.left);
+      if (typeof saved?.rail === "boolean") setRail(saved.rail);
+      if (typeof saved?.right === "boolean") setRight(saved.right);
+    } catch { /* Optional display preference. */ }
+    setVisibilityReady(true);
+  }, [layoutStorageKey]);
+  useEffect(() => {
+    if (!visibilityReady) return;
+    try { localStorage.setItem(`${layoutStorageKey}:visibility`, JSON.stringify({ left, rail, right })); }
+    catch { /* Current layout remains usable. */ }
+  }, [layoutStorageKey, visibilityReady, left, rail, right]);
+  useEffect(() => {
+    const handleFullscreen = () => {
+      if (!document.fullscreenElement) setFocus(false);
+    };
+    document.addEventListener("fullscreenchange", handleFullscreen);
+    return () => document.removeEventListener("fullscreenchange", handleFullscreen);
+  }, []);
+  async function toggleFocus() {
+    if (focus) {
+      if (document.fullscreenElement === root.current)
+        await document.exitFullscreen().catch(() => {});
+      setFocus(false);
+      return;
+    }
+    setFocus(true);
+    try { await root.current?.requestFullscreen?.(); }
+    catch { /* App focus layout still works when browser fullscreen is denied. */ }
+  }
   const regionId = useId();
   const layout = usePanelLayout({
     storageKey: layoutStorageKey,
-    leftVisible: left && Boolean(sidebar),
-    rightVisible: right && Boolean(assistant),
-    railWidth: views.length ? (showActivityLabels ? 52 : 42) : 0,
+    leftVisible: left && !focus && Boolean(sidebar),
+    rightVisible: right && !focus && Boolean(assistant),
+    railWidth: !focus && rail && views.length ? (showActivityLabels ? 52 : 42) : 0,
   });
   useEffect(() => {
     if (bottomFocusToken) setPanel(true);
@@ -115,6 +154,9 @@ export function Workbench({
       if (event.key === "Escape") {
         setMenu(null);
         setPalette(false);
+        setFocus(false);
+        if (document.fullscreenElement === root.current)
+          void document.exitFullscreen().catch(() => {});
       }
       if (
         (event.ctrlKey || event.metaKey) &&
@@ -136,7 +178,7 @@ export function Workbench({
     command.label.toLowerCase().includes(search.toLowerCase()),
   );
   return (
-    <div className={styles.workbench}>
+    <div ref={root} className={`${styles.workbench} ${focus ? styles.focusMode : ""}`}>
       <header className={styles.menubar}>
         <div className={styles.brand}>
           {home}
@@ -194,7 +236,7 @@ export function Workbench({
       </header>
       {toolbar && <div className={styles.toolbar}>{toolbar}</div>}
       <div ref={layout.body} className={styles.body}>
-        {views.length > 0 && (
+        {!focus && rail && views.length > 0 && (
           <nav
             className={`${styles.activity} ${showActivityLabels ? "" : styles.iconsOnly}`}
             aria-label="工作区视图"
@@ -206,6 +248,7 @@ export function Workbench({
                 aria-label={view.label}
                 aria-pressed={left && activeView === view.id}
                 onClick={() => {
+                  if (view.launch) { onView(view.id); return; }
                   if (activeView === view.id && left) setLeft(false);
                   else {
                     setLeft(true);
@@ -219,7 +262,7 @@ export function Workbench({
             ))}
           </nav>
         )}
-        {left && sidebar && (
+        {left && !focus && sidebar && (
           <>
             <aside
               id={`${regionId}-left`}
@@ -243,7 +286,7 @@ export function Workbench({
         )}
         <main className={styles.center}>
           <div className={styles.editorArea}>{children}</div>
-          {panel && bottom && (
+          {panel && !focus && bottom && (
             <>
               <PanelSplitter
                 label="调整运行面板高度"
@@ -271,7 +314,7 @@ export function Workbench({
             </>
           )}
         </main>
-        {assistant && right && (
+        {assistant && right && !focus && (
           <PanelSplitter
             label="调整 AI 对话宽度"
             orientation="vertical"
@@ -289,8 +332,8 @@ export function Workbench({
             id={`${regionId}-right`}
             aria-label="AI 对话面板"
             className={styles.assistant}
-            style={right ? { width: layout.right } : { display: "none" }}
-            aria-hidden={!right}
+            style={right && !focus ? { width: layout.right } : { display: "none" }}
+            aria-hidden={!right || focus}
           >
             <AssistantVisibility.Provider value={() => setRight(false)}>
               {assistant}
@@ -302,19 +345,27 @@ export function Workbench({
         <footer className={styles.status}>
           <div>{status}</div>
           <div>
+            <button aria-pressed={focus} onClick={() => void toggleFocus()}
+              title={focus ? "退出专注全屏" : "进入专注全屏；若浏览器拒绝全屏，仍会隐藏工作台面板"}>
+              {focus ? "退出专注" : "专注全屏"}
+            </button>
+            {views.length > 0 && <button disabled={focus} aria-pressed={rail}
+              onClick={() => setRail(!rail)}>快捷栏</button>}
             {sidebar && (
-              <button aria-pressed={left} onClick={() => setLeft(!left)}>
+              <button aria-pressed={left && !focus} disabled={focus}
+                onClick={() => setLeft(!left)}>
                 侧栏
               </button>
             )}
             {bottom && (
-              <button aria-pressed={panel} onClick={() => setPanel(!panel)}>
+              <button disabled={focus} aria-pressed={panel && !focus} onClick={() => setPanel(!panel)}>
                 面板
               </button>
             )}
             {assistant && (
               <button
-                aria-pressed={right}
+                disabled={focus}
+                aria-pressed={right && !focus}
                 title={right ? "关闭 AI 对话" : "打开 AI 对话"}
                 onClick={() => setRight(!right)}
               >

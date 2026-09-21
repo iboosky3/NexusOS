@@ -54,7 +54,7 @@
 .toolbar select { border-color: #d7e0da; background: white; }
 .body {
   display: grid;
-  height: min(690px, 76vh);
+  height: var(--designer-height, min(690px, 76vh));
   min-height: 460px;
   overflow: auto;
 }

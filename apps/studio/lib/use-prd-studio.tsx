@@ -86,7 +86,7 @@ const terminal = (status: string) =>
 const message = (error: unknown) =>
   error instanceof Error ? error.message : "操作失败，请重试";
 
-export function usePrdStudio() {
+export function usePrdStudio(initialTab?: "prototype") {
   const [brief, updateBrief] = useState<Brief>(emptyBrief);
   function setBrief(next: Brief) {
     const inputs = (value: Brief) =>
@@ -114,7 +114,7 @@ export function usePrdStudio() {
     | "files"
     | "capabilities"
     | "settings"
-  >("brief");
+  >(initialTab || "brief");
   const [editing, setEditing] = useState(false);
   const [instruction, setInstruction] = useState("");
   const [showThinking, setShowThinking] = useState(false);
@@ -172,7 +172,8 @@ export function usePrdStudio() {
           item = await prdApi<PrdDocument>(`documents/${id}`);
           if (disposed) return;
           accept(item);
-          if (item.content) setTab("document");
+          if (initialTab) setTab(initialTab);
+          else if (item.content) setTab("document");
           else if (item.brief.prototype) setTab("prototype");
           if (item.last_job_id) {
             const previousJob = await prdApi<Job>(`jobs/${item.last_job_id}`);
@@ -325,8 +326,9 @@ export function usePrdStudio() {
       .catch((err) => setError(message(err)));
   }, [tab, document?.revision, document?.id]);
 
-  async function save(value: Brief = brief): Promise<PrdDocument> {
+  async function save(value: Brief = brief, text: string = content): Promise<PrdDocument> {
     const brief = value;
+    const content = text;
     if (!brief.title.trim()) throw new Error("请先填写产品名称");
     if (content.length > 200000)
       throw new Error("正文不能超过 200,000 字符，请减少配图或正文。");
@@ -339,7 +341,9 @@ export function usePrdStudio() {
       item = await prdApi<PrdDocument>("documents", "POST", payload);
       setDocument(item);
       storageKey.current = `nexus-studio:${item.id}`;
-      window.history.replaceState(null, "", `/prd-studio?id=${item.id}`);
+      const studioPath = window.location.pathname === "/prototype-studio"
+        ? "/prototype-studio" : "/prd-studio";
+      window.history.replaceState(null, "", `${studioPath}?id=${item.id}`);
     }
     if (
       JSON.stringify(payload) !== JSON.stringify(briefPayload(item.brief)) ||

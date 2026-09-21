@@ -11,12 +11,16 @@ export function ExtensionBrowser({
   onToggle,
   onOpen,
   disabled = false,
+  pinned = [],
+  onTogglePin,
 }: {
   extensions: ExtensionManifest[];
   enabled: (id: string) => boolean;
   onToggle: (id: string) => void;
   onOpen: (id: string) => void;
   disabled?: boolean;
+  pinned?: string[];
+  onTogglePin?: (id: string) => void;
 }) {
   const [search, setSearch] = useState("");
   const matches = extensions.filter((e) =>
@@ -41,6 +45,9 @@ export function ExtensionBrowser({
           <p>{extension.description}</p>
           <small>{extension.license} · 本地运行</small>
           <div>
+            {onTogglePin && <button disabled={disabled} onClick={() => onTogglePin(extension.id)}>
+              {pinned.includes(extension.id) ? "从快捷栏移除" : "添加到快捷栏"}
+            </button>}
             <button
               disabled={disabled || !enabled(extension.id)}
               onClick={() => onOpen(extension.id)}

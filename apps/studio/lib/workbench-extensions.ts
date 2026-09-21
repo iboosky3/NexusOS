@@ -10,6 +10,7 @@ export interface ExtensionManifest {
   license: string;
   homepage: string;
   capabilities: string[];
+  agentActions?: ("generate" | "revise" | "review" | "prototype")[];
 }
 export interface WorkbenchExtension<Props> {
   manifest: ExtensionManifest;
@@ -20,8 +21,11 @@ export interface WorkbenchExtension<Props> {
 export function useWorkbenchExtensions() {
   const [disabled, setDisabled] = useState<string[]>([]);
   const [ready, setReady] = useState(false);
+  const [pinned, setPinned] = useState<string[]>(["nexus.prototype-designer", "nexus.prd-writer"]);
   useEffect(() => {
     try {
+      const pins = JSON.parse(localStorage.getItem("nexus-workbench:pinned-extensions:v1") || "null");
+      if (Array.isArray(pins)) setPinned(pins.filter((id): id is string => typeof id === "string"));
       const saved = JSON.parse(
         localStorage.getItem("nexus-workbench:disabled-extensions:v1") || "[]",
       );
@@ -48,5 +52,13 @@ export function useWorkbenchExtensions() {
       return next;
     });
   }
-  return { ready, enabled: (id: string) => !disabled.includes(id), toggle };
+  function togglePin(id: string) {
+    setPinned((previous) => {
+      const next = previous.includes(id) ? previous.filter((item) => item !== id) : [...previous, id];
+      try { localStorage.setItem("nexus-workbench:pinned-extensions:v1", JSON.stringify(next)); }
+      catch { /* Session preference remains usable. */ }
+      return next;
+    });
+  }
+  return { ready, enabled: (id: string) => !disabled.includes(id), toggle, pinned, togglePin };
 }

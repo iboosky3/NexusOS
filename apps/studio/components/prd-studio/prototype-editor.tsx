@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createComponentId, sha256Hex } from "@/lib/browser-crypto";
 import { Brief, Prototype, PrototypePage } from "@/lib/prd-api";
 import {
@@ -43,6 +43,8 @@ export function PrototypeEditor({
   onSelection,
   componentPatch,
   onPatchApplied,
+  onOpenBrowser,
+  standalone = false,
 }: {
   content: string;
   brief: Brief;
@@ -52,16 +54,19 @@ export function PrototypeEditor({
   onImport: () => void;
   designerEnabled: boolean;
   onOpenExtensions: () => void;
-  onEmbed: (content: string) => void;
+  onEmbed: (content: string, prototype: Prototype) => Promise<void>;
   onSave: (prototype: Prototype) => Promise<void>;
   onSelection: (selection: PrototypeSelection | null) => void;
   componentPatch: PrototypePatchRequest | null;
   onPatchApplied: (error?: string) => void;
+  onOpenBrowser?: (pageId?: string) => void;
+  standalone?: boolean;
 }) {
   const [selected, setSelected] = useState("");
   const [edit, setEdit] = useState(Boolean(brief.prototype?.pages[0]));
   const [error, setError] = useState("");
   const [feedback, setFeedback] = useState("");
+  const actionMenu = useRef<HTMLDetailsElement>(null);
   const prototype = brief.prototype;
   const page =
     prototype?.pages.find((p) => p.id === selected) || prototype?.pages[0];
@@ -70,6 +75,10 @@ export function PrototypeEditor({
       /!\[([^\]\n]*)\]\((data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/=]+)\)/g,
     ),
   ];
+  useEffect(() => {
+    const requestedPage = new URLSearchParams(window.location.search).get("page");
+    if (requestedPage) setSelected(requestedPage);
+  }, []);
   useEffect(() => {
     if (!designerEnabled || disabled || prototype) return;
     const id = createComponentId();
@@ -172,7 +181,7 @@ export function PrototypeEditor({
       });
       const next = insert ? embedPrototype(content, confirmed) : undefined;
       onBrief({ ...brief, prototype: confirmed });
-      if (next !== undefined) onEmbed(next);
+      if (next !== undefined) await onEmbed(next, confirmed);
       setFeedback(
         "原型已确认，截图已准备。通过文件菜单保存，或运行菜单编写 PRD。",
       );
@@ -217,78 +226,88 @@ export function PrototypeEditor({
       prototype: pages.length ? { pages, confirmed: false } : null,
     });
   }
+  function addPage() {
+    if (disabled || !designerEnabled || (prototype?.pages.length || 0) >= 4) return;
+    const id = createComponentId();
+    update({
+      confirmed: false,
+      pages: [
+        ...(prototype?.pages || []),
+        {
+          id, title: "新页面", description: "", elements: [], screenshot: "",
+          design: { engine: "puck", version: 1, width: 960, content: [] },
+        },
+      ],
+    });
+    setSelected(id);
+    setEdit(true);
+  }
+  function importEmbeddedImages() {
+    if (existing.length > 4 || existing.reduce((n, p) => n + p[2].length, 0) > 140000) {
+      setError("已有原型图超过 4 页或图片过大，请精简后重新导入");
+      return;
+    }
+    update({
+      confirmed: false,
+      pages: existing.map((match, index) => ({
+        id: `imported-${index + 1}`,
+        title: match[1].slice(0, 80) || `页面 ${index + 1}`,
+        description: "", elements: [], screenshot: match[2],
+      })),
+    });
+    actionMenu.current?.removeAttribute("open");
+  }
   return (
-    <section className={s.editor} aria-label="原型设计">
-      <header>
-        <div>
-          <h1>原型设计</h1>
-          <p>拖拽设计 → 预览交互 → 截图嵌入 PRD</p>
+    <section className={`${s.editor} ${standalone ? s.standalone : ""}`} aria-label="原型设计">
+      <div className={s.compactToolbar}>
+        <div className={s.pagePicker}>
+          <label htmlFor="prototype-page-picker">页面</label>
+          <select id="prototype-page-picker" value={page?.id || ""}
+            disabled={!prototype?.pages.length}
+            onChange={(event) => { setSelected(event.target.value); setFeedback(""); }}>
+            {!page && <option value="">暂无页面</option>}
+            {prototype?.pages.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}
+          </select>
+          <button disabled={disabled || !designerEnabled || (prototype?.pages.length || 0) >= 4}
+            onClick={addPage} aria-label="添加原型页面" title="添加页面">＋</button>
         </div>
-        <div className={s.confirmation}>
-          <span>{prototype?.confirmed ? "✓ 已确认" : "待确认"}</span>
-          {page && !prototype?.confirmed && (
-            <button
-              className={s.primaryAction}
-              disabled={disabled}
-              onClick={() => void confirm(false)}
-            >
-              确认原型并生成截图
-            </button>
-          )}
+        <div className={s.toolbarEnd}>
+          <span className={s.prototypeState}>{prototype?.confirmed ? "✓ 已确认" : "草稿"}</span>
+          {!standalone && onOpenBrowser && <button className={s.openBrowser}
+            disabled={disabled} onClick={() => onOpenBrowser(page?.id)}>
+            在浏览器打开 ↗
+          </button>}
+          <details ref={actionMenu} className={s.actionMenu}>
+            <summary aria-label="原型操作">操作 ⋯</summary>
+            <div className={s.actionDropdown}>
+              {prototype && <button disabled={disabled} onClick={() => {
+                actionMenu.current?.removeAttribute("open");
+                void onSave(archivePrototype(prototype));
+              }}>保存设计方案</button>}
+              <button disabled={disabled} onClick={() => {
+                actionMenu.current?.removeAttribute("open"); onImport();
+              }}>导入原型图</button>
+              {page && <button disabled={disabled} onClick={() => {
+                actionMenu.current?.removeAttribute("open"); setEdit(!edit);
+              }}>{edit ? "预览原型" : "编辑页面"}</button>}
+              {page && !prototype?.confirmed && <button disabled={disabled} onClick={() => {
+                actionMenu.current?.removeAttribute("open"); void confirm(false);
+              }}>确认原型并生成截图</button>}
+              {page && <button disabled={disabled} onClick={() => {
+                actionMenu.current?.removeAttribute("open"); void confirm(true);
+              }}>确认并交给 PRD 编写</button>}
+              {!prototype && existing.length > 0 && <button disabled={disabled}
+                onClick={importEmbeddedImages}>纳入正文中的 {existing.length} 张配图</button>}
+              {page && edit && <button disabled={disabled} onClick={() => {
+                actionMenu.current?.removeAttribute("open"); removePage();
+              }}>删除当前页面</button>}
+              {prototype?.document && <details className={s.archive}>
+                <summary>原型设计方案文档</summary>
+                <pre>{prototype.document}</pre>
+              </details>}
+            </div>
+          </details>
         </div>
-      </header>
-      <div className={s.actions}>
-        {prototype && (
-          <button
-            disabled={disabled}
-            onClick={() => void onSave(archivePrototype(prototype))}
-          >
-            保存设计方案
-          </button>
-        )}
-        <button disabled={disabled} onClick={onImport}>
-          导入原型图
-        </button>
-        <button
-          disabled={disabled || !designerEnabled}
-          hidden={(prototype?.pages.length || 0) >= 4}
-          onClick={() => {
-            const id = createComponentId();
-            update({
-              confirmed: false,
-              pages: [
-                ...(prototype?.pages || []),
-                {
-                  id,
-                  title: "新页面",
-                  description: "",
-                  elements: [],
-                  screenshot: "",
-                  design: {
-                    engine: "puck",
-                    version: 1,
-                    width: 960,
-                    content: [],
-                  },
-                },
-              ],
-            });
-            setSelected(id);
-            setEdit(true);
-          }}
-        >
-          添加页面
-        </button>
-        {page && (
-          <>
-            <button disabled={disabled} onClick={() => setEdit(!edit)}>
-              {edit ? "预览原型" : "编辑页面"}
-            </button>
-            <button disabled={disabled} onClick={() => void confirm(true)}>
-              确认并嵌入 PRD
-            </button>
-          </>
-        )}
       </div>
       {!designerEnabled && (
         <p>
@@ -298,38 +317,6 @@ export function PrototypeEditor({
       )}
       {error && <p role="alert">{error}</p>}
       {feedback && <p role="status">{feedback}</p>}
-      {prototype?.document && (
-        <details className={s.archive}>
-          <summary>原型设计方案文档</summary>
-          <pre>{prototype.document}</pre>
-        </details>
-      )}
-      {!prototype && existing.length > 0 && (
-        <button
-          disabled={disabled}
-          onClick={() => {
-            if (
-              existing.length > 4 ||
-              existing.reduce((n, p) => n + p[2].length, 0) > 140000
-            ) {
-              setError("已有原型图超过 4 页或图片过大，请精简后重新导入");
-              return;
-            }
-            update({
-              confirmed: false,
-              pages: existing.map((match, i) => ({
-                id: `imported-${i + 1}`,
-                title: match[1].slice(0, 80) || `页面 ${i + 1}`,
-                description: "",
-                elements: [],
-                screenshot: match[2],
-              })),
-            });
-          }}
-        >
-          将正文中的 {existing.length} 张配图纳入原型设计
-        </button>
-      )}
       {!page && (
         <p className={s.empty}>
           添加页面开始拖拽设计；要让 AI 生成原型，请使用右侧对话，也可以导入已有原型图。
@@ -337,20 +324,6 @@ export function PrototypeEditor({
       )}
       {page && prototype && (
         <>
-          <nav aria-label="原型页面" className={s.pages}>
-            {prototype.pages.map((p) => (
-              <button
-                key={p.id}
-                aria-current={p.id === page.id ? "page" : undefined}
-                onClick={() => {
-                  setSelected(p.id);
-                  setFeedback("");
-                }}
-              >
-                {p.title}
-              </button>
-            ))}
-          </nav>
           {edit ? (
             <>
               {designerEnabled && (page.design || page.elements.length > 0) ? (
@@ -395,12 +368,6 @@ export function PrototypeEditor({
                   </fieldset>
                 </details>
               )}
-              <details className={s.pageActions}>
-                <summary>页面操作</summary>
-                <button disabled={disabled} onClick={removePage}>
-                  删除当前页面
-                </button>
-              </details>
             </>
           ) : (
             <>
