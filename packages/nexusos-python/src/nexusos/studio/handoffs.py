@@ -14,6 +14,29 @@ class HandoffService:
     def __init__(self, store: StudioStore):
         self.store = store
 
+    @staticmethod
+    def verify_artifact(artifact: dict):
+        value = {key: item for key, item in artifact.items() if key != "digest"}
+        if artifact.get("digest") != digest(value):
+            raise ConflictError("ARTIFACT_INTEGRITY_ERROR：产物摘要不匹配，请检查存储备份")
+
+    def verify_media(self, db, workspace: str, artifact: dict):
+        payload = deepcopy(artifact["payload"])
+        for page in payload["pages"]:
+            reference = page.pop("screenshotRef")
+            blob = self.store.get_in(db, workspace, reference["blobId"], "blob")
+            mime, binary = screenshot_bytes(blob["data"])
+            actual = hashlib.sha256(binary).hexdigest()
+            if (
+                actual != reference["digest"]
+                or actual != blob["digest"]
+                or mime != blob["mimeType"]
+                or blob["id"] != digest([workspace, actual])
+            ):
+                raise ConflictError("MEDIA_INTEGRITY_ERROR：截图内容摘要不匹配")
+            page["screenshot"] = blob["data"]
+        return payload
+
     def publish(self, workspace: str, resource_id: str, revision: int, request_id: str):
         request = {"resourceId": resource_id, "revision": revision}
         with self.store.documents.connection() as db:
@@ -81,13 +104,8 @@ class HandoffService:
             target = self.store.get_in(db, workspace, target_id, "resource")
             if target["resourceType"] != "nexus.prd" or target["deleted"]:
                 raise ValueError("必须选择 PRD 文档")
-            payload = deepcopy(artifact["payload"])
-            for page in payload["pages"]:
-                reference = page.pop("screenshotRef")
-                blob = self.store.get_in(db, workspace, reference["blobId"], "blob")
-                if blob["digest"] != reference["digest"]:
-                    raise ValueError("截图摘要不匹配")
-                page["screenshot"] = blob["data"]
+            self.verify_artifact(artifact)
+            payload = self.verify_media(db, workspace, artifact)
             appendix = prototype_appendix(Prototype.model_validate(payload))
             source_id = artifact["sourceResourceId"]
             start, end = (
@@ -169,6 +187,14 @@ class HandoffService:
                 return item
             if item["status"] != "waiting_confirmation":
                 raise ConflictError("HANDOFF_NOT_APPLICABLE")
+            artifact = self.store.get_in(db, workspace, item["artifactId"], "artifact")
+            self.verify_artifact(artifact)
+            self.verify_media(db, workspace, artifact)
+            if (
+                artifact["digest"] != item["artifactDigest"]
+                or digest(item["proposal"]) != item["proposalDigest"]
+            ):
+                raise ConflictError("APPROVAL_STALE")
             saved = self.store.save_in(
                 db, workspace, item["targetId"], item["expectedRevision"], item["proposal"]
             )

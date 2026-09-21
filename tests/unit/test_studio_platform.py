@@ -213,3 +213,40 @@ def test_screenshot_rejects_wrong_mime_truncation_and_large_dimensions():
     Image.new("RGB", (4097, 1)).save(image, format="PNG")
     with pytest.raises(ValueError):
         screenshot_bytes("data:image/png;base64," + base64.b64encode(image.getvalue()).decode())
+
+
+def test_corrupt_artifact_rejected_before_preview(platform):
+    store, workspace = platform
+    source, target = prototype(store, workspace), prd(store, workspace)
+    service = HandoffService(store)
+    artifact = service.publish(workspace, source["id"], 1, "publish")
+    artifact["payload"]["pages"][0]["description"] = "损坏内容"
+    with store.documents.connection() as db:
+        store.put_in(db, artifact, "artifact")
+    with pytest.raises(ConflictError, match="ARTIFACT_INTEGRITY"):
+        service.create(workspace, artifact["id"], target["id"], "handoff")
+    assert store.list(workspace, "handoff") == []
+
+
+@pytest.mark.parametrize("corruption", ["blob", "proposal"])
+def test_corruption_after_preview_cannot_apply(platform, corruption):
+    store, workspace = platform
+    source, target = prototype(store, workspace), prd(store, workspace)
+    service = HandoffService(store)
+    artifact = service.publish(workspace, source["id"], 1, "publish")
+    transfer = service.create(workspace, artifact["id"], target["id"], "handoff")
+    with store.documents.connection() as db:
+        if corruption == "blob":
+            identifier = artifact["payload"]["pages"][0]["screenshotRef"]["blobId"]
+            blob = store.get_in(db, workspace, identifier, "blob")
+            image = io.BytesIO()
+            Image.new("RGB", (2, 2), "black").save(image, format="PNG")
+            blob["data"] = "data:image/png;base64," + base64.b64encode(image.getvalue()).decode()
+            store.put_in(db, blob, "blob")
+        else:
+            transfer["proposal"]["content"] = "损坏提案"
+            store.put_in(db, transfer, "handoff")
+    with pytest.raises(ConflictError, match="MEDIA_INTEGRITY|APPROVAL_STALE"):
+        service.apply(workspace, transfer["id"], transfer["proposalDigest"], artifact["digest"])
+    assert store.get(workspace, target["id"], "resource") == target
+    assert store.get(workspace, transfer["id"], "handoff")["status"] == "waiting_confirmation"
