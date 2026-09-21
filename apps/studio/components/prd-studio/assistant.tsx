@@ -437,7 +437,9 @@ export function PrdAssistant({
                 onChange={(event) => setText(event.target.value)}
                 placeholder={
                   mode === "prototype"
-                    ? "说明原型页面、布局或跳转的修改要求…"
+                    ? prototypeSelection
+                      ? "说明要如何修改当前组件…"
+                      : "输入“根据简报生成原型”，或说明页面、布局与跳转要求…"
                     : mode === "clarify"
                       ? "描述你的产品想法，或回答上面的问题…"
                       : "说明要修改的内容和需要保留的要求…"

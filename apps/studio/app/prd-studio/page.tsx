@@ -605,12 +605,6 @@ export default function PrdStudio() {
             onBrief={w.setBrief}
             disabled={locked}
             onBusy={setAttachmentBusy}
-            onGenerate={(instruction) => {
-              openRun();
-              void w.perform(() =>
-                w.start("prototype", undefined, instruction),
-              );
-            }}
             onImport={() => imageInput.current?.click()}
             onSelection={setPrototypeSelection}
             componentPatch={componentPatch}

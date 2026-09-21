@@ -63,19 +63,6 @@
 .editor button[hidden] {
   display: none;
 }
-.generate {
-  padding: 10px;
-  border: 1px solid #e0e8e2;
-  border-radius: 6px;
-  margin-bottom: 15px;
-}
-.generate summary {
-  cursor: pointer;
-}
-.generate small {
-  display: block;
-  margin-top: 6px;
-}
 .editor textarea,
 .editor input,
 .editor select {
@@ -87,12 +74,6 @@
   box-sizing: border-box;
   background: white;
   color: #2b4234;
-}
-.generate textarea {
-  display: block;
-  width: 100%;
-  margin: 10px 0;
-  resize: vertical;
 }
 .canvas {
   max-width: 800px;

@@ -35,7 +35,6 @@ export function PrototypeEditor({
   onBrief,
   disabled,
   onBusy,
-  onGenerate,
   onImport,
   designerEnabled,
   onOpenExtensions,
@@ -50,7 +49,6 @@ export function PrototypeEditor({
   onBrief: (brief: Brief) => void;
   disabled: boolean;
   onBusy: (busy: boolean) => void;
-  onGenerate: (instruction: string) => void;
   onImport: () => void;
   designerEnabled: boolean;
   onOpenExtensions: () => void;
@@ -61,19 +59,12 @@ export function PrototypeEditor({
   onPatchApplied: (error?: string) => void;
 }) {
   const [selected, setSelected] = useState("");
-  const [instruction, setInstruction] = useState("");
   const [edit, setEdit] = useState(Boolean(brief.prototype?.pages[0]));
   const [error, setError] = useState("");
   const [feedback, setFeedback] = useState("");
   const prototype = brief.prototype;
   const page =
     prototype?.pages.find((p) => p.id === selected) || prototype?.pages[0];
-  const hasPrototypeContent = Boolean(
-    prototype?.pages.some(
-      (item) =>
-        item.screenshot || item.elements.length || item.design?.content.length,
-    ),
-  );
   const existing = [
     ...content.matchAll(
       /!\[([^\]\n]*)\]\((data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/=]+)\)/g,
@@ -305,28 +296,6 @@ export function PrototypeEditor({
           <button onClick={onOpenExtensions}>管理插件</button>
         </p>
       )}
-      <details className={s.generate}>
-        <summary>AI 设计原型</summary>
-        <textarea
-          aria-label="原型设计要求"
-          value={instruction}
-          maxLength={8000}
-          onChange={(e) => setInstruction(e.target.value)}
-          disabled={disabled}
-          placeholder="补充布局偏好、关键页面或修改要求。留空则根据需求简报设计。"
-        />
-        <button
-          disabled={
-            disabled || !brief.title.trim() || !brief.description.trim()
-          }
-          onClick={() => onGenerate(instruction)}
-        >
-          {hasPrototypeContent ? "根据要求重新设计" : "根据简报生成原型"}
-        </button>
-        {prototype && (
-          <small>重新设计会替换当前原型；已保存的版本可从版本历史恢复。</small>
-        )}
-      </details>
       {error && <p role="alert">{error}</p>}
       {feedback && <p role="status">{feedback}</p>}
       {prototype?.document && (
@@ -363,7 +332,7 @@ export function PrototypeEditor({
       )}
       {!page && (
         <p className={s.empty}>
-          添加页面开始拖拽设计，也可以让 AI 根据简报生成原型，或导入已有原型图。
+          添加页面开始拖拽设计；要让 AI 生成原型，请使用右侧对话，也可以导入已有原型图。
         </p>
       )}
       {page && prototype && (
