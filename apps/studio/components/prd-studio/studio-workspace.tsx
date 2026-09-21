@@ -11,6 +11,7 @@ import {
 } from "@/components/workbench/workbench";
 import { ExtensionBrowser } from "@/components/workbench/extension-browser";
 import { useWorkbenchExtensions } from "@/lib/workbench-extensions";
+import { builtinRegistry } from "@/extensions/builtin";
 import { prototypeDesigner } from "@/extensions/prototype-designer/manifest";
 import type { Capability } from "@/components/workbench/capability-browser";
 
@@ -44,11 +45,7 @@ const PrdWriter = dynamic(prdWriter.load, { loading: () => <p>正在加载 PRD �
 
 type Tab = NonNullable<ReturnType<typeof usePrdStudio>["tab"]>;
 const tabs = [
-  { id: "brief", label: "需求简报", icon: "▤" },
-  { id: "prototype", label: "原型设计", icon: "▧" },
-  { id: "document", label: "PRD.md", icon: "#" },
-  { id: "drawing", label: "流程图", icon: "⌘" },
-  { id: "assets", label: "参考材料", icon: "♧" },
+  ...builtinRegistry.editors.map((editor) => ({ id: editor.legacyTab, label: editor.label, icon: editor.icon })),
   { id: "history", label: "版本", icon: "◴" },
   { id: "files", label: "文档库", icon: "▤" },
   { id: "settings", label: "使用说明", icon: "?" },
@@ -62,6 +59,8 @@ export function StudioWorkspace({ mode = "prd" }: { mode?: "prd" | "prototype" }
     if (w.tab === "prototype") setPrototypeOpened(true);
   }, [w.tab]);
   const extensions = useWorkbenchExtensions();
+  const activeOwner = w.tab ? builtinRegistry.ownerOfTab(w.tab) : undefined;
+  const activePluginEnabled = !activeOwner || (extensions.ready && builtinRegistry.enabled(activeOwner.id, extensions.enabled));
   const [runPanel, setRunPanel] = useState(false);
   const [runFocus, setRunFocus] = useState(0);
   function openRun() {
@@ -116,12 +115,16 @@ export function StudioWorkspace({ mode = "prd" }: { mode?: "prd" | "prototype" }
   const imageInput = useRef<HTMLInputElement>(null);
   const locked =
     w.active || w.busy || attachmentBusy || openingBrowser || !w.ready || Boolean(w.recovery);
-  async function runPluginAgent(action: "generate" | "revise" | "review" | "prototype", instruction?: string) {
-    const owner = action === "prototype" ? prototypeDesigner.manifest : prdWriter.manifest;
-    if (!extensions.ready || !extensions.enabled(owner.id) || !owner.agentActions?.includes(action))
+  function assertAgentEnabled(action: string) {
+    const owner = builtinRegistry.ownerOfAction(action);
+    if (!owner) throw new Error(`没有插件注册此 Agent 动作：${action}`);
+    if (!extensions.ready || !builtinRegistry.enabled(owner.id, extensions.enabled))
       throw new Error(`请先启用“${owner.name}”插件。`);
     if (standalonePrototype && action !== "prototype")
       throw new Error("请先交接到 PRD 编写工作区，再运行正文任务。");
+  }
+  async function runPluginAgent(action: "generate" | "revise" | "review" | "prototype", instruction?: string) {
+    assertAgentEnabled(action);
     await w.start(action, undefined, instruction);
   }
   async function openPrototypeBrowser(pageId?: string) {
@@ -151,6 +154,13 @@ export function StudioWorkspace({ mode = "prd" }: { mode?: "prd" | "prototype" }
       return;
     }
     window.location.assign(`/prd-studio?id=${encodeURIComponent(w.document.id)}`);
+  }
+  // Transitional routing until editors own independent resources (M4).
+  function openPlugin(id: string) {
+    if (!extensions.ready || !builtinRegistry.enabled(id, extensions.enabled)) return;
+    const tab = builtinRegistry.launchTab(id);
+    if (tab === "document" && standalonePrototype) openPrdWorkspace();
+    else if (tab) w.setTab((tab === "document" && !w.content ? "brief" : tab) as Tab);
   }
   async function attachFiles(files: File[]) {
     const result = await preparePrdAttachments(files, w.brief, w.content);
@@ -191,14 +201,15 @@ export function StudioWorkspace({ mode = "prd" }: { mode?: "prd" | "prototype" }
     return () => window.removeEventListener("keydown", save);
   }, [locked, w.save]);
   const execute = (job: Job, mode: "restart" | "resume") => {
-    void w.perform(() =>
-      w.start(
+    void w.perform(() => {
+      assertAgentEnabled(job.action);
+      return w.start(
         job.action,
         mode === "restart" ? job.id : undefined,
         job.instruction,
         mode === "resume" ? job.id : undefined,
-      ),
-    );
+      );
+    });
   };
   function insert(value: string) {
     const next = `${w.content}${w.content ? "\n\n" : ""}${value}`;
@@ -223,7 +234,7 @@ export function StudioWorkspace({ mode = "prd" }: { mode?: "prd" | "prototype" }
       w.setNotice("请在右侧说明修改要求，然后提交修订。");
     } else void w.perform(() => runPluginAgent("generate"));
   };
-  const commands: WorkbenchCommand[] = [
+  const legacyCommands: WorkbenchCommand[] = [
     {
       id: "extensions",
       label: "管理工作台插件",
@@ -360,6 +371,19 @@ export function StudioWorkspace({ mode = "prd" }: { mode?: "prd" | "prototype" }
       run: () => w.setTab("settings"),
     },
   ];
+  const commands = legacyCommands.map((command): WorkbenchCommand => {
+    const owner = builtinRegistry.ownerOfCommand(command.id);
+    const unavailable = Boolean(owner && (!extensions.ready || !builtinRegistry.enabled(owner.id, extensions.enabled)));
+    return {
+      ...command,
+      disabled: command.disabled || unavailable,
+      run: () => {
+        if (command.disabled) return;
+        if (unavailable) { w.setError(`请先启用“${owner?.name}”插件。`); return; }
+        command.run();
+      },
+    };
+  });
   const menu = (label: string, ids: string[]) => ({
     label,
     commands: commands.filter((command) => ids.includes(command.id)),
@@ -400,8 +424,9 @@ export function StudioWorkspace({ mode = "prd" }: { mode?: "prd" | "prototype" }
         menu("帮助", ["help", "legacy"]),
       ]}
       views={[
-        ...(extensions.pinned.includes(prototypeDesigner.manifest.id) ? [{ id: "prototype-tool", label: "原型", icon: "▧", launch: true }] : []),
-        ...(extensions.pinned.includes(prdWriter.manifest.id) ? [{ id: "prd-tool", label: "PRD", icon: "#", launch: true }] : []),
+        ...builtinRegistry.launchers
+          .filter((view) => extensions.ready && extensions.pinned.includes(view.pluginId) && builtinRegistry.enabled(view.pluginId, extensions.enabled))
+          .map((view) => ({ id: view.id, label: view.label, icon: view.icon, launch: true })),
         { id: "workspace", label: "资源", icon: "▤" },
         { id: "agents", label: "Agent", icon: "◇" },
         { id: "skills", label: "Skill", icon: "✧" },
@@ -426,23 +451,21 @@ export function StudioWorkspace({ mode = "prd" }: { mode?: "prd" | "prototype" }
       showActivityLabels={showLabels}
       activeView={side}
       onView={(id) => {
-        if (id === "prototype-tool") w.setTab("prototype");
-        else if (id === "prd-tool") {
-          if (standalonePrototype) openPrdWorkspace();
-          else w.setTab(w.content ? "document" : "brief");
-        } else setSide(id);
+        const launcher = builtinRegistry.launchers.find((view) => view.id === id);
+        if (launcher) openPlugin(launcher.pluginId);
+        else setSide(id);
       }}
       sidebarFocusToken={sidebarFocus}
       sidebar={
         side === "extensions" ? (
           <ExtensionBrowser
-            extensions={[prototypeDesigner.manifest, prdWriter.manifest]}
+            extensions={[...builtinRegistry.manifests]}
             enabled={extensions.enabled}
             pinned={extensions.pinned}
             onTogglePin={extensions.togglePin}
             onToggle={extensions.toggle}
             disabled={locked || !extensions.ready}
-            onOpen={(id) => w.setTab(id === prototypeDesigner.manifest.id ? "prototype" : "document")}
+            onOpen={openPlugin}
           />
         ) : side === "agents" || side === "skills" ? (
           <CapabilityBrowser
@@ -524,7 +547,7 @@ export function StudioWorkspace({ mode = "prd" }: { mode?: "prd" | "prototype" }
           content={w.content}
           model={w.configuration?.model || ""}
           configured={Boolean(w.configuration?.configured)}
-          locked={locked || !w.tab || !extensions.enabled(w.tab === "prototype" ? prototypeDesigner.manifest.id : prdWriter.manifest.id)}
+          locked={locked || !extensions.ready || !w.tab || !builtinRegistry.enabled(builtinRegistry.ownerOfTab(w.tab)?.id || "", extensions.enabled)}
           showThinking={w.showThinking}
           onThinking={w.setShowThinking}
           job={w.job}
@@ -552,7 +575,7 @@ export function StudioWorkspace({ mode = "prd" }: { mode?: "prd" | "prototype" }
             w.tab === "prototype" ? prototypeSelection : null
           }
           onApplyComponent={(selection: PrototypeSelection, patch: ComponentPropsPatch) => {
-            if (locked || w.tab !== "prototype" || componentPatch)
+            if (locked || w.tab !== "prototype" || componentPatch || !extensions.ready || !builtinRegistry.enabled(prototypeDesigner.manifest.id, extensions.enabled))
               throw new Error("原型暂时不可编辑，请稍后重试。");
             const page = w.brief.prototype?.pages.find((item) => item.id === selection.pageId);
             const current = page?.design
@@ -628,12 +651,18 @@ export function StudioWorkspace({ mode = "prd" }: { mode?: "prd" | "prototype" }
         </div>
       )}
       <div className={s.viewport}>
+        {!activePluginEnabled && w.tab !== "prototype" && w.tab !== "document" && <section className={s.empty}>
+          <h2>{extensions.ready ? `${activeOwner?.name}插件未启用` : "正在读取插件配置…"}</h2>
+          <p>已保存内容和当前文档草稿不会删除。启用插件后可继续编辑。</p>
+          <button onClick={() => { setSide("extensions"); setSidebarFocus((value) => value + 1); }}>管理插件</button>
+        </section>}
         {!w.tab && <section className={s.empty}>
           <h2>选择工具继续工作</h2>
           <p>关闭标签不会删除文档，也不会停止正在运行的任务。</p>
-          <button onClick={() => w.setTab("brief")}>需求简报</button>
-          <button onClick={() => w.setTab("prototype")}>原型设计</button>
-          <button onClick={() => w.setTab("document")}>PRD 编写</button>
+          {builtinRegistry.editors.filter((editor) => extensions.ready && builtinRegistry.enabled(editor.pluginId, extensions.enabled)).map((editor) =>
+            <button key={editor.id} onClick={() => w.setTab(editor.legacyTab as Tab)}>{editor.label}</button>,
+          )}
+          <button onClick={() => { setSide("extensions"); setSidebarFocus((value) => value + 1); }}>管理插件</button>
         </section>}
         {(prototypeOpened || w.tab === "prototype") && <div hidden={w.tab !== "prototype"}>
           <PrototypeEditor
@@ -667,7 +696,7 @@ export function StudioWorkspace({ mode = "prd" }: { mode?: "prd" | "prototype" }
             content={w.content}
             brief={w.brief}
             onBrief={w.setBrief}
-            disabled={locked || w.tab !== "prototype"}
+            disabled={locked || w.tab !== "prototype" || !extensions.ready || !builtinRegistry.enabled(prototypeDesigner.manifest.id, extensions.enabled)}
             onBusy={setAttachmentBusy}
             onImport={() => imageInput.current?.click()}
             onSelection={setPrototypeSelection}
@@ -743,7 +772,7 @@ export function StudioWorkspace({ mode = "prd" }: { mode?: "prd" | "prototype" }
             {!w.documents.length && <p>保存第一份文档后，会出现在这里。</p>}
           </section>
         )}
-        {w.tab === "brief" && (
+        {w.tab === "brief" && activePluginEnabled && (
           <BriefEditor
             brief={w.brief}
             onChange={w.setBrief}
@@ -815,7 +844,7 @@ export function StudioWorkspace({ mode = "prd" }: { mode?: "prd" | "prototype" }
             )}
           </>
         )}
-        {w.tab === "assets" && (
+        {w.tab === "assets" && activePluginEnabled && (
           <section className={s.assetEditor}>
             <h1>参考材料</h1>
             <p>添加访谈记录、业务规则等，供编写时引用。</p>
@@ -893,7 +922,7 @@ export function StudioWorkspace({ mode = "prd" }: { mode?: "prd" | "prototype" }
             )}
           </section>
         )}
-        {w.tab === "drawing" && (
+        {w.tab === "drawing" && activePluginEnabled && (
           <section className={s.assetEditor}>
             <h1>流程图编辑器</h1>
             <p>

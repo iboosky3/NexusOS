@@ -1,8 +1,10 @@
 "use client";
 
 import { ComponentType, useEffect, useState } from "react";
+import type { PluginContributions } from "./extension-host/registry";
 
 export interface ExtensionManifest {
+  contributions: PluginContributions;
   id: string;
   name: string;
   version: string;

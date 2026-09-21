@@ -20,6 +20,12 @@ export interface DesignerProps {
 export const prototypeDesigner: WorkbenchExtension<DesignerProps> = {
   manifest: {
     id: "nexus.prototype-designer",
+    contributions: {
+      schemaVersion: 1, hostApiVersion: "1", dependencies: [],
+      commands: ["prototype", "image"].map((legacyCommand) => ({ id: `nexus.prototype-designer.command.${legacyCommand}`, legacyCommand })),
+      editors: [{ id: "nexus.prototype-designer.canvas", legacyTab: "prototype", label: "原型设计", icon: "▧" }],
+      launcher: { id: "nexus.prototype-designer.launch", label: "原型", icon: "▧", editorId: "nexus.prototype-designer.canvas" },
+    },
     name: "原型设计器",
     version: "1.0.0",
     description: "拖拽组件组装页面，预览交互并生成截图。基于 Puck 开源编辑器。",
