@@ -17,6 +17,7 @@ build/
 # JavaScript
 node_modules/
 .next/
+*.tsbuildinfo
 
 # Rust
 target/

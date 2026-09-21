@@ -1,9 +1,25 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 
-const navigation = ["总览", "运行记录", "Agents", "Skills", "Tools / MCP", "评估"];
+const navigation = [
+  { label: "总览", href: "/" },
+  { label: "PRD 工作台", href: "/projects/demo/workspace" },
+  { label: "运行记录", href: "/" },
+  { label: "Agents", href: "/" },
+  { label: "Skills", href: "/" },
+  { label: "Tools / MCP", href: "/" },
+  { label: "评估", href: "/" },
+];
 
 export function AppShell({ children }: { children: ReactNode }) {
+  const pathname = usePathname();
+  if (/^\/projects\/[^/]+\/workspace/.test(pathname)) {
+    return <main className="workspace-page">{children}</main>;
+  }
+
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -16,9 +32,13 @@ export function AppShell({ children }: { children: ReactNode }) {
         </Link>
         <nav aria-label="主导航">
           {navigation.map((item, index) => (
-            <Link className={index === 0 ? "nav-item active" : "nav-item"} href="/" key={item}>
+            <Link
+              className={(item.href !== "/" && pathname.startsWith(item.href)) || (index === 0 && pathname === "/") ? "nav-item active" : "nav-item"}
+              href={item.href}
+              key={item.label}
+            >
               <span className="nav-dot" />
-              {item}
+              {item.label}
             </Link>
           ))}
         </nav>

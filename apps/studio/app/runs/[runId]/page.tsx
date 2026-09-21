@@ -21,7 +21,7 @@ export default async function RunDetailPage({ params }: { params: Promise<{ runI
             {source === "api" ? "实时 API" : "演示快照"}
           </span>
           <StatusPill status={run.status} />
-          <strong>{run.quality?.toFixed(1)}</strong>
+          <strong>{run.quality?.toFixed(1) ?? "—"}</strong>
           <small>质量总分</small>
         </div>
       </header>
@@ -40,7 +40,7 @@ export default async function RunDetailPage({ params }: { params: Promise<{ runI
         <article className="panel graph-panel">
           <div className="panel-heading">
             <div><span className="panel-kicker">EXECUTION GRAPH</span><h2>任务执行链</h2></div>
-            <span className="panel-note">6 tasks · 2 parallel branches</span>
+            <span className="panel-note">{run.tasks.length} 个任务</span>
           </div>
           <div className="task-timeline">
             {run.tasks.map((task, index) => (
@@ -96,11 +96,11 @@ export default async function RunDetailPage({ params }: { params: Promise<{ runI
       <section className="panel routing-panel">
         <div className="panel-heading">
           <div><span className="panel-kicker">ROUTING EXPLAINABILITY</span><h2>Skill 选择解释</h2></div>
-          <span className="panel-note">显示候选得分、预算和排除原因</span>
+          <span className="panel-note">显示候选得分、预算和选择原因</span>
         </div>
         <div className="routing-grid">
-          {run.routing.map((decision) => (
-            <article className={decision.selected ? "route-card selected" : "route-card"} key={decision.skillId}>
+          {run.routing.map((decision, index) => (
+            <article className={decision.selected ? "route-card selected" : "route-card"} key={`${decision.skillId}-${index}`}>
               <div className="route-score">
                 <strong>{decision.score.toFixed(3)}</strong>
                 <span>{decision.selected ? "已选择" : "已排除"}</span>

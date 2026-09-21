@@ -39,3 +39,53 @@ export interface RunDetail extends RunSummary {
   review: Record<string, number>;
   artifacts: Array<{ name: string; mediaType: string; size: string }>;
 }
+
+export type AiMode = "brainstorm" | "professional";
+export type WorkspaceView = "prd" | "design" | "preview" | "split";
+
+export interface PrototypeStyle {
+  width?: string;
+  minHeight?: string;
+  padding?: string;
+  margin?: string;
+  display?: string;
+  justifyContent?: string;
+  alignItems?: string;
+  textAlign?: "left" | "center" | "right";
+}
+
+export interface ScreenshotReference {
+  id: string;
+  prototypeVersion: number;
+  nodeId?: string;
+  imageDataUrl?: string;
+  purpose: string;
+  insertedAt: string;
+}
+
+export interface WorkspaceEvent {
+  id: string;
+  sequence: number;
+  action: string;
+  summary: string;
+  resourceKind: "workspace" | "prd" | "prototype" | "screenshot" | "assistant";
+  resourceVersion?: number;
+  correlationId: string;
+  causationId?: string;
+  occurredAt: string;
+  metadata?: Record<string, string | number | boolean | null>;
+}
+
+export interface WorkspaceDocument {
+  projectId: string;
+  title: string;
+  aiMode: AiMode;
+  prd: string;
+  prdVersion: number;
+  prototypeHtml: string;
+  prototypeVersion: number;
+  selectedNodeId?: string;
+  screenshots: ScreenshotReference[];
+  events: WorkspaceEvent[];
+  updatedAt: string;
+}

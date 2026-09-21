@@ -41,6 +41,48 @@ class HttpApiTests(unittest.TestCase):
         self.assertEqual(detail.status_code, 200)
         self.assertEqual(detail.json()["status"], "succeeded")
 
+    def test_workspace_resources_are_versioned_and_traceable(self) -> None:
+        client = TestClient(create_app(root=ROOT))
+        created = client.post(
+            "/v1/workspaces",
+            json={"project_id": "project-1", "title": "员工导入"},
+            headers={"X-Correlation-ID": "create-1"},
+        )
+        prd = client.put(
+            "/v1/workspaces/project-1/prd",
+            json={"content": "# 员工导入", "expected_version": 1},
+            headers={"X-Correlation-ID": "edit-1"},
+        )
+        prototype = client.put(
+            "/v1/workspaces/project-1/prototype",
+            json={"html": "<button>上传</button>", "expected_version": 0},
+            headers={"X-Correlation-ID": "edit-1"},
+        )
+        events = client.get("/v1/workspaces/project-1/events?after_sequence=1")
+
+        self.assertEqual(created.status_code, 201)
+        self.assertEqual(prd.status_code, 200)
+        self.assertEqual(prd.json()["prd"]["version"], 2)
+        self.assertEqual(prototype.json()["prototype"]["version"], 1)
+        self.assertEqual(events.status_code, 200)
+        self.assertEqual(len(events.json()["items"]), 2)
+        self.assertEqual(events.json()["items"][0]["correlation_id"], "edit-1")
+
+    def test_workspace_update_rejects_stale_version(self) -> None:
+        client = TestClient(create_app(root=ROOT))
+        client.post("/v1/workspaces", json={"project_id": "project-1", "title": "员工导入"})
+        client.put(
+            "/v1/workspaces/project-1/prd",
+            json={"content": "first", "expected_version": 1},
+        )
+
+        stale = client.put(
+            "/v1/workspaces/project-1/prd",
+            json={"content": "stale", "expected_version": 1},
+        )
+
+        self.assertEqual(stale.status_code, 409)
+
 
 if __name__ == "__main__":
     unittest.main()

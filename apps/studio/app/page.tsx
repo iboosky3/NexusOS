@@ -21,7 +21,7 @@ export default async function DashboardPage() {
           <span className={source === "api" ? "source-label source-api" : "source-label"}>
             {source === "api" ? "实时 API" : "演示快照"}
           </span>
-          <button type="button">创建 PRD 运行</button>
+          <Link className="primary-link-button" href="/projects/demo/workspace">打开 PRD 工作台</Link>
         </div>
       </header>
 

@@ -50,6 +50,27 @@ class SqlSchemaTests(unittest.TestCase):
             self.assertIn(f"CREATE POLICY tenant_isolation ON {table}", policies)
             self.assertIn(f"ALTER TABLE {table} FORCE ROW LEVEL SECURITY", policies)
 
+    def test_prd_workspace_schema_is_versioned_tenant_scoped_and_append_only(self) -> None:
+        migration = Path("deploy/postgres/migrations/0004_prd_workspace.sql").read_text(
+            encoding="utf-8"
+        )
+        tables = {
+            "project_workspaces",
+            "prd_document_versions",
+            "prototype_versions",
+            "screenshot_references",
+            "workspace_events",
+        }
+
+        for table in tables:
+            self.assertIn(f"CREATE TABLE {table}", migration)
+            self.assertIn(f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY", migration)
+            self.assertIn(f"CREATE POLICY tenant_isolation ON {table}", migration)
+            self.assertIn(f"ALTER TABLE {table} FORCE ROW LEVEL SECURITY", migration)
+        self.assertIn("UNIQUE (project_id, version)", migration)
+        self.assertIn("UNIQUE (prototype_id, version)", migration)
+        self.assertIn("workspace_events_append_only", migration)
+
 
 if __name__ == "__main__":
     unittest.main()
