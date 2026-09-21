@@ -42,7 +42,7 @@ export default function HomePage() {
       <div className="suggestions">{["写一个产品需求文档", "分析这份用户反馈", "设计两个用户流程并比较取舍"].map(value => <button key={value} onClick={() => setRequest(value)}>{value}</button>)}</div>
     </section>
     <section className="favorites-section"><div className="section-title"><h2>已有工具</h2></div>
-      <Link className="favorite-item" href="/studio" target="_blank" rel="noopener noreferrer"><span className="favorite-icon">✦</span><span><strong>插件工作区</strong><small>独立资源 · 原型设计 · PRD 编写 · Agent 提案</small></span><span>↗</span></Link>
+      <Link className="favorite-item" href="/prd-studio" target="_blank" rel="noopener noreferrer"><span className="favorite-icon">✦</span><span><strong>编写 PRD</strong><small>任务驱动的受控动态流程 · 保留专业质量门</small></span><span>↗</span></Link>
     </section>
   </div>;
 }

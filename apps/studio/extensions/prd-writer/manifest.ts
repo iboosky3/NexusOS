@@ -20,7 +20,7 @@ export const prdWriter: WorkbenchExtension<ComponentProps<typeof MarkdownEditor>
     version: "1.0.0",
     description: "编写和预览 PRD，接收已确认原型，由现有 Agent 工作流生成、修订和评审。",
     license: "项目内置",
-    homepage: "/studio",
+    homepage: "/prd-studio",
     capabilities: ["prd.edit", "prd.generate", "prd.revise", "prd.review", "prototype.receive"],
     agentActions: ["generate", "revise", "review"],
   },

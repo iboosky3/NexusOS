@@ -1,6 +1,6 @@
 # NexusOS Studio
 
-当前工具入口是 `/studio` 插件工作区：独立原型/PRD/示例便签资源、Markdown 编辑、版本保存、Agent 提案批准与快照交接。旧工具入口仅导航，不迁移旧数据；多阶段 PRD 质量流程和组件级修改尚待接入。
+当前主入口是 Nexus PRD 写作工作区：需求与材料、真实模型生成、Markdown 编辑预览、持久化文档库、历史版本、反馈修订、独立评审与 MD/HTML 导出。
 
 完整配置见[写作工作区使用指南](../../docs/reference-apps/nexus-prd/authoring.md)。模型密钥只配置在 Python API 服务中；Studio 只需要 API 地址。
 
@@ -15,7 +15,7 @@ cd ../..
 bash scripts/start-studio.sh
 ```
 
-打开 `http://127.0.0.1:3000/studio`。脚本默认监听 `0.0.0.0:3000` 并连接 `http://127.0.0.1:8000`，可使用 `NEXUS_API_URL`、`NEXUS_STUDIO_HOST` 和 `NEXUS_STUDIO_PORT` 覆盖默认配置：
+打开 `http://127.0.0.1:3000/prd-studio`。脚本默认监听 `0.0.0.0:3000` 并连接 `http://127.0.0.1:8000`，可使用 `NEXUS_API_URL`、`NEXUS_STUDIO_HOST` 和 `NEXUS_STUDIO_PORT` 覆盖默认配置：
 
 ```bash
 NEXUS_API_URL=http://localhost:8000 NEXUS_STUDIO_HOST=0.0.0.0 NEXUS_STUDIO_PORT=3001 bash scripts/start-studio.sh

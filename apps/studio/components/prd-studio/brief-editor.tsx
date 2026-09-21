@@ -2,7 +2,7 @@
 
 import { TemplateUpload } from "@/components/workbench/template-upload";
 import { Brief } from "@/lib/prd-api";
-import { fields } from "@/extensions/prd-writer/brief-fields";
+import { fields } from "@/lib/use-prd-studio";
 import s from "./studio.module.css";
 
 const groups = [

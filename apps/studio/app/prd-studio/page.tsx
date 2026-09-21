@@ -1,5 +1,5 @@
-import { redirect } from "next/navigation";
+import { StudioWorkspace } from "@/components/prd-studio/studio-workspace";
 
-export default function RetiredStudioPage() {
-  redirect("/studio");
+export default function PrdStudioPage() {
+  return <StudioWorkspace />;
 }

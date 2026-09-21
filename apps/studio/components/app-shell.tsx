@@ -15,7 +15,7 @@ function IconOption({ type, label }: { type: "firefly"; label: string }) {
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   if (
-    pathname === "/studio" ||
+    pathname === "/prd-studio" ||
     pathname === "/workspace" ||
     /^\/projects\/[^/]+\/workspace/.test(pathname)
   ) return <>{children}</>;
@@ -33,7 +33,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         </Link>
         <nav className="topnav" aria-label="主导航">
           <Link className="topnav-link active" href="/">工作台</Link>
-          <Link className="topnav-link" href="/studio">插件工作区</Link>
+          <Link className="topnav-link" href="/prd">PRD 文档库</Link>
         </nav>
         <div className="workspace-status">
           <span className="live-dot" />

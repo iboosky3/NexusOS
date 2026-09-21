@@ -9,12 +9,6 @@ page.on("pageerror", (error) => failures.push(error.message));
 page.on("dialog", (dialog) => dialog.accept());
 const base = process.env.STUDIO_TEST_URL || "http://127.0.0.1:13123";
 try {
-  for (const old of ["/prd", "/prd-studio?id=discarded", "/prototype-studio?id=discarded"]) {
-    await page.goto(`${base}${old}`);
-    await page.waitForURL(`${base}/studio`);
-  }
-  await page.goto(base);
-  assert.equal(await page.getByRole("link", { name: /插件工作区/ }).last().getAttribute("href"), "/studio");
   await page.goto(`${base}/studio`);
   await page.getByRole("textbox", { name: "工作区名称" }).fill("浏览器验收工作区");
   await page.getByRole("button", { name: "创建工作区", exact: true }).click();
