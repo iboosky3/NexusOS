@@ -31,3 +31,16 @@ test("declaration containers cannot be mutated after registration", () => {
   assert.equal(snapshot.commands[0].id, "third.new");
   assert.throws(() => snapshot.commands.push({}), TypeError);
 });
+test("Agent documentation is plugin-owned, validated and immutable", () => {
+  const source = { ...plugin("assistant"), capabilities: [{ id: "help" }], agent: {
+    version: "1.0.0", launchCommand: "assistant.new", summary: "Explain and help", selection: "capability",
+    usage: ["Open a resource"], stages: [{ id: "help", label: "Help", purpose: "Explain" }],
+  } };
+  const [registered] = registerResourcePlugins([source]);
+  assert.throws(() => registerResourcePlugins([{ ...source, agent: { ...source.agent, launchCommand: "other.new" } }]), /Unknown Agent launch/);
+  source.agent.stages[0].label = "Changed";
+  assert.equal(registered.agent.stages[0].label, "Help");
+  assert.throws(() => registered.agent.usage.push("mutated"), TypeError);
+  assert.throws(() => registerResourcePlugins([{ ...plugin("missing"), capabilities: [{ id: "help" }] }]), /Missing Agent profile/);
+  assert.throws(() => registerResourcePlugins([{ ...source, agent: { ...source.agent, stages: [source.agent.stages[0], source.agent.stages[0]] } }]), /Invalid Agent stage/);
+});

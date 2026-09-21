@@ -1,5 +1,6 @@
 import type { ComponentType } from "react";
 import type { ActivationContext, Disposable } from "../extension-host/lifecycle";
+import type { AgentProfile } from "./agent";
 
 export type ResourcePayload = Record<string, unknown>;
 export interface StudioResource {
@@ -29,6 +30,7 @@ export interface StudioPlugin {
   commands: readonly { id: string; label: string; menu: "file" | "view" | "editor.toolbar" | "resource.context"; validate(args: unknown): void }[];
   id: string; name: string; resourceType: string; icon: string;
   capabilities: { id: string; label: string }[];
+  agent?: AgentProfile;
   acceptsArtifacts?: string[];
   initialPayload(): ResourcePayload;
   title(payload: ResourcePayload): string;

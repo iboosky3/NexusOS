@@ -11,6 +11,17 @@ try {
   assert.equal(await link.getAttribute('href'), '/prd-studio');
   await page.goto(`${process.env.STUDIO_TEST_URL || 'http://127.0.0.1:13123'}/prd-studio`);
   await page.getByRole('heading', {name:'需求简报'}).waitFor();
+  const rail = page.getByRole('navigation', { name: '工作区视图' });
+  assert.equal(await rail.getByRole('button', { name: '原型', exact: true }).count(), 0);
+  assert.equal(await rail.getByRole('button', { name: 'PRD', exact: true }).count(), 0);
+  await rail.getByRole('button', { name: 'Agent', exact: true }).click();
+  await page.getByRole('list', { name: 'Agent 插件' }).getByRole('button', { name: /PRD 编写/ }).click();
+  const detail = page.getByRole('article', { name: 'PRD 编写 Agent 详情' });
+  await detail.getByRole('heading', { name: '智能体架构图' }).waitFor();
+  await detail.getByText('系统架构师', { exact: true }).waitFor();
+  await detail.getByRole('button', { name: '运行 / 打开工作台' }).click();
+  await page.getByRole('heading', { name: '需求简报' }).waitFor();
+
   await page.getByRole('button', {name:'视图', exact:true}).click();
   await page.getByText('打开文档库', {exact:true}).waitFor();
   await page.getByRole('button', {name:'视图', exact:true}).click();

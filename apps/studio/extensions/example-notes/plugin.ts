@@ -1,4 +1,5 @@
 import type { StudioPlugin } from "@/lib/plugin-sdk/types";
+import { notesAgentProfile } from "./agent-profile";
 
 /** Example extension: only this folder and the assembly registration are needed in the UI. */
 export const notesPlugin: StudioPlugin = {
@@ -7,6 +8,7 @@ export const notesPlugin: StudioPlugin = {
   commands: [{ id: "nexus.example-notes.new", label: "新建示例便签", menu: "file",
     validate(args) { if (args !== undefined) throw new Error("此命令不接受参数"); } }],
   views: [{ id: "nexus.example-notes.resources", label: "便签列表", icon: "✎", load: () => import("./view") }],
+  agent: notesAgentProfile,
   capabilities: [{ id: "revise", label: "整理便签" }],
   initialPayload: () => ({ title: "未命名便签", content: "" }),
   title: (payload) => String(payload.title || "未命名便签"),

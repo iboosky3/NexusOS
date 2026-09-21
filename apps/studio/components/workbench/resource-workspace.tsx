@@ -10,6 +10,7 @@ import { ExtensionHost } from "@/lib/extension-host/lifecycle";
 import type { ResourcePayload, StudioPlugin, StudioResource } from "@/lib/plugin-sdk/types";
 import { Workbench, EditorTabs, PanelHeading } from "./workbench";
 import { PluginErrorBoundary } from "./plugin-error-boundary";
+import { AgentDirectory, AgentDetail } from "./agent-catalog";
 import { useEditorTabs } from "./use-editor-tabs";
 import s from "./resource-workspace.module.css";
 
@@ -39,6 +40,8 @@ export function ResourceWorkspace() {
   const uncertainSaves = useRef(new Map<string, { expectedRevision: number; payload: ResourcePayload; clientRequestId: string }>());
   const saves = useRef(new Map<string, Promise<StudioResource>>());
   const [side, setSide] = useState("resources");
+  const [sidebarFocus, setSidebarFocus] = useState(0);
+  function showView(id: string) { setSide(id); setSidebarFocus((value) => value + 1); }
   const activeView = contributedViews.find((view) => view.id === side);
   const View = activeView?.Component;
   const [instruction, setInstruction] = useState("");
@@ -52,6 +55,7 @@ export function ResourceWorkspace() {
   const [, setHostRevision] = useState(0);
   const { tab, openTabs, setTab, closeTab } = useEditorTabs<string>([], "");
   const active = tab ? sessions[tab] : undefined;
+  const selectedAgent = tab?.startsWith("agent:") ? studioPlugins.find((item) => item.id === tab.slice(6) && item.agent) : undefined;
   const plugin = active ? owner(active.base) : undefined;
   const enabled = (id: string) => Boolean(workspace?.plugins.includes(id));
   const api = <T,>(path: string, method = "GET", body?: unknown) => studioApi<T>(`/${workspace!.id}${path}`, method, body);
@@ -219,6 +223,7 @@ export function ResourceWorkspace() {
   const commands = [
     { id: "save", label: "保存当前资源", disabled: busy || !active || !plugin || !enabled(plugin.id), run: () => { if (tab) void perform(() => save(tab)); } },
     { id: "reopen", label: "恢复关闭的标签", disabled: !closed.length, run: () => { const id = closed.at(-1); if (id) { setTab(id); setClosed(closed.slice(0, -1)); } } },
+    ...[{ id: "agents", label: "Agent 列表" }, { id: "resources", label: "项目资源" }, { id: "plugins", label: "管理插件" }, { id: "tasks", label: "任务记录" }, { id: "handoffs", label: "版本化交接" }].map((view) => ({ id: `view.${view.id}`, label: view.label, menu: "view", disabled: false, run: () => showView(view.id) })),
     ...studioPlugins.filter((definition) => enabled(definition.id)).flatMap((definition) => definition.commands.map((command) => ({ ...command, disabled: busy || !host, run: () => { void perform(() => host!.execute(command.id)); } }))),
   ];
   useEffect(() => {
@@ -244,11 +249,12 @@ export function ResourceWorkspace() {
       { label: "文件", commands: commands.filter((command) => !("menu" in command) || command.menu === "file") },
       { label: "视图", commands: commands.filter((command) => "menu" in command && command.menu === "view") },
     ]}
-    views={[{ id: "resources", label: "资源", icon: "▤" }, { id: "plugins", label: "插件", icon: "⊞" }, { id: "handoffs", label: "交接", icon: "⇄" }, { id: "tasks", label: "任务", icon: "◇" }, ...contributedViews.filter((view) => enabled(view.pluginId))]}
-    activeView={side} onView={(id) => { setSide(id); const view = contributedViews.find((item) => item.id === id); if (view && host) void perform(() => host.activate(view.pluginId)); }} status={active ? dirty(active) ? "本地草稿 · 待保存" : `已保存 r${active.base.revision}` : "空工作区"}
+    views={[{ id: "resources", label: "资源", icon: "▤" }, { id: "agents", label: "Agent", icon: "◇" }, { id: "plugins", label: "插件", icon: "⊞" }, { id: "handoffs", label: "交接", icon: "⇄" }, { id: "tasks", label: "任务", icon: "◷" }]}
+    sidebarFocusToken={sidebarFocus} activeView={side} onView={(id) => { setSide(id); const view = contributedViews.find((item) => item.id === id); if (view && host) void perform(() => host.activate(view.pluginId)); }} status={active ? dirty(active) ? "本地草稿 · 待保存" : `已保存 r${active.base.revision}` : "空工作区"}
     sidebar={<div className={s.sidebar}>
-      <PanelHeading>{side === "plugins" ? "工作区插件" : side === "handoffs" ? "版本化交接" : side === "tasks" ? "任务记录" : activeView?.label || "资源"}</PanelHeading>
-      {View && activeView && enabled(activeView.pluginId) ? <PluginErrorBoundary key={activeView.id} pluginId={activeView.pluginId}>
+      <PanelHeading>{side === "agents" ? "Agent 插件" : side === "plugins" ? "工作区插件" : side === "handoffs" ? "版本化交接" : side === "tasks" ? "任务记录" : activeView?.label || "资源"}</PanelHeading>
+      {side === "agents" ? <AgentDirectory plugins={studioPlugins} enabled={enabled} onOpen={(definition) => setTab(`agent:${definition.id}`)} />
+      : View && activeView && enabled(activeView.pluginId) ? <PluginErrorBoundary key={activeView.id} pluginId={activeView.pluginId}>
         <View resources={Object.values(sessions).filter((session) => session.base.resourceType === activeView.resourceType).map((session) => ({ ...session.base, payload: session.payload }))} onOpen={(resource) => setTab(resource.id)} />
       </PluginErrorBoundary> : side === "plugins" ? studioPlugins.map((definition) => <section key={definition.id}><strong>{definition.name}</strong><p>{host?.state(definition.id) || "registered"}</p>
         <button disabled={busy} onClick={() => void perform(() => toggle(definition))}>{enabled(definition.id) ? "停用" : "启用"}</button>
@@ -276,7 +282,7 @@ export function ResourceWorkspace() {
         {["failed", "cancelled", "interrupted"].includes(task.status) && <button disabled={busy} onClick={() => void perform(() => invoke(task))}>按当前版本重试</button>}
       </section>) : <>
         {Object.values(sessions).map((session) => <button key={session.base.id} onClick={() => setTab(session.base.id)}>{owner(session.base)?.icon} {owner(session.base)?.title(session.payload) || session.base.resourceType}{dirty(session) ? " ●" : ""}</button>)}
-        {commands.slice(2).map((command) => <button key={command.id} disabled={command.disabled} onClick={command.run}>{command.label}</button>)}
+        {contributedViews.filter((view) => enabled(view.pluginId)).map((view) => <button key={view.id} onClick={() => setSide(view.id)}>{view.icon} {view.label}</button>)}
       </>}
     </div>}
     assistant={<div className={s.assistant}><PanelHeading>{plugin ? `${plugin.name} Agent` : "Agent"}</PanelHeading>
@@ -286,12 +292,20 @@ export function ResourceWorkspace() {
       <textarea aria-label="给 Agent 的指令" value={instruction} onChange={(event) => setInstruction(event.target.value)} placeholder="描述目标；修改先生成提案，由你确认后应用" />
       <button disabled={busy || !instruction.trim() || !plugin || !enabled(plugin.id)} onClick={() => void perform(async () => { await invoke(); setSide("tasks"); })}>发送（保存上下文并生成提案）</button>
     </div>}>
-    <EditorTabs tabs={openTabs.filter((id) => sessions[id]).map((id) => ({ id, icon: owner(sessions[id].base)?.icon || "▤", label: `${owner(sessions[id].base)?.title(sessions[id].payload) || "资源"}${dirty(sessions[id]) ? " ●" : ""}` }))}
+    <EditorTabs tabs={openTabs.flatMap((id) => {
+      const session = sessions[id];
+      if (session) return [{ id, icon: owner(session.base)?.icon || "▤", label: `${owner(session.base)?.title(session.payload) || "资源"}${dirty(session) ? " ●" : ""}` }];
+      const definition = id.startsWith("agent:") ? studioPlugins.find((item) => item.id === id.slice(6) && item.agent) : undefined;
+      return definition ? [{ id, icon: definition.icon, label: `${definition.name} · Agent` }] : [];
+    })}
       value={tab} onChange={setTab} closableIds={openTabs} onClose={(id) => { closeTab(id); setClosed((previous) => [...previous.filter((value) => value !== id), id]); }} />
     {error && <div role="alert" className={s.error}>{error}<button onClick={() => setError("")}>关闭</button></div>}
     {notice && <div role="status" className={s.notice}>{notice}<button onClick={() => setNotice("")}>关闭</button></div>}
     <div className={s.editors}>
-      {!active && <section className={s.empty}><h2>组合插件，开始工作</h2><p>关闭标签不会删除资源或取消任务。</p>{commands.slice(1).map((command) => <button key={command.id} disabled={command.disabled} onClick={command.run}>{command.label}</button>)}</section>}
+      {!active && !selectedAgent && <section className={s.empty}><h2>组合插件，开始工作</h2><p>关闭标签不会删除资源或取消任务。</p>{commands.slice(1).map((command) => <button key={command.id} disabled={command.disabled} onClick={command.run}>{command.label}</button>)}</section>}
+      {selectedAgent && <AgentDetail plugin={selectedAgent} enabled={enabled(selectedAgent.id)} busy={busy || !host} onRun={() => {
+        if (host) void perform(() => host.execute(selectedAgent.agent!.launchCommand));
+      }} />}
       {Object.entries(sessions).map(([id, session]) => {
         const definition = owner(session.base); const Editor = definition && editors.get(definition.id);
         if (!Editor || !definition) return id === tab ? <section key={id}><p>缺少资源编辑插件：{session.base.resourceType} · r{session.base.revision}</p><details><summary>查看只读资源数据</summary><pre>{JSON.stringify(session.payload, null, 2)}</pre></details></section> : null;

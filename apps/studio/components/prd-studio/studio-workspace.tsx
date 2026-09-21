@@ -12,6 +12,8 @@ import {
 import { ExtensionBrowser } from "@/components/workbench/extension-browser";
 import { useWorkbenchExtensions } from "@/lib/workbench-extensions";
 import { builtinRegistry } from "@/extensions/builtin";
+import { studioPlugins } from "@/extensions/studio-plugins";
+import { AgentDirectory, AgentDetail } from "@/components/workbench/agent-catalog";
 import { prototypeDesigner } from "@/extensions/prototype-designer/manifest";
 import type { Capability } from "@/components/workbench/capability-browser";
 
@@ -49,6 +51,8 @@ const tabs = [
   { id: "history", label: "版本", icon: "◴" },
   { id: "files", label: "文档库", icon: "▤" },
   { id: "settings", label: "使用说明", icon: "?" },
+  ...studioPlugins.filter((plugin) => plugin.agent && builtinRegistry.launchTab(plugin.id))
+    .map((plugin) => ({ id: `agent:${plugin.id}`, label: `${plugin.name} · Agent`, icon: plugin.icon })),
 ];
 
 export function StudioWorkspace({ mode = "prd" }: { mode?: "prd" | "prototype" }) {
@@ -60,6 +64,8 @@ export function StudioWorkspace({ mode = "prd" }: { mode?: "prd" | "prototype" }
   }, [w.tab]);
   const extensions = useWorkbenchExtensions();
   const activeOwner = w.tab ? builtinRegistry.ownerOfTab(w.tab) : undefined;
+  const selectedAgent = w.tab?.startsWith("agent:") ? studioPlugins.find((plugin) => plugin.id === w.tab?.slice(6) && plugin.agent) : undefined;
+  const availableAgents = studioPlugins.filter((plugin) => plugin.agent && builtinRegistry.launchTab(plugin.id));
   const activePluginEnabled = !activeOwner || (extensions.ready && builtinRegistry.enabled(activeOwner.id, extensions.enabled));
   const [runPanel, setRunPanel] = useState(false);
   const [runFocus, setRunFocus] = useState(0);
@@ -424,9 +430,6 @@ export function StudioWorkspace({ mode = "prd" }: { mode?: "prd" | "prototype" }
         menu("帮助", ["help", "legacy"]),
       ]}
       views={[
-        ...builtinRegistry.launchers
-          .filter((view) => extensions.ready && extensions.pinned.includes(view.pluginId) && builtinRegistry.enabled(view.pluginId, extensions.enabled))
-          .map((view) => ({ id: view.id, label: view.label, icon: view.icon, launch: true })),
         { id: "workspace", label: "资源", icon: "▤" },
         { id: "agents", label: "Agent", icon: "◇" },
         { id: "skills", label: "Skill", icon: "✧" },
@@ -467,17 +470,13 @@ export function StudioWorkspace({ mode = "prd" }: { mode?: "prd" | "prototype" }
             disabled={locked || !extensions.ready}
             onOpen={openPlugin}
           />
-        ) : side === "agents" || side === "skills" ? (
-          <CapabilityBrowser
-            key={side}
-            kind={side === "agents" ? "agents" : "skills"}
-            {...catalog}
-            used={w.job?.steps.flatMap((step) => [
-              step.agent_id,
-              ...step.skill_ids,
-            ])}
-            error={catalogError}
-          />
+        ) : side === "agents" ? (
+          <AgentDirectory plugins={availableAgents} enabled={(id) => extensions.ready && builtinRegistry.enabled(id, extensions.enabled)}
+            onOpen={(definition) => w.setTab(`agent:${definition.id}`)} />
+        ) : side === "skills" ? (
+          <CapabilityBrowser kind="skills" {...catalog}
+            used={w.job?.steps.flatMap((step) => [step.agent_id, ...step.skill_ids])}
+            error={catalogError} />
         ) : (
           <>
             <PanelHeading>项目资源</PanelHeading>
@@ -651,6 +650,9 @@ export function StudioWorkspace({ mode = "prd" }: { mode?: "prd" | "prototype" }
         </div>
       )}
       <div className={s.viewport}>
+        {selectedAgent && <AgentDetail plugin={selectedAgent}
+          enabled={extensions.ready && builtinRegistry.enabled(selectedAgent.id, extensions.enabled)}
+          onRun={() => openPlugin(selectedAgent.id)} />}
         {!activePluginEnabled && w.tab !== "prototype" && w.tab !== "document" && <section className={s.empty}>
           <h2>{extensions.ready ? `${activeOwner?.name}插件未启用` : "正在读取插件配置…"}</h2>
           <p>已保存内容和当前文档草稿不会删除。启用插件后可继续编辑。</p>

@@ -1,4 +1,5 @@
 import type { StudioPlugin } from "@/lib/plugin-sdk/types";
+import { prototypeAgentProfile } from "./agent-profile";
 
 export const prototypePlugin: StudioPlugin = {
   schemaVersion: 1, hostApiVersion: "1", dependencies: [],
@@ -11,6 +12,7 @@ export const prototypePlugin: StudioPlugin = {
     });
   },
   id: "nexus.prototype-designer", name: "原型设计", resourceType: "nexus.prototype", icon: "▧",
+  agent: prototypeAgentProfile,
   capabilities: [{ id: "design", label: "设计原型" }, { id: "revise", label: "修改原型" }, { id: "review", label: "评审设计" }],
   initialPayload: () => ({ title: "未命名原型", description: "", prototype: null }),
   title: (payload) => String(payload.title || "未命名原型"),
