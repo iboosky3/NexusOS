@@ -128,5 +128,111 @@ class ModelGatewayTests(unittest.TestCase):
         self.assertEqual(len(second.requests), 1)
 
 
+class CompatibleResponseTests(unittest.TestCase):
+    def test_streams_content_and_disables_deepseek_thinking_when_requested(self):
+        import io
+        import json
+        from unittest.mock import patch
+
+        from nexusos.models.gateway import ModelDelta, OpenAICompatibleGateway
+
+        response = io.BytesIO(
+            (
+                'data: {"model":"deepseek-flash","choices":[{"delta":'
+                '{"reasoning_content":"分析"},"finish_reason":null}]}\n\n'
+                'data: {"choices":[{"delta":{"content":"# PRD"},"finish_reason":null}]}\n\n'
+                'data: {"choices":[{"delta":{},"finish_reason":"stop"}],'
+                '"usage":{"prompt_tokens":5,"completion_tokens":7}}\n\n'
+                "data: [DONE]\n\n"
+            ).encode()
+        )
+        deltas: list[ModelDelta] = []
+        request = ModelRequest(
+            messages=(ChatMessage("user", "Write a PRD"),),
+            model="deepseek-flash",
+            metadata={"thinking_mode": "disabled"},
+        )
+        with patch("urllib.request.urlopen", return_value=response) as urlopen:
+            completion = asyncio.run(
+                OpenAICompatibleGateway(
+                    base_url="http://model.invalid/v1",
+                    api_key="test",
+                ).complete_stream(request, deltas.append)
+            )
+
+        payload = json.loads(urlopen.call_args.args[0].data)
+        self.assertEqual(payload["thinking"], {"type": "disabled"})
+        self.assertTrue(payload["stream"])
+        self.assertEqual(payload["stream_options"], {"include_usage": True})
+        self.assertEqual(completion.content, "# PRD")
+        self.assertEqual(completion.reasoning_content, "分析")
+        self.assertEqual(completion.usage.total_tokens, 12)
+        self.assertEqual(
+            deltas,
+            [ModelDelta(reasoning_content="分析"), ModelDelta(content="# PRD")],
+        )
+
+    def test_invalid_provider_content_is_rejected_instead_of_becoming_prd_text(self):
+        import io
+        import json
+        from unittest.mock import patch
+
+        from nexusos.models.gateway import OpenAICompatibleGateway
+
+        request = ModelRequest(messages=(ChatMessage("user", "Write a PRD"),), model="test")
+        for content in [None, "", "   ", {"text": "not normalized"}]:
+            with self.subTest(content=content):
+                response = io.BytesIO(
+                    json.dumps(
+                        {
+                            "choices": [{"message": {"content": content}, "finish_reason": "stop"}],
+                        }
+                    ).encode()
+                )
+                with (
+                    patch("urllib.request.urlopen", return_value=response),
+                    self.assertRaises(ModelGatewayRejected),
+                ):
+                    asyncio.run(
+                        OpenAICompatibleGateway(
+                            base_url="http://model.invalid/v1",
+                            api_key="test",
+                        ).complete(request)
+                    )
+
+    def test_invalid_usage_is_classified_as_protocol_failure(self):
+        import io
+        import json
+        from unittest.mock import patch
+
+        from nexusos.models.gateway import OpenAICompatibleGateway
+
+        for usage in [None, {"prompt_tokens": -1}, {"completion_tokens": "invalid"}]:
+            with self.subTest(usage=usage):
+                response = io.BytesIO(
+                    json.dumps(
+                        {
+                            "choices": [{"message": {"content": "# PRD"}, "finish_reason": "stop"}],
+                            "usage": usage,
+                        }
+                    ).encode()
+                )
+                with (
+                    patch("urllib.request.urlopen", return_value=response),
+                    self.assertRaises(ModelGatewayRejected),
+                ):
+                    asyncio.run(
+                        OpenAICompatibleGateway(
+                            base_url="http://model.invalid/v1",
+                            api_key="test",
+                        ).complete(
+                            ModelRequest(
+                                messages=(ChatMessage("user", "Write a PRD"),),
+                                model="test",
+                            )
+                        )
+                    )
+
+
 if __name__ == "__main__":
     unittest.main()

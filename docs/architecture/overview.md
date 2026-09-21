@@ -1,5 +1,13 @@
 # 架构总览
 
+## 核心思想：AI 理解任务，按需组装能力与界面
+
+> **纽带系统以用户任务为中心：由 AI 分析需求，从已注册的能力和组件中选择、组合完成任务所需的工作环境。界面只呈现当前任务需要的组件，同一功能只有一个主要入口，不重复铺设，不为无关能力硬占位。**
+
+这是系统核心设计约束，适用于 PRD 及后续全部任务。**保留软件式工作台外壳（菜单、工具栏、左侧管理、中间编辑、右侧 AI、底部状态），通过分组、去重和按需展开优化秩序；按需组装不等于取消软件式界面。** PRD 的业务内容是简报、正文编辑与 AI 协作；材料、绘图、版本、追溯按需管理。新需求通过分析与组件组合扩展，不复制包含所有功能的固定工具页。重组界面不得丢失用户数据或执行现场。
+
+系统的核心演进方向是 **Intent-to-DAG**：AI 面对任意已注册能力能够承接的任务，识别意图并提出非模板化任务图；NexusOS 以确定性规则校验依赖、能力、权限、风险和预算，冻结计划版本后才执行。AI 负责提议，不直接获得执行权限。PRD 默认并长期保留“任务驱动的受控动态流程”，通用任务在达到准入门后可使用“AI 自主规划 DAG”。当前已实现可复用工作台组件与 DAG 执行内核，通用 Intent Service 和 Model Planner 尚待实现。详见 [ADR-0006](../adr/0006-ai-planned-task-graphs.md) 与[实施设计](../development/ai-dag-planning.md)。
+
 ## 1. 定位
 
 NexusOS 是面向复杂智能任务的大规模 Agent 协同基础设施。它通过动态任务规划、分层 Skill 路由、上下文工程、工具互操作、记忆、评估与可观测性，为不同参考应用提供统一运行底座。
@@ -16,10 +24,15 @@ PRD 生成只是第一个参考应用，不是 NexusOS 本身。未来的软件�
 flowchart TB
     User["用户与外部系统"] --> API["API / CLI"]
     API --> Intel["智能平面"]
-    Intel --> Planner["Planner"]
+    Intel --> Intent["Intent Service"]
+    Intent --> Mode{"Planning Mode"}
+    Mode --> AIPlanner["AI Planner"]
+    Mode --> Controlled["Controlled Planner"]
+    AIPlanner --> Validator["DAG / Policy Validator"]
+    Controlled --> Validator
     Intel --> Router["Skill Router"]
     Intel --> Evaluator["Evaluator"]
-    Planner --> Runtime["执行平面"]
+    Validator --> Runtime["执行平面"]
     Router --> Runtime
     Runtime --> Agents["Agent Runtime"]
     Runtime --> Tools["Tool Runtime"]
@@ -54,7 +67,8 @@ flowchart TB
 ## 6. 参考执行路径
 
 ```text
-用户目标 -> Intake -> Planner -> Task DAG -> Agent Resolver
+用户目标 -> Intent -> Planning Mode -> Plan Proposal -> DAG/Policy Validator
+         -> Frozen Task DAG -> Agent Resolver
          -> Skill Router -> Context Builder -> Agent Runtime
          -> Tool / Memory -> Reviewer -> Replan 或产物
 ```

@@ -16,4 +16,4 @@ Task.required_capabilities -> Agent Resolver -> AgentDescriptor
 
 ## 3. 动态团队
 
-简单任务可以只选择三类 Agent，复杂任务可以扩展为更多研究、设计与技术角色。团队规模由任务图决定，而不是由固定链条决定。
+简单任务可以只选择少量 Agent，复杂任务可以扩展为更多研究、设计与技术角色。团队规模由任务图决定，而不是由固定链条决定。`ai_dynamic` 下任务图由 AI 提议，`controlled_dynamic` 下由领域阶段库选取；Agent Resolver 对两种模式使用相同的能力覆盖和策略校验，不能因为图来自 AI 就放宽 Agent 或 Tool 权限。

@@ -10,9 +10,15 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "next": "15.2.4",
+    "@noble/hashes": "2.0.1",
+    "@puckeditor/core": "0.23.0",
+    "html-to-image": "1.11.13",
+    "mammoth": "1.11.0",
+    "next": "15.5.25",
     "react": "19.0.0",
-    "react-dom": "19.0.0"
+    "react-dom": "19.0.0",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1"
   },
   "devDependencies": {
     "@types/node": "22.13.10",

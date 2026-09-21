@@ -1,5 +1,7 @@
 # 组件设计
 
+> **首要设计原则：由 AI 分析用户任务，按需组装已注册能力与界面组件。只显示当前任务所需组件，功能入口不重复，不为无关功能占位。** 所有组件设计与接入遵循[架构总览中的核心思想](overview.md)和[工作台设计验收约束](../development/studio-workbench.md)。
+
 ## 1. Nexus Core
 
 核心包定义 Goal、Task、TaskGraph、AgentContext、AgentResult、ReviewResult、Artifact、Evidence 与 TokenUsage。核心不引用 HTTP、数据库、模型或 Agent 框架类型。
@@ -8,14 +10,17 @@ TaskGraph 在构造时验证唯一 ID、依赖存在和无环，并提供稳定�
 
 ## 2. Orchestrator
 
-- Intake：把用户请求转换为 Goal、约束与验收标准。
-- Planner：生成能力导向的 Task DAG。
+- Intent Service：识别目标领域、缺失信息和候选工作台；置信度不足时先澄清。
+- Planning Mode Selector：在 `ai_dynamic` 与 `controlled_dynamic` 之间应用用户选择和策略强制结果。
+- AI Planner：基于能力摘要提出非模板化 `PlanProposal`，不直接执行任务。
+- Controlled Planner：从领域阶段库按 action、复杂度和现有产物选择能力导向的 Task DAG；PRD 默认并保留此模式。
+- Plan Validator：验证 Schema、无环、能力覆盖、权限、风险、预算和完成条件，成功后冻结 `PlanVersion`。
 - Agent Resolver：从 Registry 选择覆盖能力与领域的 Agent。
 - Skill Router：在 Agent 策略、风险、工具和预算约束下选择 Skill。
 - Context Builder：组合任务、依赖结果、Skill、Memory 和证据。
 - Replanner：根据结构化评审生成修订任务，当前只完成契约规划。
 
-Orchestrator 拥有业务运行状态，不负责远程执行租约或工具连接池。
+Orchestrator 拥有业务运行状态和计划版本，不负责远程执行租约或工具连接池。Runtime 只接收已经校验并冻结的 DAG；模型不能借规划或重规划绕过能力与 Tool Policy。完整边界见 [ADR-0006](../adr/0006-ai-planned-task-graphs.md)。
 
 ## 3. Agent Runtime
 
@@ -56,3 +61,8 @@ Domain Models and Ports
 ```
 
 反向依赖通过端口注入。架构测试用于阻止供应商 SDK 进入 Core。
+
+
+### PRD 原型与可视化运行
+
+PRD 的必需组合为需求简报、原型设计、正文编辑及 AI 对话；运行面板随任务按需出现。原型复用声明式画布，导入图片与 AI 生成页面共用确认和截图管线。Flow 组件仅消费计划与真实状态，业务面板负责订阅 SSE、增量 trace、节点详情和恢复动作。不得用模拟计时推动节点，也不在对话区重复放编辑对象与运行输出。具体契约见 [Studio 工作台](../development/studio-workbench.md)。

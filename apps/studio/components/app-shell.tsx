@@ -4,52 +4,42 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 
-const navigation = [
-  { label: "总览", href: "/" },
-  { label: "PRD 工作台", href: "/projects/demo/workspace" },
-  { label: "运行记录", href: "/" },
-  { label: "Agents", href: "/" },
-  { label: "Skills", href: "/" },
-  { label: "Tools / MCP", href: "/" },
-  { label: "评估", href: "/" },
-];
+function IconOption({ type, label }: { type: "firefly"; label: string }) {
+  return (
+    <span className={`icon-option icon-${type}`} title={label} aria-label={label}>
+      {type === "firefly" && <svg viewBox="0 0 40 40" aria-hidden="true"><circle className="firefly-glow" cx="20" cy="29" r="9" /><path className="firefly-wing" d="M18 20c-6-5-10-3-11 0 3 3 7 4 11 2M22 20c6-5 10-3 11 0-3 3-7 4-11 2" /><path className="firefly-antenna" d="M18 17 14 13M22 17l4-4" /><ellipse className="firefly-head" cx="20" cy="18" rx="3" ry="2.5" /><path className="firefly-abdomen" d="M17 21c-1 4 0 9 3 12 3-3 4-8 3-12" /><circle className="firefly-light" cx="20" cy="30" r="3" /></svg>}
+    </span>
+  );
+}
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  if (/^\/projects\/[^/]+\/workspace/.test(pathname)) {
-    return <main className="workspace-page">{children}</main>;
-  }
-
+  if (
+    pathname === "/prd-studio" ||
+    pathname === "/workspace" ||
+    /^\/projects\/[^/]+\/workspace/.test(pathname)
+  ) return <>{children}</>;
   return (
     <div className="app-shell">
-      <aside className="sidebar">
+      <header className="topbar">
         <Link href="/" className="brand" aria-label="NexusOS Studio 首页">
-          <span className="brand-mark">N</span>
+          <span className="brand-options" aria-label="图标方案预览">
+            <IconOption type="firefly" label="萤火虫方案" />
+          </span>
           <span>
-            <strong>NexusOS</strong>
-            <small>STUDIO</small>
+            <strong>Nexus Studio</strong>
+            <small>让想法落地</small>
           </span>
         </Link>
-        <nav aria-label="主导航">
-          {navigation.map((item, index) => (
-            <Link
-              className={(item.href !== "/" && pathname.startsWith(item.href)) || (index === 0 && pathname === "/") ? "nav-item active" : "nav-item"}
-              href={item.href}
-              key={item.label}
-            >
-              <span className="nav-dot" />
-              {item.label}
-            </Link>
-          ))}
+        <nav className="topnav" aria-label="主导航">
+          <Link className="topnav-link active" href="/">工作台</Link>
+          <Link className="topnav-link" href="/prd">PRD 文档库</Link>
         </nav>
-        <div className="environment-card">
+        <div className="workspace-status">
           <span className="live-dot" />
-          <div>
-            <strong>本地开发环境</strong>
-            <small>Python Reference Runtime</small>
-          </div>
+          <span>本地环境</span>
         </div>
-      </aside>
+      </header>
       <main className="main-content">{children}</main>
     </div>
   );

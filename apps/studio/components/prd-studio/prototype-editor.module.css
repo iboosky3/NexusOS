@@ -1,0 +1,163 @@
+.editor {
+  padding: 16px;
+  max-width: 1600px;
+  margin: auto;
+  font-size: 12px;
+}
+.editor header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 15px;
+}
+.editor h1 {
+  font-size: 18px;
+  margin: 0;
+}
+.editor > p,
+.editor > small,
+.editor > header p {
+  color: #6c8174;
+}
+.editor header span {
+  color: #247954;
+  white-space: nowrap;
+}
+.confirmation {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.editor .primaryAction {
+  color: white;
+  background: #247954;
+  border-color: #247954;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.editor .primaryAction:hover:not(:disabled) {
+  background: #1b6545;
+  border-color: #1b6545;
+}
+.actions,
+.pages {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 12px 0;
+}
+.editor button {
+  background: white;
+  color: #28583e;
+  border: 1px solid #cdded3;
+  border-radius: 4px;
+  padding: 6px 10px;
+}
+.editor button:disabled {
+  opacity: 0.5;
+}
+.editor button[aria-current] {
+  background: #e4f1e9;
+  border-color: #438968;
+}
+.editor button[hidden] {
+  display: none;
+}
+.generate {
+  padding: 10px;
+  border: 1px solid #e0e8e2;
+  border-radius: 6px;
+  margin-bottom: 15px;
+}
+.generate summary {
+  cursor: pointer;
+}
+.generate small {
+  display: block;
+  margin-top: 6px;
+}
+.editor textarea,
+.editor input,
+.editor select {
+  font: inherit;
+  border: 1px solid #d4e0d8;
+  border-radius: 4px;
+  padding: 7px;
+  max-width: 100%;
+  box-sizing: border-box;
+  background: white;
+  color: #2b4234;
+}
+.generate textarea {
+  display: block;
+  width: 100%;
+  margin: 10px 0;
+  resize: vertical;
+}
+.canvas {
+  max-width: 800px;
+  margin: auto;
+  border: 1px solid #dde7e0;
+  border-radius: 6px;
+  overflow: hidden;
+}
+.canvas img {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+.description {
+  white-space: pre-wrap;
+}
+.archive {
+  margin: 10px 0;
+  border: 1px solid #dce5df;
+  border-radius: 5px;
+  padding: 8px 10px;
+}
+.archive summary {
+  cursor: pointer;
+  color: #28583e;
+}
+.archive pre {
+  max-height: 260px;
+  overflow: auto;
+  white-space: pre-wrap;
+  font:
+    12px/1.7 ui-monospace,
+    monospace;
+}
+.empty {
+  padding: 60px 15px;
+  text-align: center;
+}
+.fields {
+  border: 0;
+  padding: 0;
+}
+.fields label {
+  display: block;
+  margin: 12px 0;
+}
+.fields label input,
+.fields label textarea {
+  display: block;
+  width: 100%;
+  margin-top: 5px;
+}
+.pageActions {
+  margin-top: 12px;
+  color: #78887f;
+}
+.pageActions summary {
+  cursor: pointer;
+  margin-bottom: 8px;
+}
+
+@media (max-width: 620px) {
+  .editor header,
+  .confirmation {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}

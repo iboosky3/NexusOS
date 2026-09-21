@@ -3,8 +3,8 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from nexusos.core.models import AgentContext, Goal, Task
-from nexusos.models import DeterministicModelGateway
+from nexusos.core.models import AgentContext, Goal, Task, TokenUsage
+from nexusos.models import DeterministicModelGateway, ModelRequest, ModelResponse
 from nexusos.runtime import LangGraphRuntime
 
 
@@ -18,10 +18,10 @@ class _FakeStateGraph:
     def add_edge(self, source, target):
         return None
 
-    def compile(self):
+    def compile(self, *, checkpointer=None):
         return self
 
-    async def ainvoke(self, state):
+    async def ainvoke(self, state, *, config=None):
         return {**state, **(await self.node(state))}
 
 
@@ -61,6 +61,52 @@ class LangGraphRuntimeTests(unittest.TestCase):
 
         with self.assertRaisesRegex(RuntimeError, "runtime.*extra"):
             asyncio.run(scenario())
+
+    def test_continues_and_combines_length_limited_output(self) -> None:
+        class Gateway:
+            def __init__(self) -> None:
+                self.requests: list[ModelRequest] = []
+
+            async def complete(self, request):
+                self.requests.append(request)
+                if len(self.requests) == 1:
+                    return ModelResponse(
+                        "first half ",
+                        "test",
+                        request.model,
+                        TokenUsage(10, 5),
+                        "length",
+                    )
+                return ModelResponse(
+                    "second half",
+                    "test",
+                    request.model,
+                    TokenUsage(15, 6),
+                    "stop",
+                )
+
+        async def scenario():
+            gateway = Gateway()
+            runtime = LangGraphRuntime(gateway, model="test-model")
+            task = Task(
+                "write",
+                "Write PRD",
+                "Create a structured document",
+                metadata={"maximum_continuations": "2"},
+            )
+            context = AgentContext("run-1", Goal("Create a PRD"), task)
+            fake_module = SimpleNamespace(StateGraph=_FakeStateGraph, START="start", END="end")
+            with patch("nexusos.runtime.langgraph.import_module", return_value=fake_module):
+                result = await runtime.execute("writer", task, context)
+            return gateway, result
+
+        gateway, result = asyncio.run(scenario())
+
+        self.assertEqual(result.content, "first half second half")
+        self.assertEqual(result.token_usage, TokenUsage(25, 11))
+        self.assertEqual(len(gateway.requests), 2)
+        self.assertEqual(gateway.requests[1].metadata["continuation_index"], "1")
+        self.assertEqual(gateway.requests[1].messages[-2].content, "first half ")
 
 
 if __name__ == "__main__":

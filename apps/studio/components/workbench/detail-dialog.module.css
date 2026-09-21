@@ -1,0 +1,68 @@
+.dialog {
+  width: min(860px, calc(100vw - 40px));
+  max-height: 82dvh;
+  padding: 0;
+  border: 1px solid #c7d9cf;
+  border-radius: 12px;
+  background: white;
+  color: #274233;
+  box-shadow: 0 24px 90px #08261b44;
+  font:
+    13px/1.6 system-ui,
+    "Microsoft YaHei",
+    sans-serif;
+  overflow: hidden;
+}
+.dialog::backdrop {
+  background: #102e245c;
+  backdrop-filter: blur(2px);
+}
+.dialog header {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  justify-content: space-between;
+  padding: 16px 22px;
+  border-bottom: 1px solid #dde7e1;
+  background: #f7faf8;
+}
+.dialog h2 {
+  font-size: 17px;
+  margin: 0;
+}
+.dialog header p {
+  font-size: 12px;
+  color: #698373;
+  margin: 3px 0 0;
+}
+.dialog button {
+  font: inherit;
+  cursor: pointer;
+}
+.dialog header button {
+  border: 0;
+  background: transparent;
+  color: #587966;
+  font-size: 24px;
+  padding: 0 8px;
+}
+.content {
+  max-height: calc(82dvh - 95px);
+  overflow: auto;
+  padding: 16px 22px;
+}
+.dialog :focus-visible {
+  outline: 2px solid #2b8658;
+  outline-offset: 2px;
+}
+.dialog[open] {
+  display: flex;
+  flex-direction: column;
+}
+.dialog header {
+  flex-shrink: 0;
+}
+.content {
+  min-height: 0;
+  box-sizing: border-box;
+}

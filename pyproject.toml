@@ -18,7 +18,7 @@ nexus = "nexusos.cli:main"
 
 [project.optional-dependencies]
 api = ["fastapi>=0.115", "pydantic>=2.9", "uvicorn>=0.30"]
-runtime = ["langgraph>=0.3"]
+runtime = ["langgraph>=0.3", "langgraph-checkpoint-sqlite>=3,<4"]
 docs = ["mkdocs-material>=9.5"]
 dev = [
     "httpx2>=2.12",

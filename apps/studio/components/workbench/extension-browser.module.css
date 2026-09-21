@@ -1,0 +1,52 @@
+.browser {
+  font-size: 12px;
+}
+.browser > input {
+  margin: 12px;
+  width: calc(100% - 24px);
+  padding: 7px;
+  border: 1px solid #d3dfd7;
+  border-radius: 4px;
+  font: inherit;
+}
+.browser > p {
+  padding: 0 12px;
+  color: #75877c;
+}
+.browser article {
+  padding: 14px 12px;
+  border-bottom: 1px solid #dfe7e1;
+}
+.browser strong,
+.browser small {
+  display: block;
+  margin-bottom: 5px;
+}
+.browser p {
+  line-height: 1.7;
+}
+.browser small {
+  color: #75877c;
+}
+.browser article div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-top: 12px;
+}
+.browser button {
+  border: 1px solid #ccdcd1;
+  background: white;
+  color: #28583e;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font: inherit;
+}
+.browser button:disabled {
+  opacity: 0.5;
+}
+.browser a {
+  font-size: 11px;
+  color: #397753;
+}

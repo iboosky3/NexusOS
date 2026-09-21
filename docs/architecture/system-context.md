@@ -2,7 +2,7 @@
 
 ## 1. 系统边界
 
-NexusOS 负责 Agent 协调、Skill 管理、工作流执行、上下文构建、结果评估和运行审计。模型推理、外部工具、企业知识与底层数据服务由外部系统提供。
+NexusOS 负责意图识别、AI/受控任务规划、计划校验与版本冻结、Agent 协调、Skill 管理、工作流执行、上下文构建、结果评估和运行审计。模型推理、外部工具、企业知识与底层数据服务由外部系统提供。
 
 ```mermaid
 flowchart TB
@@ -15,6 +15,8 @@ flowchart TB
     Nexus --> Observe["可观测平台"]
     Operator["平台运维人员"] --> Observe
 ```
+
+模型可以为任意已注册能力能够承接的任务提出 DAG，但 NexusOS 的系统边界包含确定性校验与 Policy Enforcement：模型提案不能直接变成外部动作。用户可以选择 `ai_dynamic` 或领域提供的 `controlled_dynamic`；PRD 永久保留后者。
 
 ## 2. 外部参与者
 

@@ -1,0 +1,82 @@
+.designer {
+  border: 1px solid #dbe4de;
+  border-radius: 6px;
+  overflow: hidden;
+  margin-top: 12px;
+  background: #f0f4f1;
+  color: #233d2d;
+  --puck-font-size-xxs: 11px;
+  --puck-font-size-xs: 12px;
+  --puck-color-azure-04: #2c7654;
+}
+.toolbar {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px;
+  background: #f9fbfa;
+  border-bottom: 1px solid #dbe4de;
+  flex-wrap: wrap;
+}
+.toolbar > div {
+  display: flex;
+  gap: 5px;
+}
+.toolbar button[aria-pressed="true"] {
+  background: #dcece2;
+}
+.body {
+  display: grid;
+  grid-template-columns: 180px minmax(0, 1fr);
+  height: 640px;
+  max-height: 75vh;
+  min-height: 380px;
+}
+.tools {
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+  background: #fff;
+  border-right: 1px solid #dbe4de;
+  font-size: 12px;
+}
+.palette {
+  overflow: auto;
+  min-height: 160px;
+}
+.tools:has(.inspector) .palette {
+  max-height: 40%;
+  flex-shrink: 0;
+}
+.palette > p {
+  padding: 0 12px;
+  line-height: 1.6;
+}
+.tools h2 {
+  font-size: 12px;
+  margin: 12px;
+}
+.inspector {
+  overflow: auto;
+  flex: 1;
+  min-height: 180px;
+  border-top: 1px solid #dbe4de;
+}
+.scroll {
+  overflow: auto;
+  padding: 20px;
+}
+.canvas {
+  background: white;
+  min-height: 600px;
+  margin: 0 auto;
+  box-shadow: 0 2px 8px #1a3d2312;
+}
+@media (max-width: 900px) {
+  .body {
+    grid-template-columns: 145px minmax(0, 1fr);
+  }
+  .scroll {
+    padding: 12px;
+  }
+}
