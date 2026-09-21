@@ -31,6 +31,7 @@ class DomainPlugin:
     instruction: str
     generation_capability: str
     version: str = "1.0.0"
+    default_enabled: bool = True
 
     def read_only(self, capability: str) -> bool:
         return capability in {"review", "clarify"}

@@ -19,6 +19,7 @@ type Invocation = { id: string; status: string; error: string | null; request: {
 type Artifact = { id: string; artifactType: string; sourceResourceId: string; sourceRevision: number; digest: string; payload: { pages: unknown[] } };
 type Handoff = { id: string; targetId: string; status: string; proposal: ResourcePayload; proposalDigest: string; artifactDigest: string; expectedRevision: number };
 const editors = new Map(studioPlugins.map((plugin) => [plugin.id, dynamic(plugin.load, { ssr: false, loading: () => <p>正在加载编辑器…</p> })]));
+const contributedViews = studioPlugins.flatMap((plugin) => (plugin.views ?? []).map((view) => ({ ...view, pluginId: plugin.id, resourceType: plugin.resourceType, Component: dynamic(view.load, { ssr: false }) })));
 const owner = (resource: StudioResource) => studioPlugins.find((plugin) => plugin.resourceType === resource.resourceType);
 const dirty = (session: Session) => JSON.stringify(session.payload) !== JSON.stringify(session.base.payload);
 const draftKey = (workspace: string, resource: string) => `nexus-studio:draft:v1:${workspace}:${resource}`;
@@ -38,6 +39,8 @@ export function ResourceWorkspace() {
   const uncertainSaves = useRef(new Map<string, { expectedRevision: number; payload: ResourcePayload; clientRequestId: string }>());
   const saves = useRef(new Map<string, Promise<StudioResource>>());
   const [side, setSide] = useState("resources");
+  const activeView = contributedViews.find((view) => view.id === side);
+  const View = activeView?.Component;
   const [instruction, setInstruction] = useState("");
   const [capability, setCapability] = useState("");
   const [selection, setSelection] = useState<unknown>(null);
@@ -197,6 +200,7 @@ export function ResourceWorkspace() {
     if (enabled(definition.id) && !window.confirm(`停用“${definition.name}”？草稿会保留，任务记录仍可查看；停用期间不能应用 Agent 提案。`)) return;
     const plugins = enabled(definition.id) ? workspace!.plugins.filter((id) => id !== definition.id) : [...workspace!.plugins, definition.id];
     const next = await api<Workspace>("/configuration", "PATCH", { expectedRevision: workspace!.revision, plugins, layouts: workspace!.layouts }); setWorkspace(next);
+    if (activeView?.pluginId === definition.id && !plugins.includes(definition.id)) setSide("resources");
   }
   async function publish(resource: StudioResource) {
     await api("/artifacts", "POST", { resourceId: resource.id, revision: resource.revision, clientRequestId: createComponentId() });
@@ -240,16 +244,18 @@ export function ResourceWorkspace() {
       { label: "文件", commands: commands.filter((command) => !("menu" in command) || command.menu === "file") },
       { label: "视图", commands: commands.filter((command) => "menu" in command && command.menu === "view") },
     ]}
-    views={[{ id: "resources", label: "资源", icon: "▤" }, { id: "plugins", label: "插件", icon: "⊞" }, { id: "handoffs", label: "交接", icon: "⇄" }, { id: "tasks", label: "任务", icon: "◇" }]}
-    activeView={side} onView={setSide} status={active ? dirty(active) ? "本地草稿 · 待保存" : `已保存 r${active.base.revision}` : "空工作区"}
+    views={[{ id: "resources", label: "资源", icon: "▤" }, { id: "plugins", label: "插件", icon: "⊞" }, { id: "handoffs", label: "交接", icon: "⇄" }, { id: "tasks", label: "任务", icon: "◇" }, ...contributedViews.filter((view) => enabled(view.pluginId))]}
+    activeView={side} onView={(id) => { setSide(id); const view = contributedViews.find((item) => item.id === id); if (view && host) void perform(() => host.activate(view.pluginId)); }} status={active ? dirty(active) ? "本地草稿 · 待保存" : `已保存 r${active.base.revision}` : "空工作区"}
     sidebar={<div className={s.sidebar}>
-      <PanelHeading>{side === "plugins" ? "工作区插件" : side === "handoffs" ? "版本化交接" : side === "tasks" ? "任务记录" : "资源"}</PanelHeading>
-      {side === "plugins" ? studioPlugins.map((definition) => <section key={definition.id}><strong>{definition.name}</strong><p>{host?.state(definition.id) || "registered"}</p>
+      <PanelHeading>{side === "plugins" ? "工作区插件" : side === "handoffs" ? "版本化交接" : side === "tasks" ? "任务记录" : activeView?.label || "资源"}</PanelHeading>
+      {View && activeView && enabled(activeView.pluginId) ? <PluginErrorBoundary key={activeView.id} pluginId={activeView.pluginId}>
+        <View resources={Object.values(sessions).filter((session) => session.base.resourceType === activeView.resourceType).map((session) => ({ ...session.base, payload: session.payload }))} onOpen={(resource) => setTab(resource.id)} />
+      </PluginErrorBoundary> : side === "plugins" ? studioPlugins.map((definition) => <section key={definition.id}><strong>{definition.name}</strong><p>{host?.state(definition.id) || "registered"}</p>
         <button disabled={busy} onClick={() => void perform(() => toggle(definition))}>{enabled(definition.id) ? "停用" : "启用"}</button>
         {enabled(definition.id) && <button disabled={busy} onClick={() => void perform(() => host!.execute(definition.commands[0].id))}>新建</button>}
       </section>) : side === "handoffs" ? <>
         <p>快照不可变；先选择接收文档，再预览确认。</p>
-        {artifacts.map((artifact) => <section key={artifact.id}><strong>设计 r{artifact.sourceRevision} · {artifact.payload.pages.length} 页</strong>
+        {artifacts.map((artifact) => <section key={artifact.id}><strong>设计 r{artifact.sourceRevision}</strong>
           {Object.values(sessions).filter((session) => owner(session.base)?.acceptsArtifacts?.includes(artifact.artifactType)).map((target) => <button key={target.base.id} disabled={busy || dirty(target)} onClick={() => void perform(async () => {
             await api("/handoffs", "POST", { artifactId: artifact.id, targetId: target.base.id, clientRequestId: createComponentId() }); await refresh(workspace.id);
           })}>交给 {owner(target.base)?.title(target.payload)}</button>)}

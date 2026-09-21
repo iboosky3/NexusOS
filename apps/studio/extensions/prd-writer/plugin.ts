@@ -2,6 +2,7 @@ import type { StudioPlugin } from "@/lib/plugin-sdk/types";
 
 export const prdPlugin: StudioPlugin = {
   schemaVersion: 1, hostApiVersion: "1", dependencies: [],
+  views: [{ id: "nexus.prd-writer.resources", label: "需求文档", icon: "#", load: () => import("./resource-view") }],
   commands: [{ id: "nexus.prd-writer.new", label: "新建PRD 编写", menu: "file", validate(args) { if (args !== undefined) throw new Error("此命令不接受参数"); } }],
   activate(context) {
     context.commands.register("nexus.prd-writer.new", async () => {

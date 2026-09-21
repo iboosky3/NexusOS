@@ -112,7 +112,7 @@ class StudioStore:
                 "workspaceId": identifier,
                 "title": title,
                 "revision": 1,
-                "plugins": [plugin.id for plugin in PLUGINS],
+                "plugins": [plugin.id for plugin in PLUGINS if plugin.default_enabled],
                 "layouts": {},
                 "createdAt": now(),
             }

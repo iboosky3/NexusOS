@@ -5,6 +5,7 @@ interface ResourceContribution {
   hostApiVersion: string;
   dependencies: readonly string[];
   resourceType: string;
+  views?: readonly { id: string }[];
   commands: readonly { id: string; label: string; menu: string; validate(args: unknown): void }[];
 }
 export function registerResourcePlugins<T extends ResourceContribution>(input: readonly T[]): readonly T[] {
@@ -15,6 +16,10 @@ export function registerResourcePlugins<T extends ResourceContribution>(input: r
     if (plugins.has(plugin.id) || !plugin.id || resources.has(plugin.resourceType)) throw new Error(`Duplicate plugin or resource type: ${plugin.id}`);
     if (plugin.schemaVersion !== 1 || plugin.hostApiVersion !== "1") throw new Error(`Unsupported plugin API: ${plugin.id}`);
     plugins.set(plugin.id, plugin); resources.add(plugin.resourceType);
+    for (const view of plugin.views ?? []) {
+      if (!view.id.startsWith(`${plugin.id}.`) || commands.has(view.id)) throw new Error(`Invalid view: ${view.id}`);
+      commands.add(view.id);
+    }
     for (const command of plugin.commands) {
       if (!command.id.startsWith(`${plugin.id}.`) || commands.has(command.id)) throw new Error(`Invalid command: ${command.id}`);
       if (!["file", "view", "editor.toolbar", "resource.context"].includes(command.menu)) throw new Error(`Unknown menu: ${command.menu}`);
@@ -35,6 +40,7 @@ export function registerResourcePlugins<T extends ResourceContribution>(input: r
   // Copy declaration containers; never freeze imported React components or loader functions.
   return Object.freeze(input.map((plugin) => Object.freeze({ ...plugin,
     dependencies: Object.freeze([...plugin.dependencies]),
+    views: Object.freeze((plugin.views ?? []).map((view) => Object.freeze({ ...view }))),
     commands: Object.freeze(plugin.commands.map((command) => Object.freeze({ ...command }))),
   })));
 }

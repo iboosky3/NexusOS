@@ -19,7 +19,12 @@ export interface PluginContext extends ActivationContext {
   resources: { create(payload: ResourcePayload): Promise<StudioResource> };
   editors: { open(resource: StudioResource): void };
 }
+export interface PluginViewProps {
+  resources: readonly StudioResource[];
+  onOpen(resource: StudioResource): void;
+}
 export interface StudioPlugin {
+  views?: readonly { id: string; label: string; icon: string; load(): Promise<{ default: ComponentType<PluginViewProps> }> }[];
   schemaVersion: 1; hostApiVersion: "1"; dependencies: readonly string[];
   commands: readonly { id: string; label: string; menu: "file" | "view" | "editor.toolbar" | "resource.context"; validate(args: unknown): void }[];
   id: string; name: string; resourceType: string; icon: string;

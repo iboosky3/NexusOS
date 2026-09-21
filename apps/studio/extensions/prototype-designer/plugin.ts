@@ -2,6 +2,7 @@ import type { StudioPlugin } from "@/lib/plugin-sdk/types";
 
 export const prototypePlugin: StudioPlugin = {
   schemaVersion: 1, hostApiVersion: "1", dependencies: [],
+  views: [{ id: "nexus.prototype-designer.resources", label: "原型资源", icon: "▧", load: () => import("./resource-view") }],
   commands: [{ id: "nexus.prototype-designer.new", label: "新建原型设计", menu: "file", validate(args) { if (args !== undefined) throw new Error("此命令不接受参数"); } }],
   activate(context) {
     context.commands.register("nexus.prototype-designer.new", async () => {

@@ -16,6 +16,8 @@ test("empty shell and third resource commands use the same host path", async () 
 });
 test("resource, menu, version, ownership and dependency errors fail before activation", () => {
   assert.throws(() => registerResourcePlugins([plugin(), plugin()]), /Duplicate/);
+  assert.throws(() => registerResourcePlugins([{ ...plugin(), views: [{ id: "other.sidebar" }] }]), /Invalid view/);
+  assert.throws(() => registerResourcePlugins([{ ...plugin(), views: [{ id: "third.new" }] }]), /Invalid command/);
   assert.throws(() => registerResourcePlugins([{ ...plugin(), hostApiVersion: "2" }]), /Unsupported/);
   assert.throws(() => registerResourcePlugins([{ ...plugin(), dependencies: ["missing"] }]), /Unknown dependency/);
   assert.throws(() => registerResourcePlugins([{ ...plugin(), dependencies: ["third"] }]), /Cyclic/);
