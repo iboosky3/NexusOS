@@ -184,7 +184,7 @@ class InMemoryWorkspaceStore:
             current_version = workspace["prototype"]["version"]
             if prototype_version > current_version:
                 raise ValueError("screenshot cannot reference a future prototype version")
-            screenshot = {
+            screenshot: dict[str, Any] = {
                 "id": str(uuid4()),
                 "prototype_version": prototype_version,
                 "node_id": node_id,

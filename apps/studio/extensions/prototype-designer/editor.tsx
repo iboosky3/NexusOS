@@ -98,13 +98,14 @@ function ComponentPatchBridge({
 }
 
 function SourceEditor({
-  design, selectedId, disabled, active, onApply,
+  design, selectedId, disabled, active, onApply, draftStorageKey,
 }: {
   design: PrototypeDesign;
   selectedId?: string;
   disabled: boolean;
   active: boolean;
   onApply: (design: PrototypeDesign) => void;
+  draftStorageKey?: string;
 }) {
   const { appState } = usePuck();
   const liveSource = JSON.stringify({
@@ -116,9 +117,28 @@ function SourceEditor({
   const [error, setError] = useState("");
   const editor = useRef<HTMLTextAreaElement>(null);
   const lastLocatedId = useRef<string>("");
+  const [draftReady, setDraftReady] = useState(false);
   useEffect(() => {
-    if (!dirty) { setSource(liveSource); setSourceBase(liveSource); }
-  }, [dirty, liveSource]);
+    if (draftStorageKey) {
+      try {
+        const saved = JSON.parse(sessionStorage.getItem(draftStorageKey) || "null");
+        if (saved && typeof saved.source === "string" && typeof saved.base === "string") {
+          setSource(saved.source); setSourceBase(saved.base); setDirty(true);
+        }
+      } catch { setError("原型代码草稿读取失败，请检查后继续。"); }
+    }
+    setDraftReady(true);
+  }, [draftStorageKey]);
+  useEffect(() => {
+    if (!draftReady || !draftStorageKey) return;
+    try {
+      if (dirty) sessionStorage.setItem(draftStorageKey, JSON.stringify({ source, base: sourceBase }));
+      else sessionStorage.removeItem(draftStorageKey);
+    } catch { setError("代码草稿无法持久化，请复制代码备份后再关闭页面。"); }
+  }, [draftReady, draftStorageKey, dirty, source, sourceBase]);
+  useEffect(() => {
+    if (draftReady && !dirty) { setSource(liveSource); setSourceBase(liveSource); }
+  }, [dirty, liveSource, draftReady]);
   useEffect(() => {
     if (!active) { lastLocatedId.current = ""; return; }
     if (!selectedId) { lastLocatedId.current = ""; return; }
@@ -172,7 +192,7 @@ function SourceEditor({
 
 export default function Designer({
   page, pages, disabled, onChange, onPageChange, onSelection = () => {},
-  componentPatch, onPatchApplied = () => {},
+  componentPatch, onPatchApplied = () => {}, draftStorageKey,
 }: DesignerProps) {
   const [initial] = useState(() => pageDesign(page));
   const [data, setData] = useState(initial);
@@ -279,6 +299,7 @@ export default function Designer({
           <p>拖入画布构建页面；布局组件可以继续嵌套内容。</p><Puck.Components />
         </aside>}
         <SourceEditor design={data} active={mode === "code"}
+          draftStorageKey={draftStorageKey}
           selectedId={selection?.block.props.id} disabled={disabled}
           onApply={(next) => publish(next, true)} />
         <main className={s.canvasShell}>

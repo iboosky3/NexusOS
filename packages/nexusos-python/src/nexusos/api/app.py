@@ -121,11 +121,16 @@ def create_app(
     from nexusos.prd.api import create_prd_router
     from nexusos.prd.store import PrdStore
     from nexusos.prd.workflow import PrdWorkflow
+    from nexusos.studio.agents import InvocationService
+    from nexusos.studio.api import create_studio_router
+    from nexusos.studio.store import StudioStore
 
     documents = prd_store or PrdStore(
         os.getenv("NEXUS_PRD_DATABASE", str(Path(root) / "data/prd.sqlite3"))
     )
     workflow = PrdWorkflow(Path(root), documents, model_gateway, model_name)
+    studio = StudioStore(documents)
+    invocations = InvocationService(studio, workflow.gateway, workflow.model, root=root)
     planning = PlanningService(
         Path(root), PlanningStore(documents.path), workflow.gateway, workflow.model
     )
@@ -134,10 +139,12 @@ def create_app(
     async def lifespan(app: Any):
         documents.recover()
         planning.store.recover()
+        invocations.recover()
         try:
             yield
         finally:
             await planning.close()
+            await invocations.close()
             await workflow.close()
 
     app = FastAPI(
@@ -147,6 +154,7 @@ def create_app(
         lifespan=lifespan,
     )
     app.include_router(create_prd_router(documents, workflow))
+    app.include_router(create_studio_router(studio, invocations))
     app.include_router(create_planning_router(planning))
     store = run_store or InMemoryRunReadStore()
     workspaces = workspace_store or InMemoryWorkspaceStore()

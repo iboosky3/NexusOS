@@ -17,10 +17,14 @@ TERMINAL = {"succeeded", "failed", "cancelled", "interrupted"}
 
 
 class InvocationService:
-    def __init__(self, store: StudioStore, gateway: Any, model: str, root: Path | None = None):
+    def __init__(
+        self, store: StudioStore, gateway: Any, model: str, root: str | Path | None = None
+    ):
         self.store, self.gateway, self.model = store, gateway, model
         self.tasks: dict[str, asyncio.Task] = {}
-        self.execution = PluginExecution(root or Path.cwd(), gateway, model)
+        self.execution = PluginExecution(
+            Path(root) if root is not None else Path.cwd(), gateway, model
+        )
 
     def event_in(self, db, item: dict, event: str, payload: dict):
         row = db.execute(
@@ -61,7 +65,7 @@ class InvocationService:
                 raise ConflictError("RESOURCE_DELETED")
             if not self.gateway or not self.model:
                 raise ValueError("尚未配置模型")
-            item = {
+            item: dict[str, Any] = {
                 "id": uuid4().hex,
                 "workspaceId": workspace,
                 "pluginId": plugin.id,

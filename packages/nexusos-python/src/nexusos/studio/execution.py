@@ -17,7 +17,7 @@ class PluginExecution:
     version = "studio-proposal/1"
 
     def __init__(self, root: Path, gateway, model: str):
-        self.root, self.gateway, self.model = root, gateway, model
+        self.root, self.gateway, self.model = Path(root), gateway, model
 
     def prepare(self, plugin, request: dict, resource: dict) -> dict:
         capability = request["capabilityId"]

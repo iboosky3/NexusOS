@@ -45,6 +45,7 @@ export function PrototypeEditor({
   onPatchApplied,
   onOpenBrowser,
   standalone = false,
+  draftStorageKey,
 }: {
   content: string;
   brief: Brief;
@@ -61,6 +62,7 @@ export function PrototypeEditor({
   onPatchApplied: (error?: string) => void;
   onOpenBrowser?: (pageId?: string) => void;
   standalone?: boolean;
+  draftStorageKey?: string;
 }) {
   const [selected, setSelected] = useState("");
   const [edit, setEdit] = useState(Boolean(brief.prototype?.pages[0]));
@@ -329,6 +331,7 @@ export function PrototypeEditor({
               {designerEnabled && (page.design || page.elements.length > 0) ? (
                 <Designer
                   key={page.id}
+                  draftStorageKey={draftStorageKey ? `${draftStorageKey}:${page.id}` : undefined}
                   page={page}
                   pages={prototype.pages}
                   disabled={disabled}

@@ -83,7 +83,7 @@ class PrototypeDesign(StrictModel):
 
     def elements(self) -> list[PrototypeElement]:
         result: list[PrototypeElement] = []
-        kinds = {
+        kinds: dict[str, Literal["text", "input", "button", "list", "card"]] = {
             "Heading": "text",
             "Text": "text",
             "Input": "input",

@@ -17,7 +17,10 @@
 
 | M3 Invocation 批次 `abb8e6a`（部分实现） | 经 AgentResolver → Skill 路由 → LangGraphRuntime，固定 Agent/Skill/handler 版本及上下文，记录 token 使用；提案批准复查版本/插件；事件游标、幂等、服务端重试关联、中断不重放；5 项专项测试与 Ruff 通过，含忽略取消的模型晚回包 | 旧 PRD job/澄清/组件建议尚未统一适配；组件范围、持久检查点恢复、真实模型质量、策略版本撤权仍待实现/验收；当前仅本地单用户单实例 |
 
-| M5 交接批次（本提交，部分实现） | 不可变产物和截图 blob、批准摘要绑定、原子写入回执、同意图去重、人工区块修改/损坏标记保护；新增实际图片解码/MIME/尺寸/完整性校验，任一页面失败回滚全套；11 项资源/交接测试和 Ruff 通过，含回执落盘失败回滚及旧快照不随源更新 | 生产者/消费者仍需抽成领域注册扩展点；跨语言 digest 黄金样例、媒体备份恢复、冲突三方审阅 UI 待完成；引用 blob 当前保留在 SQLite，未实施 GC |
+| M5 交接批次 `5dc2cd2`（部分实现） | 不可变产物和截图 blob、批准摘要绑定、原子写入回执、同意图去重、人工区块修改/损坏标记保护；新增实际图片解码/MIME/尺寸/完整性校验，任一页面失败回滚全套；11 项资源/交接测试和 Ruff 通过，含回执落盘失败回滚及旧快照不随源更新 | 生产者/消费者仍需抽成领域注册扩展点；跨语言 digest 黄金样例、媒体备份恢复、冲突三方审阅 UI 待完成；引用 blob 当前保留在 SQLite，未实施 GC |
+
+| M1/M2/M4 前后端接通批次（本提交，部分实现） | `/studio` 使用领域插件装配、动态编辑器和声明式命令；HTTP `/v1/studio/workspaces` 接入资源/Invocation/交接；标签关闭卸载编辑器但保留会话，非法 JSON 草稿按窗口恢复，布局按工作区/设备分区，编辑器错误边界；保存不确定结果保留原请求键；24 项 Host 测试、类型/生产构建、后端全量 167 项测试（27 子测试）通过 | 新旧入口仍并存；第三插件只有执行测试，未做完整 UI；菜单/侧栏扩展仍需补齐；草稿采用 sessionStorage，关闭浏览器窗口后的持久恢复不保证 |
+| M6 浏览器基础回归（本提交，部分验收） | Chromium + 生产构建 + 隔离 SQLite API + 确定性模型；创建/保存/刷新草稿、Agent 批准、非法 JSON 恢复、截图发布交接、双窗口 CAS、关闭再开、停用/启用、无业务插件、进入/退出专注通过 | 非真实模型；旧数据迁移/回退、读屏和完整窄屏、所有风险项未验收，因此不切换默认入口 |
 
 后续按用户最新顺序：宿主与生命周期 → 独立资源 → 统一 Agent → 版本化交接 → 整体验收。各阶段允许增量提交，但未满足该阶段全部门槛时始终标记“部分实现”。不切换默认入口，不删除旧存储。
 
@@ -224,6 +227,24 @@ Agent 改动先产出 proposal，应用时绑定源版本、修改范围和权�
 模拟模型用于确定性测试；另做真实模型冒烟，分别报告，不将模拟 API 测试写成真实模型成功。文档构建、类型检查和编译不能替代浏览器交互或迁移验收。
 
 每阶段验收记录至少包含提交、运行命令、结果、覆盖范围、未测项和可复现数据。新增测试放入仓库而非只留一次性终端脚本。
+
+### 本轮可复现命令
+
+```bash
+.venv/bin/python -m pytest -q
+.venv/bin/ruff format --check .
+.venv/bin/ruff check .
+.venv/bin/mypy packages/nexusos-python/src/nexusos benchmarks tests
+.venv/bin/mkdocs build --strict
+cd apps/studio
+npm run test:extensions
+npm run typecheck
+NEXUS_STUDIO_DIST_DIR=.next-plugin-test npm run build
+```
+
+浏览器：终端一在仓库根运行 `.venv/bin/python tests/studio_browser_server.py`（临时 SQLite、18123 端口）；终端二在 `apps/studio` 运行 `NEXUS_API_URL=http://127.0.0.1:18123 NEXUS_STUDIO_DIST_DIR=.next-plugin-test npm run start -- --port 13123 --hostname 127.0.0.1`；终端三运行 `PLAYWRIGHT_MODULE=<已安装 playwright 的 index.mjs 绝对路径> node tests/studio-browser.mjs`。脚本使用真实 Chromium，需已安装 Playwright 浏览器。截图输出 `/tmp/nexus-plugin-workspace-browser.png`，不作为用户数据提交。
+
+本轮补齐新模块类型标注，同时修正基线两个类型标注错误及两处 Ruff 格式漂移后，全仓 Ruff 与 Mypy 均通过。测试仍有 Starlette 上游弃用提示；未影响通过结果。
 
 ## 11. 发布与完成清单
 

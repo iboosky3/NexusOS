@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Sequence
 from typing import Any
 from uuid import uuid4
 
@@ -119,7 +120,7 @@ class StudioStore:
             self.receipt_in(db, "local_user", "workspace.create", request_id, title, item)
             return item
 
-    def configure(self, workspace: str, revision: int, plugins: list[str], layouts: dict):
+    def configure(self, workspace: str, revision: int, plugins: Sequence[str], layouts: dict):
         if len(plugins) != len(set(plugins)) or set(plugins) - {p.id for p in PLUGINS}:
             raise ValueError("Unknown or duplicate plugin")
         if len(canonical(layouts)) > 100000:
@@ -127,7 +128,7 @@ class StudioStore:
         with self.documents.connection() as db:
             item = self.get_in(db, workspace, workspace, "workspace")
             self.check_revision(item, revision)
-            item.update(revision=revision + 1, plugins=plugins, layouts=layouts)
+            item.update(revision=revision + 1, plugins=list(plugins), layouts=layouts)
             self.put_in(db, item, "workspace")
             return item
 

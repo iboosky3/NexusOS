@@ -183,9 +183,7 @@ class TracedModelGateway:
         )
         return response
 
-    async def complete_stream(
-        self, request: ModelRequest, on_delta: Any
-    ) -> ModelResponse:
+    async def complete_stream(self, request: ModelRequest, on_delta: Any) -> ModelResponse:
         """Trace one streamed call and durably expose throttled live snapshots."""
 
         stage_id = str(request.metadata.get("stage_id", request.metadata.get("task_id", "")))

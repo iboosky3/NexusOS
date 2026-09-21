@@ -1,0 +1,16 @@
+.start { max-width: 900px; margin: 8vh auto; padding: 24px; }
+.start input { padding: 10px; margin-right: 12px; }
+.sidebar, .assistant { padding: 12px; height: 100%; overflow: auto; }
+.sidebar section { border-bottom: 1px solid #dce3de; padding: 12px 0; }
+.sidebar button { display: block; margin: 8px 0; text-align: left; }
+.sidebar pre, .assistant pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 300px; overflow: auto; }
+.assistant { display: flex; flex-direction: column; gap: 12px; }
+.assistant textarea { min-height: 160px; resize: vertical; padding: 12px; }
+.assistant select { padding: 8px; }
+.editors { flex: 1; min-height: 0; overflow: auto; padding: 12px; }
+.empty { padding: 48px; text-align: center; }
+.empty button { margin: 8px; }
+.error, .notice { padding: 12px; overflow-wrap: anywhere; }
+.error { background: #fff1ef; color: #912d21; }
+.notice { background: #eff8f0; }
+.error button, .notice button { float: right; }

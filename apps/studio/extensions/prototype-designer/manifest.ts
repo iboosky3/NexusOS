@@ -7,6 +7,7 @@ import type {
 } from "@/lib/prototype";
 
 export interface DesignerProps {
+  draftStorageKey?: string;
   page: PrototypePage;
   pages: PrototypePage[];
   disabled: boolean;

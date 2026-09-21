@@ -136,7 +136,9 @@ class PrdHttpModelTests(unittest.TestCase):
                     self.assertEqual(job["stream"]["reasoning_content"], "检查范围")
                     with client.stream("GET", f"/v1/prd/jobs/{job_id}/stream") as stream:
                         self.assertEqual(stream.status_code, 200)
-                        self.assertTrue(stream.headers["content-type"].startswith("text/event-stream"))
+                        self.assertTrue(
+                            stream.headers["content-type"].startswith("text/event-stream")
+                        )
                         event_body = "".join(stream.iter_text())
                     self.assertIn('"status": "succeeded"', event_body)
                     self.assertIn('"reasoning_content": "检查范围"', event_body)

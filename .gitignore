@@ -19,6 +19,7 @@ node_modules/
 *.tsbuildinfo
 .next/
 .next-preview/
+.next-plugin-test/
 
 # Rust
 target/
