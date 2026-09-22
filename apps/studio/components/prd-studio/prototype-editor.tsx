@@ -274,7 +274,13 @@ export function PrototypeEditor({
             onClick={addPage} aria-label="添加原型页面" title="添加页面">＋</button>
         </div>
         <div className={s.toolbarEnd}>
-          <span className={s.prototypeState}>{prototype?.confirmed ? "✓ 已确认" : "草稿"}</span>
+          {page && <button className={s.prototypeState}
+            aria-label={edit ? "预览" : "继续编辑"}
+            title={edit ? "预览" : "继续编辑"}
+            disabled={disabled}
+            onClick={() => setEdit((value) => !value)}>
+            {edit ? "预览" : "继续编辑"}
+          </button>}
           {!standalone && onOpenBrowser && <button className={s.openBrowser}
             disabled={disabled} onClick={() => onOpenBrowser(page?.id)}>
             在浏览器打开 ↗
@@ -289,9 +295,6 @@ export function PrototypeEditor({
               <button disabled={disabled} onClick={() => {
                 actionMenu.current?.removeAttribute("open"); onImport();
               }}>导入原型图</button>
-              {page && <button disabled={disabled} onClick={() => {
-                actionMenu.current?.removeAttribute("open"); setEdit(!edit);
-              }}>{edit ? "预览原型" : "编辑页面"}</button>}
               {page && !prototype?.confirmed && <button disabled={disabled} onClick={() => {
                 actionMenu.current?.removeAttribute("open"); void confirm(false);
               }}>确认原型并生成截图</button>}

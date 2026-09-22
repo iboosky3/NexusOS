@@ -4,7 +4,7 @@
 
 本文是[架构方案](../architecture/agent-plugin-workbench.md)的实施计划，目录、API、数据表除下述实施记录外均为**拟议契约**，不是现有能力清单。设计基线先于代码交付；每阶段记录验证证据和剩余边界。
 
-当日后续的开源 Webpage Demo 路线、未提交组件扩充及未完成回归，单独记在 [2026-09-22 原型编辑器开发日志](2026-09-22-grapesjs.md)；下文各批测试结果仅对应当时已提交的代码。GrapesJS／Puck／Penpot 的定位与取舍见[原型编辑器选型](../architecture/prototype-editor-selection.md)。
+开源 Webpage Demo 路线、后续已提交的组件扩充及未完成回归，单独记在 [2026-09-22 原型编辑器开发日志](2026-09-22-grapesjs.md)；下文各批测试结果仅对应当时已提交的代码。GrapesJS／Puck／Penpot 的定位与取舍见[原型编辑器选型](../architecture/prototype-editor-selection.md)。
 
 ### 2026-09-22 GrapesJS 开源内核能力扩充（REQ-010）
 

@@ -9,9 +9,23 @@ from pydantic import Field, model_validator
 
 from nexusos.prd.schemas_base import StrictModel
 
+PrototypeElementKind = Literal[
+    "text",
+    "input",
+    "select",
+    "date",
+    "time",
+    "datetime",
+    "checkbox",
+    "radio",
+    "button",
+    "list",
+    "card",
+]
+
 
 class PrototypeElement(StrictModel):
-    kind: Literal["text", "input", "button", "list", "card"]
+    kind: PrototypeElementKind
     label: str = Field(min_length=1, max_length=80)
     detail: str = Field(default="", max_length=200)
     target: str = Field(default="", max_length=40)
@@ -40,12 +54,32 @@ class DesignProps(StrictModel):
     target: str = Field(default="", max_length=40)
     tone: Literal["green", "blue", "gray"] = "green"
     left: list["DesignBlock"] = Field(default_factory=list, max_length=64)
+    center: list["DesignBlock"] = Field(default_factory=list, max_length=64)
+    third: list["DesignBlock"] = Field(default_factory=list, max_length=64)
     right: list["DesignBlock"] = Field(default_factory=list, max_length=64)
     appearance: DesignAppearance | None = None
 
 
 class DesignBlock(StrictModel):
-    type: Literal["Heading", "Text", "Input", "Button", "Card", "List", "Divider", "Columns", "Row"]
+    type: Literal[
+        "Heading",
+        "Text",
+        "Input",
+        "Select",
+        "Date",
+        "Time",
+        "DateTime",
+        "Checkbox",
+        "Radio",
+        "Button",
+        "Card",
+        "List",
+        "Divider",
+        "Columns",
+        "Row",
+        "ThreeColumns",
+        "FourColumns",
+    ]
     props: DesignProps
 
 
@@ -68,14 +102,25 @@ class PrototypeDesign(StrictModel):
                 ids.add(block.props.id)
                 if len(ids) > 64:
                     raise ValueError("每页最多 64 个原型组件")
-                if block.type not in {"Columns", "Row"} and (block.props.left or block.props.right):
+                layout_types = {"Columns", "Row", "ThreeColumns", "FourColumns"}
+                if block.type not in layout_types and (
+                    block.props.left or block.props.center or block.props.third or block.props.right
+                ):
                     raise ValueError("只有布局组件可以嵌套组件")
-                if block.type == "Row" and block.props.right:
+                if block.type == "Row" and (
+                    block.props.center or block.props.third or block.props.right
+                ):
                     raise ValueError("横向布局仅使用一个组件插槽")
+                if block.type == "Columns" and (block.props.center or block.props.third):
+                    raise ValueError("双栏布局仅使用左右两个组件插槽")
+                if block.type == "ThreeColumns" and block.props.third:
+                    raise ValueError("三栏布局仅使用三个组件插槽")
                 if block.type != "Button" and block.props.target:
                     raise ValueError("只有按钮可以设置跳转")
-                if block.type in {"Columns", "Row"}:
+                if block.type in layout_types:
                     visit(block.props.left, depth + 1)
+                    visit(block.props.center, depth + 1)
+                    visit(block.props.third, depth + 1)
                     visit(block.props.right, depth + 1)
 
         visit(self.content, 0)
@@ -83,10 +128,16 @@ class PrototypeDesign(StrictModel):
 
     def elements(self) -> list[PrototypeElement]:
         result: list[PrototypeElement] = []
-        kinds: dict[str, Literal["text", "input", "button", "list", "card"]] = {
+        kinds: dict[str, PrototypeElementKind] = {
             "Heading": "text",
             "Text": "text",
             "Input": "input",
+            "Select": "select",
+            "Date": "date",
+            "Time": "time",
+            "DateTime": "datetime",
+            "Checkbox": "checkbox",
+            "Radio": "radio",
             "Button": "button",
             "Card": "card",
             "List": "list",
@@ -94,8 +145,10 @@ class PrototypeDesign(StrictModel):
 
         def visit(blocks: list[DesignBlock]) -> None:
             for block in blocks:
-                if block.type in {"Columns", "Row"}:
+                if block.type in {"Columns", "Row", "ThreeColumns", "FourColumns"}:
                     visit(block.props.left)
+                    visit(block.props.center)
+                    visit(block.props.third)
                     visit(block.props.right)
                 elif block.type in kinds:
                     result.append(

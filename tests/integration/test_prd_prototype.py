@@ -11,7 +11,7 @@ from fastapi.testclient import TestClient
 from nexusos.api import create_app
 from nexusos.core.models import TokenUsage
 from nexusos.models import ModelRequest, ModelResponse
-from nexusos.prd.prototype import brief_digest, parse_prototype
+from nexusos.prd.prototype import PrototypeDesign, brief_digest, parse_prototype
 from nexusos.prd.schemas import Brief
 from nexusos.prd.store import PrdStore
 from nexusos.prd.workflow import PrdWorkflow
@@ -54,6 +54,28 @@ class PrototypeGateway(AuthoringGateway):
 
 
 class PrototypeTests(unittest.TestCase):
+    def test_empty_four_column_layout_can_be_saved_before_filling_slots(self):
+        design = PrototypeDesign.model_validate(
+            {
+                "engine": "puck",
+                "version": 1,
+                "width": 960,
+                "content": [
+                    {
+                        "type": "FourColumns",
+                        "props": {
+                            "id": "layout-1",
+                            "left": [],
+                            "center": [],
+                            "third": [],
+                            "right": [],
+                        },
+                    }
+                ],
+            }
+        )
+        self.assertEqual(design.elements(), [])
+
     def setUp(self):
         directory = self.enterContext(tempfile.TemporaryDirectory())
         self.store = PrdStore(Path(directory) / "test.sqlite3")

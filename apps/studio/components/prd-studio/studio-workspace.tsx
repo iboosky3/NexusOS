@@ -46,6 +46,7 @@ const CapabilityBrowser = dynamic(() =>
 );
 const PrdWriter = dynamic(prdWriter.load, { loading: () => <p>正在加载 PRD 编写插件…</p> });
 const GrapesPrototype = dynamic(grapesPrototypeLegacy.load, { ssr: false, loading: () => <p>正在加载自由原型插件…</p> });
+const BrowserDesignPreview = dynamic(() => import("@/extensions/prototype-designer/preview"), { ssr: false });
 
 type Tab = NonNullable<ReturnType<typeof usePrdStudio>["tab"]>;
 const tabs = [
@@ -61,6 +62,13 @@ export function StudioWorkspace({ mode = "prd" }: { mode?: "prd" | "prototype" }
   const standalonePrototype = mode === "prototype";
   const w = usePrdStudio(standalonePrototype ? "prototype" : undefined);
   const [prototypeOpened, setPrototypeOpened] = useState(standalonePrototype);
+  const [browserPreview, setBrowserPreview] = useState(false);
+  const [previewPageId, setPreviewPageId] = useState("");
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    setBrowserPreview(params.get("preview") === "1");
+    setPreviewPageId(params.get("page") || "");
+  }, []);
   useEffect(() => {
     if (w.tab === "prototype") setPrototypeOpened(true);
   }, [w.tab]);
@@ -145,8 +153,14 @@ export function StudioWorkspace({ mode = "prd" }: { mode?: "prd" | "prototype" }
     opened.opener = null;
     setOpeningBrowser(true);
     try {
-      const saved = await w.save();
-      const query = new URLSearchParams({ id: saved.id });
+      const browserBrief = w.brief.title.trim()
+        ? w.brief
+        : {
+            ...w.brief,
+            title: w.brief.prototype?.pages.find((page) => page.id === pageId)?.title.trim() || "未命名原型",
+          };
+      const saved = await w.save(browserBrief);
+      const query = new URLSearchParams({ id: saved.id, preview: "1" });
       if (pageId) query.set("page", pageId);
       opened.location.replace(`/prototype-studio?${query.toString()}`);
     } catch (error) {
@@ -408,6 +422,22 @@ export function StudioWorkspace({ mode = "prd" }: { mode?: "prd" | "prototype" }
         : w.document
           ? `已保存 · v${w.document.version}`
           : "新工作区";
+    if (browserPreview && w.ready) {
+      const previewPrototype = w.brief.prototype;
+      const previewPage = previewPrototype?.pages.find((item) => item.id === previewPageId) || previewPrototype?.pages[0];
+      return <main style={{ minHeight: "100vh", padding: 24, background: "#edf2ef", color: "#20342b" }}>
+        {previewPage && previewPrototype ? <>
+          <header style={{ maxWidth: 1200, margin: "0 auto 18px", display: "flex", justifyContent: "space-between", gap: 16, alignItems: "baseline" }}>
+            <h1 style={{ margin: 0, fontSize: 22 }}>{previewPage.title}</h1>
+            <span>{previewPage.design?.width || 960}px</span>
+          </header>
+          <section style={{ maxWidth: 1200, margin: "0 auto", overflow: "auto", border: "1px solid #d8e1db", borderRadius: 8, background: "#fff" }}>
+            {previewPage.design ? <BrowserDesignPreview page={previewPage} pages={previewPrototype.pages} onNavigate={setPreviewPageId} /> : previewPage.screenshot ? <img src={previewPage.screenshot} alt={previewPage.title} style={{ display: "block", width: "100%" }} /> : <p style={{ padding: 24 }}>暂无可预览内容。</p>}
+          </section>
+          <p style={{ maxWidth: 1200, margin: "14px auto 0", whiteSpace: "pre-wrap", color: "#607469" }}>{previewPage.description}</p>
+        </> : <p style={{ textAlign: "center" }}>暂无可预览的原型页面。</p>}
+      </main>;
+    }
   return (
     <Workbench
       title={standalonePrototype ? "Prototype Studio" : "PRD Studio"}
