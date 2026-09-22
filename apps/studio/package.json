@@ -5,8 +5,8 @@
   "scripts": {
     "test:extensions": "node --experimental-strip-types --test tests/extension-*.test.mjs",
     "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
+    "build": "NEXUS_STUDIO_DIST_DIR=.next-production next build",
+    "start": "NEXUS_STUDIO_DIST_DIR=.next-production next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit"
   },

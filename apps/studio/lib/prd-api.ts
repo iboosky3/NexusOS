@@ -121,13 +121,22 @@ export async function prdApi<T>(
     body: body === undefined ? undefined : JSON.stringify(body),
     cache: "no-store",
   });
-  const payload = await response.json();
+  const raw = await response.text();
+  let payload: unknown;
+  try {
+    payload = JSON.parse(raw);
+  } catch {
+    throw new Error(`文档服务返回了非 JSON 响应（HTTP ${response.status}），请检查服务是否已启动并刷新页面。`);
+  }
   if (!response.ok) {
+    const failure = payload && typeof payload === "object"
+      ? payload as { detail?: string | { loc?: string[]; msg: string }[] }
+      : {};
     const detail =
-      typeof payload.detail === "string"
-        ? payload.detail
-        : Array.isArray(payload.detail)
-          ? payload.detail
+      typeof failure.detail === "string"
+        ? failure.detail
+        : Array.isArray(failure.detail)
+          ? failure.detail
               .map(
                 (item: { loc?: string[]; msg: string }) =>
                   `${item.loc?.slice(1).join(".")}: ${item.msg}`,

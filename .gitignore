@@ -18,6 +18,8 @@ build/
 node_modules/
 *.tsbuildinfo
 .next/
+.next-production/
+.next-stale-*/
 .next-preview/
 .next-plugin-test/
 
