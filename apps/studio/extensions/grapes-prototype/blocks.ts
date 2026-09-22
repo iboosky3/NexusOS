@@ -23,8 +23,22 @@ export function installBlocks(editor: Editor) {
     ["table", "表格", '<table style="width:100%;border-collapse:collapse"><thead><tr><th>名称</th><th>说明</th></tr></thead><tbody><tr><td>项目 A</td><td>描述内容</td></tr><tr><td>项目 B</td><td>描述内容</td></tr></tbody></table>'],
     ["navigation", "导航栏", '<nav style="display:flex;gap:20px;padding:18px;background:#edf6ef"><strong>品牌</strong><a href="#">首页</a><a href="#">功能</a><a href="#">关于</a></nav>'],
     ["footer", "页脚", '<footer style="padding:24px;text-align:center;background:#edf6ef">页脚说明</footer>'],
+    ["nexus-badge", "状态徽标", '<span style="display:inline-block;padding:5px 10px;border-radius:999px;background:#e4f3e9;color:#176b55;font-size:12px">进行中</span>'],
+    ["nexus-alert", "提示条", '<div role="status" style="padding:14px 18px;border-left:4px solid #197358;background:#e4f3e9;color:#173b2d">这里显示操作提示或结果。</div>'],
+    ["nexus-breadcrumb", "面包屑", '<nav aria-label="面包屑" style="display:flex;gap:8px;padding:12px"><a href="#">首页</a><span>›</span><a href="#">项目</a><span>›</span><strong>当前页</strong></nav>'],
+    ["nexus-pagination", "分页", '<nav aria-label="分页" style="display:flex;gap:8px;padding:12px"><a href="#">上一页</a><a href="#">1</a><strong>2</strong><a href="#">3</a><a href="#">下一页</a></nav>'],
+    ["nexus-progress", "进度条", '<div style="padding:12px"><label>完成进度 65%</label><div style="height:12px;border-radius:8px;background:#e3ebe6"><div style="width:65%;height:12px;border-radius:8px;background:#197358"></div></div></div>'],
+    ["nexus-stat", "指标卡", '<section style="padding:20px;border:1px solid #dce6df;border-radius:12px;background:white"><p>本月活跃用户</p><strong style="font-size:32px;color:#176b55">2,480</strong><p>较上月增长 12%</p></section>'],
+    ["nexus-profile", "用户卡", '<section style="display:flex;gap:16px;align-items:center;padding:20px;border:1px solid #dce6df;border-radius:12px"><div style="width:52px;height:52px;border-radius:50%;background:#c6ddd0;text-align:center;line-height:52px">张</div><div><strong>张小明</strong><p>产品设计师 · 负责原型评审</p></div></section>'],
+    ["nexus-pricing", "价格卡", '<section style="padding:24px;border:1px solid #dce6df;border-radius:12px;text-align:center"><h2>标准方案</h2><p><strong style="font-size:30px">¥99</strong> / 月</p><p>适合小型团队</p><button type="button" style="padding:10px 20px;background:#197358;color:white;border:0;border-radius:8px">选择方案</button></section>'],
+    ["nexus-search", "搜索栏", '<form style="display:flex;gap:8px;padding:12px"><input aria-label="搜索内容" placeholder="搜索项目或文档" style="flex:1;padding:10px;border:1px solid #aac5b5"/><button type="button" style="padding:10px 18px">搜索</button></form>'],
+    ["nexus-tabs", "静态标签页", '<section style="padding:12px"><nav style="display:flex;gap:16px;border-bottom:1px solid #dce6df"><strong style="padding:8px;color:#176b55">概览</strong><span style="padding:8px">详情</span><span style="padding:8px">设置</span></nav><div style="padding:18px">当前标签页内容</div></section>'],
+    ["nexus-accordion", "折叠内容", '<details style="padding:16px;border:1px solid #dce6df;border-radius:8px"><summary>点击查看详细说明</summary><p>这里填写可展开的详细内容。</p></details>'],
+    ["nexus-timeline", "时间线", '<ol style="padding:16px 16px 16px 38px;border-left:2px solid #197358"><li style="padding:8px">提出需求</li><li style="padding:8px">设计原型</li><li style="padding:8px">确认交付</li></ol>'],
+    ["nexus-sidebar", "侧栏布局", '<div style="display:grid;grid-template-columns:200px 1fr;min-height:220px"><aside style="padding:16px;background:#edf6ef"><strong>导航</strong><p>首页</p><p>项目</p><p>设置</p></aside><main style="padding:20px"><h2>内容区域</h2><p>在此添加页面内容。</p></main></div>'],
+    ["nexus-empty", "空状态", '<section style="padding:45px;text-align:center;border:1px dashed #aac5b5;border-radius:12px"><strong>暂无内容</strong><p>创建第一项内容以开始使用。</p><button type="button" style="padding:9px 18px">新建</button></section>'],
   ] as const;
-  for (const [id, label, content] of blocks) editor.Blocks.add(id, { label, category: "原型组件", content,
+  for (const [id, label, content] of blocks) editor.Blocks.add(id, { label, category: id.startsWith("nexus-") ? "经典界面组件" : "原型组件", content,
     onClick: (block, current) => {
       const content = block.get("content");
       if (typeof content === "string") current.getWrapper()?.append(content);

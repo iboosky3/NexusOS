@@ -99,6 +99,47 @@
   font-size: 11px;
   line-height: 1.55;
 }
+.palette :global([class*="Puck"]), .palette :global([class*="puck"]) {
+  min-width: 0;
+}
+.palette :global(button) {
+  box-sizing: border-box;
+}
+.palette :global([data-puck-component]) {
+  min-width: 0;
+}
+.palette :global([class*="_Drawer_"]) {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  padding: 8px;
+}
+.palette :global([class*="_DrawerItem_"]) {
+  min-width: 0;
+  min-height: 58px;
+  border: 1px solid #dce7e0;
+  border-radius: 7px;
+  background: #fbfdfb;
+}
+.palette :global([class*="_DrawerItem-name_"]) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.palette :global(.puck-components) {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  padding: 8px;
+}
+.palette :global(.puck-component) {
+  min-height: 58px;
+  padding: 8px 6px;
+  border: 1px solid #dce7e0;
+  border-radius: 7px;
+  background: #fbfdfb;
+  text-align: center;
+}
 .canvasShell {
   display: flex;
   flex-direction: column;

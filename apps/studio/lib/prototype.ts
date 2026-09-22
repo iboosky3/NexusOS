@@ -1,5 +1,5 @@
 export interface PrototypeElement {
-  kind: "text" | "input" | "button" | "list" | "card";
+  kind: "text" | "input" | "select" | "date" | "time" | "datetime" | "checkbox" | "radio" | "button" | "list" | "card";
   label: string;
   detail: string;
   target: string;
@@ -25,12 +25,20 @@ export interface DesignBlock {
     | "Heading"
     | "Text"
     | "Input"
+    | "Select"
+    | "Date"
+    | "Time"
+    | "DateTime"
+    | "Checkbox"
+    | "Radio"
     | "Button"
     | "Card"
     | "List"
     | "Divider"
     | "Columns"
-    | "Row";
+    | "Row"
+    | "ThreeColumns"
+    | "FourColumns";
   props: {
     id: string;
     label: string;
@@ -39,6 +47,8 @@ export interface DesignBlock {
     tone: "green" | "blue" | "gray";
     left: DesignBlock[];
     right: DesignBlock[];
+    center?: DesignBlock[];
+    third?: DesignBlock[];
     appearance?: {
       width?: number;
       height?: number;
@@ -90,7 +100,12 @@ export function findDesignBlock(
   for (const block of blocks) {
     if (block.props.id === id) return block;
     const nested = findDesignBlock(
-      [...(block.props.left || []), ...(block.props.right || [])],
+      [
+        ...(block.props.left || []),
+        ...(block.props.center || []),
+        ...(block.props.third || []),
+        ...(block.props.right || []),
+      ],
       id,
     );
     if (nested) return nested;
@@ -102,20 +117,28 @@ export function designElements(design: PrototypeDesign): PrototypeElement[] {
   const elements: PrototypeElement[] = [];
   function visit(blocks: DesignBlock[]) {
     for (const block of blocks) {
-      if (block.type === "Columns" || block.type === "Row") {
+      if (["Columns", "Row", "ThreeColumns", "FourColumns"].includes(block.type)) {
         visit(block.props.left);
+        visit(block.props.center || []);
+        visit(block.props.third || []);
         visit(block.props.right);
-      } else if (block.type !== "Divider")
+        } else if (block.type !== "Divider")
         elements.push({
           kind: (
             {
               Heading: "text",
               Text: "text",
               Input: "input",
+              Select: "select",
+              Date: "date",
+              Time: "time",
+              DateTime: "datetime",
+              Checkbox: "checkbox",
+              Radio: "radio",
               Button: "button",
               Card: "card",
               List: "list",
-            } as const
+            } as Record<string, PrototypeElement["kind"]>
           )[block.type],
           label: block.props.label || "未命名组件",
           detail: block.props.detail,
@@ -204,7 +227,7 @@ export function validateDesign(design: PrototypeDesign) {
     if (depth > 4) throw new Error("布局最多嵌套 4 层");
     for (const block of blocks) {
       if (!block || ![
-        "Heading", "Text", "Input", "Button", "Card", "List", "Divider", "Columns", "Row",
+        "Heading", "Text", "Input", "Select", "Date", "Time", "DateTime", "Checkbox", "Radio", "Button", "Card", "List", "Divider", "Columns", "Row", "ThreeColumns", "FourColumns",
       ].includes(block.type) || !block.props || typeof block.props !== "object")
         throw new Error("原型组件类型或属性无效");
       if (typeof block.props.id !== "string" || !block.props.id ||
@@ -214,9 +237,11 @@ export function validateDesign(design: PrototypeDesign) {
           !["green", "blue", "gray"].includes(block.props.tone))
         throw new Error("原型组件编号、文字或色调无效");
       if (!Array.isArray(block.props.left) || !Array.isArray(block.props.right) ||
-          (block.type !== "Columns" && block.type !== "Row" &&
-            (block.props.left.length > 0 || block.props.right.length > 0)) ||
-          (block.type === "Row" && block.props.right.length > 0) ||
+          (!["Columns", "Row", "ThreeColumns", "FourColumns"].includes(block.type) &&
+            (block.props.left.length > 0 || block.props.right.length > 0 || block.props.center?.length || block.props.third?.length)) ||
+          (block.type === "Row" && (block.props.right.length > 0 || block.props.center?.length || block.props.third?.length)) ||
+          (block.type === "ThreeColumns" && (!block.props.center || block.props.third?.length)) ||
+          (block.type === "FourColumns" && (!block.props.center || !block.props.third)) ||
           (block.type !== "Button" && block.props.target))
         throw new Error("组件插槽或跳转属性无效");
       if (++count > 64) throw new Error("每页最多 64 个组件，请拆分页面");
@@ -256,8 +281,10 @@ export function validateDesign(design: PrototypeDesign) {
               "颜色请填写 #RRGGBB，例如 #315fba，或留空使用默认颜色",
             );
       }
-      if (block.type === "Columns" || block.type === "Row") {
+      if (["Columns", "Row", "ThreeColumns", "FourColumns"].includes(block.type)) {
         visit(block.props.left, depth + 1);
+        visit(block.props.center || [], depth + 1);
+        visit(block.props.third || [], depth + 1);
         visit(block.props.right, depth + 1);
       }
     }

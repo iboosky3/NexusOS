@@ -9,6 +9,7 @@ import exportZip from "grapesjs-plugin-export";
 import styleBackground from "grapesjs-style-bg";
 import postCssParser from "grapesjs-parser-postcss";
 import tooltip from "grapesjs-tooltip";
+import flexboxBlocks from "grapesjs-blocks-flexbox";
 import "grapesjs/dist/css/grapes.min.css";
 import type { ResourceEditorProps, ResourcePayload } from "@/lib/plugin-sdk/types";
 import { capture } from "./capture";
@@ -62,6 +63,7 @@ export default function GrapesPrototypeEditor({ resource, disabled, onChange, on
         exportZip,
         styleBackground,
         tooltip,
+        (current) => flexboxBlocks(current, { flexboxBlock: { category: "官方布局组件" } }),
       ],
       assetManager: { upload: false, showUrlInput: false, multiUpload: false, embedAsBase64: false,
         uploadFile: async (event) => {

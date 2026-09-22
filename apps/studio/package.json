@@ -15,6 +15,7 @@
     "@puckeditor/core": "0.23.0",
     "grapesjs": "^0.22.16",
     "grapesjs-blocks-basic": "^1.0.2",
+    "grapesjs-blocks-flexbox": "^1.0.1",
     "grapesjs-parser-postcss": "^1.0.3",
     "grapesjs-plugin-export": "^1.0.12",
     "grapesjs-plugin-forms": "^2.0.6",

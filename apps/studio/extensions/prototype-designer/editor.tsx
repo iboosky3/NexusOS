@@ -80,9 +80,10 @@ function ComponentPatchBridge({
     };
     const replace = (blocks: DesignBlock[]): DesignBlock[] => blocks.map((block) => {
       if (block.props.id === request.componentId) return updated;
-      if (block.type !== "Columns" && block.type !== "Row") return block;
+      if (!["Columns", "Row", "ThreeColumns", "FourColumns"].includes(block.type)) return block;
       return { ...block, props: { ...block.props,
-        left: replace(block.props.left || []), right: replace(block.props.right || []),
+        left: replace(block.props.left || []), center: replace(block.props.center || []),
+        third: replace(block.props.third || []), right: replace(block.props.right || []),
       } };
     });
     const content = replace(appState.data.content as DesignBlock[]);
@@ -330,15 +331,13 @@ export default function Designer({
             onClick={() => setPaletteVisible((value) => !value)}><span aria-hidden="true">▦</span></button>}
           <button aria-label="属性面板" title="属性面板" aria-pressed={inspectorVisible}
             onClick={() => setInspectorVisible((value) => !value)}><span aria-hidden="true">☷</span></button>
-          <button aria-label="页面信息" title="页面信息" aria-pressed={inspectorVisible && inspectorPanel === "page"}
-            onClick={() => { setInspectorVisible(true); setInspectorPanel("page"); }}><span aria-hidden="true">▤</span></button>
         </div>
         <div className={s.toolbarActions}><HistoryButtons />
           <button aria-label="一键清空画布" title="一键清空画布" disabled={disabled || data.content.length === 0} onClick={() => {
             if (!window.confirm("清空当前页面的全部组件？页面名称和说明会保留，截图确认将失效。")) return;
             handleSelection(null);
             publish({ ...latest.current, content: [] }, true);
-          }}><span aria-hidden="true">⌫</span></button>
+          }}><span aria-hidden="true">⌽</span></button>
           <select aria-label="原型画布尺寸" title="画布尺寸" value={width}
             onChange={(event) => {
               const next = Number(event.target.value) as 960 | 390;
@@ -366,11 +365,11 @@ export default function Designer({
         </main>
         {inspectorVisible && <aside className={s.inspector} aria-label="组件属性与页面图层">
           <header><div>
-            <button aria-label="属性" title="属性" aria-pressed={inspectorPanel === "fields"}
+            <button aria-label="组件属性" title="组件属性" aria-pressed={inspectorPanel === "fields"}
               onClick={() => setInspectorPanel("fields")}><span aria-hidden="true">☷</span></button>
-            <button aria-label="图层" title="图层" aria-pressed={inspectorPanel === "outline"}
+            <button aria-label="页面图层" title="页面图层" aria-pressed={inspectorPanel === "outline"}
               onClick={() => setInspectorPanel("outline")}><span aria-hidden="true">☰</span></button>
-            <button aria-label="页面" title="页面" aria-pressed={inspectorPanel === "page"}
+            <button aria-label="页面描述" title="页面描述" aria-pressed={inspectorPanel === "page"}
               onClick={() => setInspectorPanel("page")}><span aria-hidden="true">▤</span></button>
           </div><button aria-label="隐藏属性面板" onClick={() => setInspectorVisible(false)}>×</button></header>
           {inspectorPanel === "page" ? <fieldset className={s.pageFields} disabled={disabled}>

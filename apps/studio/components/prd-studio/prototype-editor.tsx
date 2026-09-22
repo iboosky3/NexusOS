@@ -280,7 +280,7 @@ export function PrototypeEditor({
             在浏览器打开 ↗
           </button>}
           <details ref={actionMenu} className={s.actionMenu}>
-            <summary aria-label="原型操作">操作 ⋯</summary>
+            <summary aria-label="原型操作">⋯</summary>
             <div className={s.actionDropdown}>
               {prototype && <button disabled={disabled} onClick={() => {
                 actionMenu.current?.removeAttribute("open");

@@ -4,6 +4,7 @@ import type { CSSProperties } from "react";
 import s from "./appearance.module.css";
 import type {
   DesignBlock,
+  PrototypeElement,
   PrototypePage,
   PrototypeDesign,
 } from "@/lib/prototype";
@@ -44,7 +45,13 @@ export function pageDesign(page: PrototypePage): PrototypeDesign {
                 button: "Button",
                 list: "List",
                 card: "Card",
-              } as const
+                select: "Select",
+                date: "Date",
+                time: "Time",
+                datetime: "DateTime",
+                checkbox: "Checkbox",
+                radio: "Radio",
+              } as Record<PrototypeElement["kind"], DesignBlock["type"]>
             )[element.kind],
             element.label,
             element.detail,
@@ -58,6 +65,8 @@ export function pageDesign(page: PrototypePage): PrototypeDesign {
 type Props = Omit<DesignBlock["props"], "id" | "left" | "right"> & {
   left: Slot;
   right: Slot;
+  center: Slot;
+  third: Slot;
 };
 type Blocks = Record<DesignBlock["type"], Props>;
 const defaults: Props = {
@@ -67,6 +76,8 @@ const defaults: Props = {
   tone: "green",
   left: [],
   right: [],
+  center: [],
+  third: [],
 };
 const tones = { green: "#197358", blue: "#355ec9", gray: "#52647a" };
 const blockStyle = { padding: "14px 18px", overflowWrap: "anywhere" as const };
@@ -235,10 +246,10 @@ export function designerConfig(
       ),
     },
     categories: {
-      layout: { title: "布局", components: ["Row", "Columns", "Divider"] },
+      layout: { title: "布局", components: ["Row", "Columns", "ThreeColumns", "FourColumns", "Divider"] },
       basic: {
         title: "页面组件",
-        components: ["Heading", "Text", "Input", "Button", "Card", "List"],
+          components: ["Heading", "Text", "Input", "Select", "Date", "Time", "DateTime", "Checkbox", "Radio", "Button", "Card", "List"],
       },
     },
     components: {
@@ -292,6 +303,18 @@ export function designerConfig(
           />
         </label>
       )),
+      Select: make("下拉框", ({ label, detail }) => (
+        <label style={{ ...blockStyle, display: "block", fontSize: 13, fontWeight: 650, color: "#314e3b" }}>
+          {label}<select aria-label={label} defaultValue="" style={{ display: "block", width: "100%", marginTop: 8, padding: "13px 15px", border: "1px solid #cbded1", borderRadius: 11, background: "#fff", font: "inherit", color: "#203a2b" }}>
+            <option value="" disabled>{detail || "请选择"}</option><option>选项一</option><option>选项二</option>
+          </select>
+        </label>
+      )),
+      Date: make("日期", ({ label, detail }) => <label style={{ ...blockStyle, display: "block", fontSize: 13, fontWeight: 650, color: "#314e3b" }}>{label}<input aria-label={label} type="date" title={detail} style={{ display: "block", width: "100%", marginTop: 8, padding: "12px 13px", border: "1px solid #cbded1", borderRadius: 11, font: "inherit" }} /></label>),
+      Time: make("时间", ({ label, detail }) => <label style={{ ...blockStyle, display: "block", fontSize: 13, fontWeight: 650, color: "#314e3b" }}>{label}<input aria-label={label} type="time" title={detail} style={{ display: "block", width: "100%", marginTop: 8, padding: "12px 13px", border: "1px solid #cbded1", borderRadius: 11, font: "inherit" }} /></label>),
+      DateTime: make("日期时间", ({ label, detail }) => <label style={{ ...blockStyle, display: "block", fontSize: 13, fontWeight: 650, color: "#314e3b" }}>{label}<input aria-label={label} type="datetime-local" title={detail} style={{ display: "block", width: "100%", marginTop: 8, padding: "12px 13px", border: "1px solid #cbded1", borderRadius: 11, font: "inherit" }} /></label>),
+      Checkbox: make("复选框", ({ label, detail }) => <label style={{ ...blockStyle, display: "flex", alignItems: "center", gap: 9, fontSize: 13, color: "#314e3b" }}><input type="checkbox" aria-label={label} /> <span>{label}</span>{detail && <small>{detail}</small>}</label>),
+      Radio: make("单选组", ({ label, detail }) => <fieldset style={{ ...blockStyle, border: 0, margin: 0, color: "#314e3b" }}><legend style={{ fontSize: 13, fontWeight: 650 }}>{label}</legend><label><input type="radio" name={label} defaultChecked /> 选项一</label> <label><input type="radio" name={label} /> 选项二</label>{detail && <small style={{ display: "block", marginTop: 8 }}>{detail}</small>}</fieldset>),
       Button: {
         ...make("按钮", ({ label, detail, tone, target, puck }) => (
           <div style={blockStyle}>
@@ -428,6 +451,32 @@ export function designerConfig(
           >
             <Left minEmptyHeight={120} />
             <Right minEmptyHeight={120} />
+          </div>
+        ),
+      },
+      ThreeColumns: {
+        label: "三栏布局",
+        fields: {
+          appearance: layoutField,
+          left: { type: "slot" }, center: { type: "slot" }, right: { type: "slot" },
+        } as Fields<Props>,
+        defaultProps: { ...defaults, appearance: appearanceDefaults },
+        render: ({ left: Left, center: Center, right: Right, appearance: a }) => (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: a?.gap ?? 12, padding: a?.padding ?? 12, margin: a?.margin ?? 0, width: a?.width || undefined, minHeight: a?.height || undefined }}>
+            <Left minEmptyHeight={120} /><Center minEmptyHeight={120} /><Right minEmptyHeight={120} />
+          </div>
+        ),
+      },
+      FourColumns: {
+        label: "四栏布局",
+        fields: {
+          appearance: layoutField,
+          left: { type: "slot" }, center: { type: "slot" }, third: { type: "slot" }, right: { type: "slot" },
+        } as Fields<Props>,
+        defaultProps: { ...defaults, appearance: appearanceDefaults },
+        render: ({ left: Left, center: Center, third: Third, right: Right, appearance: a }) => (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: a?.gap ?? 12, padding: a?.padding ?? 12, margin: a?.margin ?? 0, width: a?.width || undefined, minHeight: a?.height || undefined }}>
+            <Left minEmptyHeight={120} /><Center minEmptyHeight={120} /><Third minEmptyHeight={120} /><Right minEmptyHeight={120} />
           </div>
         ),
       },
