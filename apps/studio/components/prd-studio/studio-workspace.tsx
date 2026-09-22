@@ -15,6 +15,7 @@ import { builtinRegistry } from "@/extensions/builtin";
 import { studioPlugins } from "@/extensions/studio-plugins";
 import { AgentDirectory, AgentDetail } from "@/components/workbench/agent-catalog";
 import { prototypeDesigner } from "@/extensions/prototype-designer/manifest";
+import { grapesPrototypeLegacy } from "@/extensions/grapes-prototype/manifest";
 import type { Capability } from "@/components/workbench/capability-browser";
 
 import {
@@ -44,6 +45,7 @@ const CapabilityBrowser = dynamic(() =>
   ),
 );
 const PrdWriter = dynamic(prdWriter.load, { loading: () => <p>正在加载 PRD 编写插件…</p> });
+const GrapesPrototype = dynamic(grapesPrototypeLegacy.load, { ssr: false, loading: () => <p>正在加载自由原型插件…</p> });
 
 type Tab = NonNullable<ReturnType<typeof usePrdStudio>["tab"]>;
 const tabs = [
@@ -199,13 +201,14 @@ export function StudioWorkspace({ mode = "prd" }: { mode?: "prd" | "prototype" }
   useEffect(() => {
     const save = (event: KeyboardEvent) => {
       if ((event.ctrlKey || event.metaKey) && event.key === "s") {
+        if (w.tab === "grapes") return;
         event.preventDefault();
         if (!locked) void w.perform(w.save);
       }
     };
     window.addEventListener("keydown", save);
     return () => window.removeEventListener("keydown", save);
-  }, [locked, w.save]);
+  }, [locked, w.save, w.tab]);
   const execute = (job: Job, mode: "restart" | "resume") => {
     void w.perform(() => {
       assertAgentEnabled(job.action);
@@ -650,6 +653,9 @@ export function StudioWorkspace({ mode = "prd" }: { mode?: "prd" | "prototype" }
         </div>
       )}
       <div className={s.viewport}>
+        {w.tab === "grapes" && (extensions.ready && extensions.enabled(grapesPrototypeLegacy.manifest.id)
+          ? <GrapesPrototype />
+          : <section className={s.empty}><h2>自由原型试验插件未启用</h2><button onClick={() => setSide("extensions")}>管理插件</button></section>)}
         {selectedAgent && <AgentDetail plugin={selectedAgent}
           enabled={extensions.ready && builtinRegistry.enabled(selectedAgent.id, extensions.enabled)}
           onRun={() => openPlugin(selectedAgent.id)} />}

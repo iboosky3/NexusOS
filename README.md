@@ -14,7 +14,7 @@ NexusOS 解决的不是“再做一个聊天机器人”，而是当系统拥有
 
 从[写作工作区使用指南](docs/reference-apps/nexus-prd/authoring.md)开始，也可以导入[NexusOS 自身 PRD 草稿](docs/reference-apps/nexus-prd/product-prd.md)继续完善。原离线参考内核和基准保留用于回归。
 
-首页点击 **插件工作区** 在新标签页打开 `/studio`。用户创建工作区，选择插件并创建独立资源；修改由 Agent 提案，经人工批准后写入。旧 `/prd`、`/prd-studio` 和 `/prototype-studio` 仅导航到新入口，不恢复旧文档。
+首页点击 **编写 PRD** 在新标签页打开 `/prd-studio`。在该工作台的“插件”面板可以打开“自由原型试验”，创建并保存独立 GrapesJS 原型。新版资源宿主 `/studio` 仍用于独立资源与版本化交接验证；两个宿主及旧 PRD 文档的交接尚未统一。
 
 ## 当前能力
 
@@ -56,7 +56,7 @@ bash scripts/start-studio.sh
 
 Studio 默认使用 `http://127.0.0.1:8000` 作为 API 地址并监听所有网络接口的 `3000` 端口。首次启动前需在 `apps/studio` 执行 `npm ci`。本机打开 `http://127.0.0.1:3000/studio`，API 文档位于 `http://127.0.0.1:8000/docs`。完整步骤见[快速开始](docs/getting-started/quick-start.md)。
 
-插件工作区位于 `/studio`：原型和 PRD 使用独立资源，支持工作区插件组合、版本保存、待批准的 Agent 提案和设计快照交接。按最新范围不做旧数据迁移或历史兼容；旧工具 URL 仅导航到新入口。专业 PRD 多阶段质量流程及组件级 Agent 修改尚待接入新界面。阶段提交、测试证据及剩余缺口见[插件工作台实施记录](docs/development/agent-plugin-workbench-implementation.md)。
+资源宿主位于 `/studio`：原型和 PRD 使用独立资源，支持工作区插件组合、版本保存、待批准的 Agent 提案和设计快照交接。当前首页仍进入 `/prd-studio`，两套宿主尚未合并；“自由原型试验”已在常用工作台插件面板提供入口，但旧 PRD 文档尚不能直接接收它的快照。阶段提交、测试证据及剩余缺口见[插件工作台实施记录](docs/development/agent-plugin-workbench-implementation.md)。
 
 原型的“在浏览器打开”会先保存资源，再打开 `/studio?workspace=<工作区ID>&resource=<资源ID>`。侧栏和专注模式可切换，已确认截图发布为不可变产物，经预览批准后交接给 PRD。
 

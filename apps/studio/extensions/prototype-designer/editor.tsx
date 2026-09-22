@@ -334,6 +334,11 @@ export default function Designer({
             onClick={() => { setInspectorVisible(true); setInspectorPanel("page"); }}>页面信息</button>
         </div>
         <div className={s.toolbarActions}><HistoryButtons />
+          <button disabled={disabled || data.content.length === 0} onClick={() => {
+            if (!window.confirm("清空当前页面的全部组件？页面名称和说明会保留，截图确认将失效。")) return;
+            handleSelection(null);
+            publish({ ...latest.current, content: [] }, true);
+          }}>一键清空画布</button>
           <select aria-label="原型画布尺寸" value={width}
             onChange={(event) => {
               const next = Number(event.target.value) as 960 | 390;

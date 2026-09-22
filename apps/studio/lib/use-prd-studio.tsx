@@ -106,6 +106,7 @@ export function usePrdStudio(initialTab?: "prototype") {
   );
   const { tab, setTab, openTabs, closeTab } = useEditorTabs<
     | "prototype"
+    | "grapes"
     | "brief"
     | "document"
     | "history"

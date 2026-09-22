@@ -4,6 +4,18 @@
 
 本文是[架构方案](../architecture/agent-plugin-workbench.md)的实施计划，目录、API、数据表除下述实施记录外均为**拟议契约**，不是现有能力清单。设计基线先于代码交付；每阶段记录验证证据和剩余边界。
 
+### 2026-09-22 GrapesJS 在常用工作台的入口修复（REQ-010 补充）
+
+先前把插件只装配到 `/studio`，而首页“编写 PRD”进入 `/prd-studio`，所以用户在常用插件面板看不到“自由原型试验”。现在由 GrapesJS 插件自带旧宿主贡献声明和适配界面；常用插件面板可直接打开同一工作台标签，在其中创建、编辑、保存和重开独立原型资源。独立资源仍走新版 `/api/studio` 的版本与快照接口，未把 GrapesJS 数据写回旧需求简报。`/studio` 保留为资源宿主技术入口，当前不要求用户前往该页面寻找 GrapesJS。
+
+浏览器已验证 `/prd-studio` 插件面板显示、打开、新建、标题组件插入、保存和刷新后重开，未出现页面异常；新增 `grapes-prd-studio-browser.mjs` 作为回归脚本。当前适配界面和 `/studio` 仍是两套宿主状态：适配界面的未保存草稿恢复、与旧 PRD 文档的版本化交接未打通，不能把“插件可见”当成宿主统一完成。后续应合并宿主和资源上下文，再完成交接及完整验收。
+
+两个原型编辑器均增加确认后“一键清空画布”：Puck 清除当前页组件，GrapesJS 清除当前画布组件及样式，保留名称和说明并使旧截图确认失效。清空是当前草稿修改，仍需显式保存；新版资源旧版本可追溯。新增两个浏览器回归覆盖清空操作。
+
+本批验证：`npm run test:extensions` 35 项通过，`npm run typecheck`、独立 Next 生产构建、`mkdocs build --strict`、`git diff --check` 通过；`grapes-prd-studio-browser.mjs` 与 `puck-clear-browser.mjs` 在真实 Chromium 和当前本地 API 上通过。未运行真实模型或 Penpot 集成测试。
+
+选型边界也已核实：当前依赖 `grapesjs` 是开源内核，不是官方 Grapes Studio SDK 成品界面。SDK 有额度受限的免费档和商业方案；直接换 SDK 会引入许可／会话额度问题。Penpot 是 MPL 2.0 开源的完整设计平台，自托管免费档可用，但需要独立部署，并另做身份、资源、截图与交接适配；不能当作现有 React 编辑器的直接替换件。参考官方 [GrapesJS SDK 价格](https://grapesjs.com/sdk/pricing)、[Penpot 许可](https://github.com/penpot/penpot/blob/develop/LICENSE)及[Penpot 自托管](https://penpot.app/pricing/self-host)。
+
 ### 2026-09-22 独立 GrapesJS 原型插件试验（REQ-010）
 
 用户反馈现有 Puck 原型组件太少、布局自由度不足，要求做独立 GrapesJS 插件试验。新增 `nexus.grapes-prototype` 前后端插件，默认关闭；启用后从文件菜单创建单独资源，Puck 资源保持原路径。插件自有 11 种原型组件、GrapesJS 图层／样式面板、桌面／手机画布、点击插入与选中组件自由定位。资源保存原始 GrapesJS 项目 JSON；手工保存与重开走通用版本 CAS、持久草稿和插件生命周期。此试验目前没有模型能力，因此不声明 Agent，也不显示可发送的 AI 对话。

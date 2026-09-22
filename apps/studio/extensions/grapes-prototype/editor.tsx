@@ -70,6 +70,15 @@ export default function GrapesPrototypeEditor({ resource, disabled, onChange, on
       } : {}) });
     } catch (error) { setProblem(String(error)); onError(String(error)); }
   }
+  function clearCanvas() {
+    if (!editor.current || !window.confirm("清空当前原型的全部画布组件和样式？名称与说明会保留，已确认截图将失效。")) return;
+    editor.current.getWrapper()?.components().reset();
+    editor.current.Css.getAll().reset();
+    const projectJson = JSON.stringify(editor.current.getProjectData());
+    change.current({ ...payload.current, projectJson, confirmed: false, screenshot: "", screenshotProjectDigest: "" });
+    setHasSelection(false);
+    setNotice("画布已清空，请保存草稿。");
+  }
   async function confirm() {
     if (!editor.current || !ready) throw new Error("画布尚未准备好");
     const current = payload.current;
@@ -94,6 +103,7 @@ export default function GrapesPrototypeEditor({ resource, disabled, onChange, on
       <p>点击组件插入画布，再编辑文字、尺寸和自由定位；当前试验支持单页设计。</p>
       <div className={s.actions}>
         <button disabled={disabled || busy || !ready} onClick={() => void saveDraft()}>保存草稿</button>
+        <button disabled={disabled || busy || !ready} onClick={clearCanvas}>一键清空画布</button>
         <button disabled={disabled || busy || !ready} onClick={() => void confirm()}>确认并发布快照</button>
         <button disabled={disabled || busy || !hasSelection} onClick={() => {
           editor.current?.getSelected()?.addStyle({ position: "absolute", left: "40px", top: "40px" });
