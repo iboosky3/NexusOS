@@ -29,6 +29,7 @@ nav:
       - 数据模型: architecture/data-model.md
       - 方案与演进: architecture/architecture-evolution.md
       - Agent 插件工作台方案: architecture/agent-plugin-workbench.md
+      - 原型编辑器选型: architecture/prototype-editor-selection.md
   - 架构决策:
       - 索引: adr/index.md
       - Contract First: adr/0001-contract-first.md
@@ -79,6 +80,7 @@ nav:
       - Studio 工作台组件: development/studio-workbench.md
       - 工作台插件与原型设计: development/studio-extensions.md
       - Agent 插件工作台实施说明: development/agent-plugin-workbench-implementation.md
+      - 2026-09-22 GrapesJS 开发日志: development/2026-09-22-grapesjs.md
       - AI 自主任务规划: development/ai-dag-planning.md
       - 关键运行问题台账: development/critical-runtime-backlog.md
       - RT-001 全程追溯: development/runtime-issues/001-end-to-end-tracing.md
