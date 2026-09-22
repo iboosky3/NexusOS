@@ -2,10 +2,12 @@ import assert from "node:assert/strict";
 import { writeFile } from "node:fs/promises";
 const { chromium } = await import(process.env.PLAYWRIGHT_MODULE || "playwright");
 const browser = await chromium.launch({ headless: true });
-const page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
+const page = await browser.newPage({ viewport: { width: 1500, height: 1000 }, acceptDownloads: true });
 const base = process.env.STUDIO_TEST_URL || "http://127.0.0.1:13123";
 const errors = [];
 page.on("pageerror", (error) => errors.push(error.message));
+page.on("requestfailed", (request) => errors.push(`${request.url()}: ${request.failure()?.errorText}`));
+page.on("response", (response) => { if (response.status() >= 400) errors.push(`${response.status()} ${response.url()}`); });
 async function api(path, method = "GET", data) {
   const response = await fetch(`${base}/api/studio${path}`, { method, headers: { "Content-Type": "application/json" }, body: data === undefined ? undefined : JSON.stringify(data) });
   assert.ok(response.ok, await response.clone().text());
@@ -38,17 +40,42 @@ try {
   await editor.getByRole("button", { name: "保存草稿" }).click();
   await page.getByRole("status").filter({ hasText: "已保存 r3" }).waitFor();
   assert.match((await api(`/${workspace.id}/resources/${source.id}`)).payload.projectJson, /absolute/);
+  await editor.getByLabel("自由原型画布宽度").selectOption("平板");
+  await editor.getByRole("button", { name: "查看代码" }).click();
+  assert.match(await editor.getByLabel("原型 HTML 与 CSS").inputValue(), /页面标题/);
+  const download = page.waitForEvent("download");
+  await editor.getByRole("button", { name: "导出工程 JSON" }).click();
+  assert.match((await download).suggestedFilename(), /\.json$/);
+  page.once("dialog", (dialog) => dialog.accept("详情"));
+  await editor.getByRole("button", { name: "新建页面" }).click();
+  await editor.getByLabel("自由原型页面").selectOption({ label: "详情" });
+  await block.click();
+  await page.frameLocator("iframe.gjs-frame").getByText("页面标题").waitFor();
+  await editor.getByRole("button", { name: "撤销" }).click();
+  await page.frameLocator("iframe.gjs-frame").getByText("页面标题").waitFor({ state: "detached" });
+  await editor.getByRole("button", { name: "重做" }).click();
+  await page.frameLocator("iframe.gjs-frame").getByText("页面标题").waitFor();
+  await editor.getByLabel("本页交互说明").fill("查看详情与交互。");
+  await editor.getByLabel("上传原型图片").setInputFiles({ name: "pixel.png", mimeType: "image/png", buffer: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9pVQmH8AAAAASUVORK5CYII=", "base64") });
+  await editor.getByRole("button", { name: "打开素材库" }).click();
+  await page.locator(".gjs-am-assets").waitFor();
+  await page.locator(".gjs-mdl-btn-close").click();
+  await editor.getByRole("button", { name: "保存草稿" }).click();
+  await page.getByRole("status").filter({ hasText: "已保存 r4" }).waitFor();
   await page.screenshot({ path: "/tmp/nexus-grapes-experiment.png", fullPage: true });
   await editor.getByRole("button", { name: "确认并发布快照" }).click();
   await editor.getByRole("status").filter({ hasText: "已发布" }).waitFor({ timeout: 20000 });
   const snapshot = await api(`/${workspace.id}/resources/${source.id}`);
+  assert.equal(snapshot.payload.pageSnapshots.length, 2);
   await writeFile("/tmp/nexus-grapes-snapshot.jpg", Buffer.from(snapshot.payload.screenshot.split(",")[1], "base64"));
   const published = await api(`/${workspace.id}/artifacts`);
   assert.equal(published.length, 1);
   assert.equal(published[0].producerPluginId, "nexus.grapes-prototype");
+  assert.equal(published[0].payload.pages.length, 2);
   await page.getByRole("button", { name: "交给 接收文档" }).click();
   const preview = page.getByRole("region", { name: "交接预览" });
-  await preview.getByRole("region", { name: "交接后正文" }).locator("img").waitFor();
+  await preview.getByRole("region", { name: "交接后正文" }).locator("img").first().waitFor();
+  assert.equal(await preview.getByRole("region", { name: "交接后正文" }).locator("img").count(), 2);
   await preview.getByRole("button", { name: "确认并应用" }).click();
   const adopted = await api(`/${workspace.id}/resources/${prd.id}`);
   assert.match(adopted.payload.content, /studio-source:/);
@@ -60,4 +87,5 @@ try {
   assert.equal(resources.filter((item) => item.resourceType === "nexus.grapes-prototype").length, 2);
   assert.deepEqual(errors, []);
   console.log("PASS: opt-in GrapesJS plugin, block insertion, versioned save/reopen, absolute positioning, clean screenshot, PRD handoff and plugin-owned creation");
-} finally { await browser.close(); }
+} catch (error) { console.error(page.url(), errors, (await page.locator("body").innerText()).slice(0, 3000)); throw error; }
+finally { await browser.close(); }

@@ -504,4 +504,4 @@ digest 对规范化序列化内容及引用媒体的内容摘要计算，排除�
 
 2026-09-22 增量证据：新资源工作台已补持久草稿、未确认保存请求恢复、插件产物生产／消费扩展点和中央交接预览。冲突后重算提案并再次人工确认；PRD 内容呈现与来源区块处理归插件。实际提交和测试见[实施记录](../development/agent-plugin-workbench-implementation.md)。两个宿主尚未合一，来源区块人工编辑的三方合并、完整真实模型与新数据备份恢复仍未完成；不做旧数据兼容的最新决定覆盖早期迁移条目。
 
-2026-09-22 原型编辑器试验：`nexus.grapes-prototype` 为独立、默认关闭的手工插件，原型资源与 Puck 分离；两者均通过版本化 `nexus.prototype.snapshot` v1 交给 PRD。GrapesJS 试验以插件自有项目 JSON、截图摘要和安全校验为边界，当前只支持单页、点击插入与样式定位。是否替代 Puck 尚无结论；浏览器验收及剩余缺口见[实施记录](../development/agent-plugin-workbench-implementation.md)。
+2026-09-22 原型编辑器试验：`nexus.grapes-prototype` 为独立、默认关闭的手工插件，原型资源与 Puck 分离；两者均通过版本化 `nexus.prototype.snapshot` v1 交给 PRD。GrapesJS 插件已接入开源内核的页面、组件、图层、属性、选择器、样式、设备、历史、预览、素材与导出，按当前 PRD 契约最多交接 4 页。插件自有项目 JSON、逐页截图摘要和安全校验仍是边界；不允许运行脚本或远程嵌入。是否替代 Puck 尚无结论；浏览器验收及剩余缺口见[实施记录](../development/agent-plugin-workbench-implementation.md)。

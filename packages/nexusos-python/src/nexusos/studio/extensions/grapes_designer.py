@@ -68,12 +68,20 @@ def validate_project(raw: str) -> None:
     visit(project)
 
 
+class GrapesPageSnapshot(StrictModel):
+    id: str = Field(pattern=r"^[a-zA-Z0-9_-]{1,40}$")
+    title: str = Field(min_length=1, max_length=80)
+    description: str = Field(min_length=1, max_length=2000)
+    screenshot: str = Field(min_length=1, max_length=140000)
+
+
 class GrapesPayload(StrictModel):
     title: str = Field(default="未命名自由原型", min_length=1, max_length=200)
     description: str = Field(default="", max_length=2000)
     projectJson: str = Field(default="{}", max_length=200000)
     screenshot: str = Field(default="", max_length=140000)
     screenshotProjectDigest: str = Field(default="", max_length=64)
+    pageSnapshots: list[GrapesPageSnapshot] = Field(default_factory=list, max_length=4)
     confirmed: bool = False
 
     @model_validator(mode="after")
@@ -81,10 +89,16 @@ class GrapesPayload(StrictModel):
         validate_project(self.projectJson)
         if self.screenshot:
             screenshot_bytes(self.screenshot)
+        for page in self.pageSnapshots:
+            screenshot_bytes(page.screenshot)
+        if len({page.id for page in self.pageSnapshots}) != len(self.pageSnapshots):
+            raise ValueError("页面编号不能重复")
+        if sum(len(page.screenshot) for page in self.pageSnapshots) > 140000:
+            raise ValueError("原型截图合计过大，请减少页面或压缩图片")
         expected = hashlib.sha256(self.projectJson.encode()).hexdigest()
         if self.confirmed and (
             not self.description.strip()
-            or not self.screenshot
+            or not (self.pageSnapshots or self.screenshot)
             or self.screenshotProjectDigest != expected
         ):
             raise ValueError("确认前请填写页面说明并为当前项目重新生成截图")
@@ -95,21 +109,19 @@ def prepare(source: dict, put_media) -> dict:
     value = GrapesPayload.model_validate(source)
     if not value.confirmed:
         raise ValueError("发布前必须确认原型设计")
-    snapshot = Prototype.model_validate(
+    pages = [page.model_dump() for page in value.pageSnapshots] or [
         {
-            "confirmed": True,
-            "pages": [
-                {
-                    "id": "home",
-                    "title": value.title,
-                    "description": value.description,
-                    "elements": [],
-                    "screenshot": value.screenshot,
-                }
-            ],
+            "id": "home",
+            "title": value.title,
+            "description": value.description,
+            "screenshot": value.screenshot,
         }
+    ]
+    snapshot = Prototype.model_validate(
+        {"confirmed": True, "pages": [{**page, "elements": []} for page in pages]}
     ).model_dump()
-    snapshot["pages"][0]["screenshotRef"] = put_media(snapshot["pages"][0].pop("screenshot"))
+    for page in snapshot["pages"]:
+        page["screenshotRef"] = put_media(page.pop("screenshot"))
     return snapshot
 
 

@@ -6,12 +6,16 @@
 .meta p { margin: 0; }
 .actions { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
 .actions button { min-height: 36px; }
+.actions label { min-width: 160px; }
+.code { width: 100%; min-height: 220px; font: 12px/1.5 monospace; white-space: pre; }
 .canvas { min-height: 600px; width: 100%; border: 1px solid #dce3de; }
 
 .workspace { display: grid; grid-template-columns: 180px minmax(0, 1fr) 240px; gap: 8px; min-height: 620px; }
 .palette, .inspector { min-width: 0; max-height: 640px; overflow: auto; background: #f5f8f5; border: 1px solid #dce3de; padding: 8px; }
 .palette h3, .inspector h3 { font-size: 13px; margin: 10px 0; }
 .palette :global(.gjs-block) { width: 100%; min-height: 44px; }
+.palette input[type="file"] { max-width: 100%; font-size: 12px; }
+.palette button { margin-top: 8px; }
 .inspector :global(.gjs-sm-sector) { font-size: 12px; }
 @media (max-width: 1000px) { .workspace { grid-template-columns: 140px minmax(0,1fr); } .inspector { grid-column: 1 / -1; max-height: 300px; } }
 @media (max-width: 650px) { .workspace { grid-template-columns: 1fr; } .palette { max-height: 180px; } }

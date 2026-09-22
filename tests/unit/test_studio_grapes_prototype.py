@@ -70,6 +70,40 @@ def test_changed_project_requires_new_screenshot(instance):
         HandoffService(store).publish(workspace, source["id"], draft["revision"], "publish")
 
 
+def test_multiple_grapes_pages_publish_and_handoff(instance):
+    store, workspace = instance
+    source_payload = payload()
+    source_payload["screenshot"] = png()
+    source_payload["pageSnapshots"] = [
+        {"id": "home", "title": "首页", "description": "查看首页", "screenshot": png()},
+        {"id": "details", "title": "详情", "description": "查看详情", "screenshot": png()},
+    ]
+    source = store.create_resource(
+        workspace, "nexus.grapes-prototype", source_payload, "source-pages"
+    )
+    artifact = HandoffService(store).publish(workspace, source["id"], 1, "publish-pages")
+    assert [page["title"] for page in artifact["payload"]["pages"]] == ["首页", "详情"]
+    target = store.create_resource(
+        workspace, "nexus.prd", {"brief": {"title": "PRD"}}, "target-pages"
+    )
+    service = HandoffService(store)
+    preview = service.create(workspace, artifact["id"], target["id"], "preview-pages")
+    service.apply(workspace, preview["id"], preview["proposalDigest"], artifact["digest"])
+    content = store.get(workspace, target["id"], "resource")["payload"]["content"]
+    assert "首页" in content and "详情" in content
+
+
+def test_duplicate_or_oversized_page_snapshots_rejected():
+    data = payload()
+    page = {"id": "home", "title": "首页", "description": "查看首页", "screenshot": png()}
+    with pytest.raises(ValueError, match="页面编号不能重复"):
+        GrapesPayload.model_validate({**data, "pageSnapshots": [page, page]})
+    with pytest.raises(ValueError):
+        GrapesPayload.model_validate(
+            {**data, "pageSnapshots": [{**page, "id": f"page{i}"} for i in range(5)]}
+        )
+
+
 @pytest.mark.parametrize(
     "project",
     [
