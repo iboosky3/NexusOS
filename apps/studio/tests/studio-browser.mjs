@@ -106,8 +106,36 @@ try {
   await page.getByRole("button", { name: "确认并交给 PRD 编写", exact: true }).click();
   await page.getByRole("button", { name: "交给 浏览器验收 PRD", exact: true }).waitFor({ timeout: 20000 });
   await page.getByRole("button", { name: "交给 浏览器验收 PRD", exact: true }).click();
-  await page.getByRole("button", { name: "确认并应用", exact: true }).click();
+  const preview = page.getByRole("region", { name: "交接预览", exact: true });
+  await preview.getByRole("region", { name: "交接后正文", exact: true }).waitFor();
+  assert.match(await preview.textContent(), /来源与版本/);
+  assert.ok(await preview.getByRole("region", { name: "交接后正文", exact: true }).locator("img").count() > 0);
+  const workspaceId = new URL(page.url()).searchParams.get("workspace");
+  async function resourceApi(path, method = "GET", data) {
+    const response = await fetch(`${base}/api/studio/${workspaceId}${path}`, { method, headers: { "Content-Type": "application/json" }, body: data === undefined ? undefined : JSON.stringify(data) });
+    assert.ok(response.ok, await response.clone().text());
+    return response.json();
+  }
+  const pending = (await resourceApi("/handoffs"))[0];
+  const beforeConflict = await resourceApi(`/resources/${pending.targetId}`);
+  const concurrent = await resourceApi(`/resources/${pending.targetId}`, "PATCH", {
+    expectedRevision: beforeConflict.revision, payload: { ...beforeConflict.payload, content: beforeConflict.payload.content + "\n\n交接预览后的人工补充。" }, clientRequestId: crypto.randomUUID(),
+  });
+  await preview.getByRole("button", { name: "确认并应用", exact: true }).click();
+  await preview.getByRole("alert").filter({ hasText: "目标已有新版本" }).waitFor();
+  assert.ok(await preview.getByRole("button", { name: "确认并应用", exact: true }).isDisabled());
+  assert.equal((await resourceApi(`/resources/${pending.targetId}`)).revision, concurrent.revision);
+  await preview.getByRole("button", { name: "按最新版本重新预览", exact: true }).click();
+  await page.getByRole("status").filter({ hasText: "已按最新版本重新生成预览" }).waitFor();
+  await preview.getByRole("region", { name: "交接前正文", exact: true }).waitFor();
+  assert.match(await preview.getByRole("region", { name: "交接后正文", exact: true }).textContent(), /交接预览后的人工补充/);
+  assert.equal((await resourceApi(`/resources/${pending.targetId}`)).revision, concurrent.revision);
+  await page.setViewportSize({ width: 600, height: 850 });
+  await preview.getByRole("button", { name: "确认并应用", exact: true }).focus();
+  await page.keyboard.press("Enter");
+  await page.setViewportSize({ width: 1280, height: 900 });
   await editor.waitFor();
+  assert.match(await editor.inputValue(), /交接预览后的人工补充/);
   assert.match(await editor.inputValue(), /studio-source:/);
   const other = await browser.newPage();
   await other.goto(page.url());
@@ -164,5 +192,5 @@ try {
   await page.waitForFunction(() => document.querySelector('textarea[maxlength="20000"]')?.value === "整理后的便签");
   await page.screenshot({ path: "/tmp/nexus-plugin-workspace-browser.png", fullPage: true });
   assert.deepEqual(failures, []);
-  console.log("PASS: create/save, draft recovery, workflow graph/details/keyboard/reload, Agent approval, clarification, scoped component suggestions, prototype JSON recovery, screenshot handoff, two-window isolation, CAS, disable/re-enable, focus and third plugin editor/view/Agent; real API + deterministic model");
+  console.log("PASS: create/save, draft recovery, workflow graph/details/keyboard/reload, Agent approval, clarification, scoped component suggestions, prototype JSON recovery, screenshot handoff preview/conflict/reconfirmation, two-window isolation, CAS, disable/re-enable, focus and third plugin editor/view/Agent; real API + deterministic model");
 } finally { await browser.close(); }

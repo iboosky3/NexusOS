@@ -1,0 +1,8 @@
+.preview { padding: 16px; overflow-wrap: anywhere; }
+.preview p { margin: 10px 0; }
+.preview footer { position: sticky; bottom: 0; padding: 12px; background: var(--panel-bg, #fff); border-top: 1px solid #dce3de; }
+.preview button { margin: 6px; }
+.columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+.columns section { min-width: 0; }
+.columns pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+@media (max-width: 800px) { .columns { grid-template-columns: 1fr; } }

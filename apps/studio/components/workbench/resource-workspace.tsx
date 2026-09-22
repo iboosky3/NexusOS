@@ -15,6 +15,7 @@ import { InvocationFlow, type InvocationTrace } from "./invocation-flow";
 import { browserDrafts } from "@/lib/workspace/browser-drafts";
 import { resourceDraft, type SaveSubmission } from "@/lib/workspace/resource-draft";
 import type { DraftCandidate } from "@/lib/workspace/draft-store";
+import { HandoffPreview, type Artifact, type Handoff } from "./handoff-preview";
 import { DraftRecovery } from "./draft-recovery";
 import { useEditorTabs } from "./use-editor-tabs";
 import s from "./resource-workspace.module.css";
@@ -22,9 +23,8 @@ import s from "./resource-workspace.module.css";
 type Workspace = { id: string; title: string; revision: number; plugins: string[]; layouts: Record<string, unknown> };
 type Session = { base: StudioResource; payload: ResourcePayload };
 type Invocation = InvocationTrace & { id: string; status: string; error: string | null; request: { resourceId: string; revision: number; capabilityId: string; instruction: string; input?: ResourcePayload }; result?: { answer?: string; payload?: ResourcePayload; digest?: string } };
-type Artifact = { id: string; artifactType: string; sourceResourceId: string; sourceRevision: number; digest: string; payload: { pages: unknown[] } };
-type Handoff = { id: string; targetId: string; status: string; proposal: ResourcePayload; proposalDigest: string; artifactDigest: string; expectedRevision: number };
 const editors = new Map(studioPlugins.map((plugin) => [plugin.id, dynamic(plugin.load, { ssr: false, loading: () => <p>正在加载编辑器…</p> })]));
+const handoffPreviews = new Map(studioPlugins.filter((plugin) => plugin.loadHandoffPreview).map((plugin) => [plugin.id, dynamic(plugin.loadHandoffPreview!, { ssr: false })]));
 const contributedViews = studioPlugins.flatMap((plugin) => (plugin.views ?? []).map((view) => ({ ...view, pluginId: plugin.id, resourceType: plugin.resourceType, Component: dynamic(view.load, { ssr: false }) })));
 const owner = (resource: StudioResource) => studioPlugins.find((plugin) => plugin.resourceType === resource.resourceType);
 const dirty = (session: Session) => JSON.stringify(session.payload) !== JSON.stringify(session.base.payload);
@@ -70,6 +70,9 @@ export function ResourceWorkspace() {
   const active = tab ? sessions[tab] : undefined;
   const selectedAgent = tab?.startsWith("agent:") ? studioPlugins.find((item) => item.id === tab.slice(6) && item.agent) : undefined;
   const selectedRun = tab?.startsWith("run:") ? invocations.find((item) => item.id === tab.slice(4)) : undefined;
+  const selectedHandoff = tab?.startsWith("handoff:") ? handoffs.find((item) => item.id === tab.slice(8)) : undefined;
+  const handoffTarget = selectedHandoff && sessions[selectedHandoff.targetId];
+  const handoffPlugin = handoffTarget ? owner(handoffTarget.base) : undefined;
   const plugin = active ? owner(active.base) : undefined;
   const enabled = (id: string) => Boolean(workspace?.plugins.includes(id));
   const api = <T,>(path: string, method = "GET", body?: unknown) => studioApi<T>(`/${workspace!.id}${path}`, method, body);
@@ -253,7 +256,7 @@ export function ResourceWorkspace() {
   }
   async function publish(resource: StudioResource) {
     await api("/artifacts", "POST", { resourceId: resource.id, revision: resource.revision, clientRequestId: createComponentId() });
-    await refresh(workspace!.id); setSide("handoffs"); setNotice("设计快照已发布。选择目标文档，预览交接后再确认。");
+    await refresh(workspace!.id); setSide("handoffs"); setNotice("快照已发布。选择目标资源，预览交接后再确认。");
   }
   async function invoke(retry?: Invocation) {
     const current = retry ? sessions[retry.request.resourceId] : active;
@@ -311,16 +314,13 @@ export function ResourceWorkspace() {
         {enabled(definition.id) && <button disabled={busy} onClick={() => void perform(() => host!.execute(definition.commands[0].id))}>新建</button>}
       </section>) : side === "handoffs" ? <>
         <p>快照不可变；先选择接收文档，再预览确认。</p>
-        {artifacts.map((artifact) => <section key={artifact.id}><strong>设计 r{artifact.sourceRevision}</strong>
+        {artifacts.map((artifact) => <section key={artifact.id}><strong>{artifact.artifactType} · r{artifact.sourceRevision}</strong>
           {Object.values(sessions).filter((session) => owner(session.base)?.acceptsArtifacts?.includes(artifact.artifactType)).map((target) => <button key={target.base.id} disabled={busy || dirty(target)} onClick={() => void perform(async () => {
-            await api("/handoffs", "POST", { artifactId: artifact.id, targetId: target.base.id, clientRequestId: createComponentId() }); await refresh(workspace.id);
+            const transfer = await api<Handoff>("/handoffs", "POST", { artifactId: artifact.id, targetId: target.base.id, clientRequestId: createComponentId() }); await refresh(workspace.id); setTab(`handoff:${transfer.id}`);
           })}>交给 {owner(target.base)?.title(target.payload)}</button>)}
         </section>)}
         {handoffs.map((transfer) => <section key={transfer.id}><strong>{transfer.status === "succeeded" ? "已交接" : "待确认交接"} · 目标 r{transfer.expectedRevision}</strong>
-          <details><summary>预览将写入的正文</summary><pre>{JSON.stringify(transfer.proposal, null, 2)}</pre></details>
-          {transfer.status === "waiting_confirmation" && <button disabled={busy || Boolean(sessions[transfer.targetId] && dirty(sessions[transfer.targetId]))} onClick={() => void perform(async () => {
-            await api(`/handoffs/${transfer.id}/apply`, "POST", { proposalDigest: transfer.proposalDigest, artifactDigest: transfer.artifactDigest }); await refresh(workspace.id); setTab(transfer.targetId);
-          })}>确认并应用</button>}
+          <button onClick={() => setTab(`handoff:${transfer.id}`)}>查看交接预览</button>
         </section>)}
       </> : side === "tasks" ? invocations.slice().reverse().map((task) => <section key={task.id}><strong>{task.status}</strong><p>{task.request.instruction}</p><p>{task.error}</p>
         <p>资源 r{task.request.revision} · {task.request.capabilityId}</p>
@@ -348,6 +348,8 @@ export function ResourceWorkspace() {
     <EditorTabs tabs={openTabs.flatMap((id) => {
       const session = sessions[id];
       if (session) return [{ id, icon: owner(session.base)?.icon || "▤", label: `${owner(session.base)?.title(session.payload) || "资源"}${dirty(session) ? " ●" : ""}` }];
+      const transfer = id.startsWith("handoff:") ? handoffs.find((item) => item.id === id.slice(8)) : undefined;
+      if (transfer) return [{ id, icon: "⇄", label: `交接预览 · r${transfer.expectedRevision}` }];
       const run = id.startsWith("run:") ? invocations.find((item) => item.id === id.slice(4)) : undefined;
       if (run) return [{ id, icon: "◇", label: `工作流 · ${run.request.instruction.slice(0, 20)}` }];
       const definition = id.startsWith("agent:") ? studioPlugins.find((item) => item.id === id.slice(6) && item.agent) : undefined;
@@ -359,7 +361,23 @@ export function ResourceWorkspace() {
     {active && <DraftRecovery candidates={draftCandidates} disabled={busy || dirty(active)} onRestore={(candidate) => void perform(() => restoreDraft(candidate))} onDiscard={(candidate) => { void perform(async () => { browserDrafts().discard(draftKey(workspace!.id, active.base.id), candidate); reloadCandidates(); }); }} />}
     {notice && <div role="status" className={s.notice}>{notice}<button onClick={() => setNotice("")}>关闭</button></div>}
     <div className={s.editors}>
-      {!active && !selectedAgent && !selectedRun && <section className={s.empty}><h2>组合插件，开始工作</h2><p>关闭标签不会删除资源或取消任务。</p>{commands.slice(1).map((command) => <button key={command.id} disabled={command.disabled} onClick={command.run}>{command.label}</button>)}</section>}
+      {!active && !selectedAgent && !selectedRun && !selectedHandoff && <section className={s.empty}><h2>组合插件，开始工作</h2><p>关闭标签不会删除资源或取消任务。</p>{commands.slice(1).map((command) => <button key={command.id} disabled={command.disabled} onClick={command.run}>{command.label}</button>)}</section>}
+      {selectedHandoff && <HandoffPreview key={selectedHandoff.id} workspace={workspace.id} transfer={selectedHandoff}
+        artifact={artifacts.find((item) => item.id === selectedHandoff.artifactId)} current={handoffTarget?.base}
+        targetTitle={handoffTarget && handoffPlugin ? handoffPlugin.title(handoffTarget.payload) : selectedHandoff.targetId}
+        Preview={handoffPlugin ? handoffPreviews.get(handoffPlugin.id) : undefined}
+        disabled={busy || !handoffTarget || dirty(handoffTarget) || !handoffPlugin || !enabled(handoffPlugin.id)}
+        onApply={() => void perform(async () => {
+          try {
+            await api(`/handoffs/${selectedHandoff.id}/apply`, "POST", { proposalDigest: selectedHandoff.proposalDigest, artifactDigest: selectedHandoff.artifactDigest });
+          } catch (failure) { await refresh(workspace.id); throw failure; }
+          await refresh(workspace.id); setTab(selectedHandoff.targetId);
+        })}
+        onRepreview={() => void perform(async () => {
+          const transfer = await api<Handoff>("/handoffs", "POST", { artifactId: selectedHandoff.artifactId, targetId: selectedHandoff.targetId, clientRequestId: createComponentId() });
+          await refresh(workspace.id); setTab(`handoff:${transfer.id}`);
+          setNotice("已按最新版本重新生成预览，请检查后再次确认；正文尚未修改。");
+        })} />}
       {selectedRun && <InvocationFlow key={selectedRun.id} task={selectedRun} onResource={() => setTab(selectedRun.request.resourceId)} />}
       {selectedAgent && <AgentDetail plugin={selectedAgent} enabled={enabled(selectedAgent.id)} busy={busy || !host} onRun={() => {
         if (host) void perform(() => host.execute(selectedAgent.agent!.launchCommand));

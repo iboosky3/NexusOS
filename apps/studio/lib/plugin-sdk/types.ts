@@ -24,6 +24,7 @@ export interface PluginViewProps {
   resources: readonly StudioResource[];
   onOpen(resource: StudioResource): void;
 }
+export interface HandoffPreviewProps { before: ResourcePayload; after: ResourcePayload }
 export interface StudioPlugin {
   views?: readonly { id: string; label: string; icon: string; load(): Promise<{ default: ComponentType<PluginViewProps> }> }[];
   schemaVersion: 1; hostApiVersion: "1"; dependencies: readonly string[];
@@ -32,6 +33,7 @@ export interface StudioPlugin {
   capabilities: { id: string; label: string; prepareInput?(selection: unknown): ResourcePayload }[];
   agent?: AgentProfile;
   acceptsArtifacts?: string[];
+  loadHandoffPreview?(): Promise<{ default: ComponentType<HandoffPreviewProps> }>;
   validateDraft?(payload: ResourcePayload): void;
   initialPayload(): ResourcePayload;
   title(payload: ResourcePayload): string;

@@ -13,6 +13,7 @@ export const prdPlugin: StudioPlugin = {
   },
   id: "nexus.prd-writer", name: "PRD 编写", resourceType: "nexus.prd", icon: "#",
   agent: prdAgentProfile,
+  loadHandoffPreview: () => import("./handoff-preview"),
   acceptsArtifacts: ["nexus.prototype.snapshot"],
   capabilities: [{ id: "draft", label: "编写草稿" }, { id: "revise", label: "修订文档" }, { id: "review", label: "评审" }, { id: "clarify", label: "澄清需求" }],
   validateDraft(payload) {
