@@ -12,6 +12,10 @@ import { Workbench, EditorTabs, PanelHeading } from "./workbench";
 import { PluginErrorBoundary } from "./plugin-error-boundary";
 import { AgentDirectory, AgentDetail } from "./agent-catalog";
 import { InvocationFlow, type InvocationTrace } from "./invocation-flow";
+import { browserDrafts } from "@/lib/workspace/browser-drafts";
+import { resourceDraft, type SaveSubmission } from "@/lib/workspace/resource-draft";
+import type { DraftCandidate } from "@/lib/workspace/draft-store";
+import { DraftRecovery } from "./draft-recovery";
 import { useEditorTabs } from "./use-editor-tabs";
 import s from "./resource-workspace.module.css";
 
@@ -24,7 +28,13 @@ const editors = new Map(studioPlugins.map((plugin) => [plugin.id, dynamic(plugin
 const contributedViews = studioPlugins.flatMap((plugin) => (plugin.views ?? []).map((view) => ({ ...view, pluginId: plugin.id, resourceType: plugin.resourceType, Component: dynamic(view.load, { ssr: false }) })));
 const owner = (resource: StudioResource) => studioPlugins.find((plugin) => plugin.resourceType === resource.resourceType);
 const dirty = (session: Session) => JSON.stringify(session.payload) !== JSON.stringify(session.base.payload);
-const draftKey = (workspace: string, resource: string) => `nexus-studio:draft:v1:${workspace}:${resource}`;
+const draftKey = (workspace: string, resource: string) => `resource:${workspace}:${resource}`;
+function validatedDraft(resource: StudioResource, data: unknown) {
+  const value = resourceDraft(data);
+  owner(resource)?.validateDraft?.(value.payload);
+  if (value.submission) owner(resource)?.validateDraft?.(value.submission.payload);
+  return value;
+}
 
 export function ResourceWorkspace() {
   const [profile, setProfile] = useState("desktop");
@@ -36,9 +46,11 @@ export function ResourceWorkspace() {
   const sessionsRef = useRef(sessions); sessionsRef.current = sessions;
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [draftError, setDraftError] = useState("");
+  const [draftCandidates, setDraftCandidates] = useState<DraftCandidate[]>([]);
   const [busy, setBusy] = useState(false);
   const operationBusy = useRef(false);
-  const uncertainSaves = useRef(new Map<string, { expectedRevision: number; payload: ResourcePayload; clientRequestId: string }>());
+  const uncertainSaves = useRef(new Map<string, SaveSubmission>());
   const saves = useRef(new Map<string, Promise<StudioResource>>());
   const [side, setSide] = useState("resources");
   const [sidebarFocus, setSidebarFocus] = useState(0);
@@ -77,12 +89,15 @@ export function ResourceWorkspace() {
     const recovered = new Map<string, { base: StudioResource; payload: ResourcePayload }>();
     for (const resource of resources) {
       try {
-        const draft = JSON.parse(sessionStorage.getItem(draftKey(id, resource.id)) || "null");
-        if (draft && typeof draft.baseRevision === "number" && draft.payload && typeof draft.payload === "object") {
+        if (sessionsRef.current[resource.id]) continue;
+        const record = browserDrafts().resume(draftKey(id, resource.id), (data) => validatedDraft(resource, data));
+        if (record) {
+          const draft = validatedDraft(resource, record.data);
           const base = draft.baseRevision === resource.revision ? resource : await studioApi<StudioResource>(`/${id}/resources/${resource.id}/versions/${draft.baseRevision}`);
           recovered.set(resource.id, { base, payload: draft.payload });
+          if (draft.submission) uncertainSaves.current.set(resource.id, draft.submission);
         }
-      } catch { setError("部分草稿无法恢复，请保留浏览器数据；当前显示服务器版本。"); }
+      } catch { setDraftError("部分草稿无法恢复，原始记录已保留，可下载备份；当前显示服务器版本。"); }
     }
     setSessions((previous) => {
       const next: Record<string, Session> = {};
@@ -91,7 +106,7 @@ export function ResourceWorkspace() {
         if (existing && dirty(existing)) { next[resource.id] = existing; return; }
         next[resource.id] = recovered.get(resource.id) || { base: resource, payload: resource.payload };
       });
-      return next;
+      sessionsRef.current = next; return next;
     });
     setInvocations(tasks); setArtifacts(published); setHandoffs(transfers);
   }
@@ -158,8 +173,38 @@ export function ResourceWorkspace() {
     const current = sessionsRef.current[id]; if (!current) return;
     const next = { ...sessionsRef.current, [id]: { ...current, payload } };
     sessionsRef.current = next; setSessions(next);
-    try { sessionStorage.setItem(draftKey(workspace!.id, id), JSON.stringify({ baseRevision: current.base.revision, payload })); }
-    catch { setError("浏览器无法保存本地草稿，请尽快保存到服务器，不要关闭页面。"); }
+    persistDraft(id, current.base.revision, payload);
+  }
+  function persistDraft(id: string, baseRevision: number, payload: ResourcePayload) {
+    try {
+      browserDrafts().write(draftKey(workspace!.id, id), { baseRevision, payload, submission: uncertainSaves.current.get(id) });
+      setDraftError("");
+    } catch { setDraftError("浏览器无法保存持久草稿，请保存到服务器或复制备份，不要关闭页面。"); }
+  }
+  function reloadCandidates() {
+    if (!workspace || !active) { setDraftCandidates([]); return; }
+    try { setDraftCandidates(browserDrafts().candidates(draftKey(workspace.id, active.base.id), (data) => validatedDraft(active.base, data))); }
+    catch { setDraftError("无法读取本地草稿存储，请检查浏览器存储设置；当前编辑内容仍保留。"); }
+  }
+  useEffect(() => {
+    reloadCandidates();
+    const reload = () => reloadCandidates();
+    window.addEventListener("storage", reload);
+    window.addEventListener("focus", reload);
+    return () => { window.removeEventListener("storage", reload); window.removeEventListener("focus", reload); };
+  }, [tab, workspace?.id, active?.base.revision]);
+  async function restoreDraft(candidate: DraftCandidate) {
+    if (!active || dirty(active)) throw new Error("请先保存或备份当前修改，再恢复另一份草稿");
+    const draft = validatedDraft(active.base, candidate.record?.data);
+    const base = await api<StudioResource>(`/resources/${active.base.id}/versions/${draft.baseRevision}`);
+    if (dirty(sessionsRef.current[base.id])) throw new Error("当前内容已变化，请先保存后恢复");
+    browserDrafts().adopt(draftKey(workspace!.id, base.id), candidate);
+    if (draft.submission) uncertainSaves.current.set(base.id, draft.submission);
+    else uncertainSaves.current.delete(base.id);
+    const next = { ...sessionsRef.current, [base.id]: { base, payload: draft.payload } };
+    sessionsRef.current = next; setSessions(next); setDraftError("");
+    setNotice(`已恢复本地草稿，基于 r${base.revision}；尚未写入服务器`);
+    reloadCandidates();
   }
   async function save(id: string, payload?: ResourcePayload): Promise<StudioResource> {
     const running = saves.current.get(id);
@@ -174,32 +219,30 @@ export function ResourceWorkspace() {
     const value = payload || session.payload;
     // Retry the exact uncertain submission first, even if editing continued meanwhile.
     let submission = uncertainSaves.current.get(id);
-    if (!submission) {
-      try { submission = JSON.parse(sessionStorage.getItem(`nexus-studio:save:${workspace!.id}:${id}`) || "null"); } catch { /* Keep the current draft. */ }
-    }
     submission ||= { expectedRevision: session.base.revision, payload: value, clientRequestId: createComponentId() };
     uncertainSaves.current.set(id, submission);
-    try { sessionStorage.setItem(`nexus-studio:save:${workspace!.id}:${id}`, JSON.stringify(submission)); } catch { /* In-memory retry still works. */ }
+    persistDraft(id, session.base.revision, value);
     let saved: StudioResource;
     try { saved = await api<StudioResource>(`/resources/${id}`, "PATCH", submission); }
     catch (failure) {
       if (failure instanceof StudioApiError && failure.status < 500) {
         uncertainSaves.current.delete(id);
-        try { sessionStorage.removeItem(`nexus-studio:save:${workspace!.id}:${id}`); } catch { /* Retain draft. */ }
+        persistDraft(id, sessionsRef.current[id].base.revision, sessionsRef.current[id].payload);
       }
       throw new Error(`保存未确认，草稿已保留；重试会先核对原提交。${String(failure)}`);
     }
     uncertainSaves.current.delete(id);
-    try { sessionStorage.removeItem(`nexus-studio:save:${workspace!.id}:${id}`); } catch { /* Receipt replay is safe. */ }
     const submitted = JSON.stringify(submission.payload);
     // Preserve edits made while the request was in flight.
     const latest = sessionsRef.current[id].payload;
     const next = { ...sessionsRef.current, [id]: { base: saved, payload: JSON.stringify(latest) === submitted ? saved.payload : latest } };
     sessionsRef.current = next; setSessions(next);
     try {
-      if (JSON.stringify(latest) === submitted) sessionStorage.removeItem(draftKey(workspace!.id, id));
-      else sessionStorage.setItem(draftKey(workspace!.id, id), JSON.stringify({ baseRevision: saved.revision, payload: latest }));
-    } catch { setError("服务器保存成功，但本地草稿存储不可用，请复制尚未保存的修改。"); }
+      if (JSON.stringify(latest) === submitted) browserDrafts().clear(draftKey(workspace!.id, id));
+      else browserDrafts().write(draftKey(workspace!.id, id), { baseRevision: saved.revision, payload: latest });
+      setDraftError("");
+    } catch { setDraftError("服务器保存成功，但本地草稿清理失败，请保留尚未保存的修改；旧草稿仍可查看。"); }
+    reloadCandidates();
     setNotice(`已保存 r${saved.revision}`); return saved;
   }
   async function toggle(definition: StudioPlugin) {
@@ -312,6 +355,8 @@ export function ResourceWorkspace() {
     })}
       value={tab} onChange={setTab} closableIds={openTabs} onClose={(id) => { closeTab(id); setClosed((previous) => [...previous.filter((value) => value !== id), id]); }} />
     {error && <div role="alert" className={s.error}>{error}<button onClick={() => setError("")}>关闭</button></div>}
+    {draftError && <div role="alert" className={s.error}>{draftError}</div>}
+    {active && <DraftRecovery candidates={draftCandidates} disabled={busy || dirty(active)} onRestore={(candidate) => void perform(() => restoreDraft(candidate))} onDiscard={(candidate) => { void perform(async () => { browserDrafts().discard(draftKey(workspace!.id, active.base.id), candidate); reloadCandidates(); }); }} />}
     {notice && <div role="status" className={s.notice}>{notice}<button onClick={() => setNotice("")}>关闭</button></div>}
     <div className={s.editors}>
       {!active && !selectedAgent && !selectedRun && <section className={s.empty}><h2>组合插件，开始工作</h2><p>关闭标签不会删除资源或取消任务。</p>{commands.slice(1).map((command) => <button key={command.id} disabled={command.disabled} onClick={command.run}>{command.label}</button>)}</section>}

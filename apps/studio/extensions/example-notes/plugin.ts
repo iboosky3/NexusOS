@@ -10,6 +10,9 @@ export const notesPlugin: StudioPlugin = {
   views: [{ id: "nexus.example-notes.resources", label: "便签列表", icon: "✎", load: () => import("./view") }],
   agent: notesAgentProfile,
   capabilities: [{ id: "revise", label: "整理便签" }],
+  validateDraft(payload) {
+    if (typeof payload.title !== "string" || typeof payload.content !== "string") throw new Error("便签草稿字段损坏，请下载备份后检查");
+  },
   initialPayload: () => ({ title: "未命名便签", content: "" }),
   title: (payload) => String(payload.title || "未命名便签"),
   load: () => import("./editor"),

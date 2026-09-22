@@ -1,6 +1,9 @@
 "use client";
 
 import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { browserDrafts } from "@/lib/workspace/browser-drafts";
+import type { DraftCandidate } from "@/lib/workspace/draft-store";
+import { DraftRecovery } from "@/components/workbench/draft-recovery";
 import { Puck, usePuck } from "@puckeditor/core";
 import "@puckeditor/core/puck.css";
 import {
@@ -97,6 +100,12 @@ function ComponentPatchBridge({
   return null;
 }
 
+function codeDraft(value: unknown): { source: string; base: string } {
+  const draft = value as { source?: unknown; base?: unknown } | null;
+  if (!draft || typeof draft.source !== "string" || typeof draft.base !== "string") throw new Error("代码草稿损坏，原始记录已保留，可下载备份");
+  return draft as { source: string; base: string };
+}
+
 function SourceEditor({
   design, selectedId, disabled, active, onApply, draftStorageKey,
 }: {
@@ -118,24 +127,38 @@ function SourceEditor({
   const editor = useRef<HTMLTextAreaElement>(null);
   const lastLocatedId = useRef<string>("");
   const [draftReady, setDraftReady] = useState(false);
+  const [draftError, setDraftError] = useState("");
+  const [candidates, setCandidates] = useState<DraftCandidate[]>([]);
+  function reloadDrafts() {
+    if (!draftStorageKey) return;
+    try { setCandidates(browserDrafts().candidates(draftStorageKey, codeDraft)); }
+    catch { setDraftError("无法读取代码草稿存储，请复制备份后再关闭页面。"); }
+  }
   useEffect(() => {
     if (draftStorageKey) {
       try {
-        const saved = JSON.parse(sessionStorage.getItem(draftStorageKey) || "null");
-        if (saved && typeof saved.source === "string" && typeof saved.base === "string") {
+        const record = browserDrafts().resume(draftStorageKey, codeDraft);
+        if (record) {
+          const saved = codeDraft(record.data);
           setSource(saved.source); setSourceBase(saved.base); setDirty(true);
         }
-      } catch { setError("原型代码草稿读取失败，请检查后继续。"); }
+      } catch { setDraftError("原型代码草稿读取失败，原始记录已保留，可下载备份后检查。"); }
     }
     setDraftReady(true);
+    reloadDrafts();
+    window.addEventListener("storage", reloadDrafts);
+    window.addEventListener("focus", reloadDrafts);
+    return () => { window.removeEventListener("storage", reloadDrafts); window.removeEventListener("focus", reloadDrafts); };
   }, [draftStorageKey]);
-  useEffect(() => {
-    if (!draftReady || !draftStorageKey) return;
-    try {
-      if (dirty) sessionStorage.setItem(draftStorageKey, JSON.stringify({ source, base: sourceBase }));
-      else sessionStorage.removeItem(draftStorageKey);
-    } catch { setError("代码草稿无法持久化，请复制代码备份后再关闭页面。"); }
-  }, [draftReady, draftStorageKey, dirty, source, sourceBase]);
+  function persistCode(next: string, base: string) {
+    if (!draftStorageKey) return;
+    try { browserDrafts().write(draftStorageKey, { source: next, base }); setDraftError(""); }
+    catch { setDraftError("代码草稿无法持久保存，请复制代码备份后再关闭页面。"); }
+  }
+  function clearCode() {
+    if (draftStorageKey) browserDrafts().clear(draftStorageKey);
+    setDraftError(""); reloadDrafts();
+  }
   useEffect(() => {
     if (draftReady && !dirty) { setSource(liveSource); setSourceBase(liveSource); }
   }, [dirty, liveSource, draftReady]);
@@ -167,7 +190,7 @@ function SourceEditor({
       validateDesign(parsed);
       // Applying remounts Puck. Clear the consumed draft before its child is unmounted.
       if (draftStorageKey) {
-        try { sessionStorage.removeItem(draftStorageKey); }
+        try { clearCode(); }
         catch { throw new Error("代码草稿存储不可用，请复制代码后重试。"); }
       }
       setDirty(false);
@@ -182,15 +205,30 @@ function SourceEditor({
     <header><div><strong>prototype.json</strong><small>
       {selectedId ? `已定位 ${selectedId}` : "点击画布组件以定位代码"}
     </small></div><div>
-      <button disabled={!dirty} onClick={() => { setSource(liveSource); setDirty(false); setError(""); }}>还原</button>
+      <button disabled={!dirty} onClick={() => {
+        try { clearCode(); setSource(liveSource); setDirty(false); setError(""); }
+        catch { setDraftError("代码草稿清理失败，请复制备份后重试。"); }
+      }}>还原</button>
       <button disabled={disabled || !dirty} onClick={apply}>应用代码</button>
     </div></header>
     <textarea ref={editor} value={source} disabled={disabled} spellCheck={false}
       onChange={(event) => {
         if (!dirty) setSourceBase(liveSource);
         setSource(event.target.value); setDirty(true); setError("");
+        persistCode(event.target.value, dirty ? sourceBase : liveSource);
       }}
       aria-label="结构化原型 JSON" />
+    {draftError && <p role="alert">{draftError}</p>}
+    <DraftRecovery candidates={candidates} disabled={disabled || dirty} onRestore={(candidate) => {
+      try {
+        const saved = codeDraft(candidate.record?.data);
+        browserDrafts().adopt(draftStorageKey!, candidate);
+        setSource(saved.source); setSourceBase(saved.base); setDirty(true); setDraftError(""); reloadDrafts();
+      } catch (failure) { setDraftError(String(failure)); }
+    }} onDiscard={(candidate) => {
+      try { browserDrafts().discard(draftStorageKey!, candidate); reloadDrafts(); }
+      catch (failure) { setDraftError(String(failure)); }
+    }} />
     {error && <p role="alert">{error}</p>}
   </section>;
 }

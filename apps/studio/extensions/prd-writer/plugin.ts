@@ -15,6 +15,12 @@ export const prdPlugin: StudioPlugin = {
   agent: prdAgentProfile,
   acceptsArtifacts: ["nexus.prototype.snapshot"],
   capabilities: [{ id: "draft", label: "编写草稿" }, { id: "revise", label: "修订文档" }, { id: "review", label: "评审" }, { id: "clarify", label: "澄清需求" }],
+  validateDraft(payload) {
+    const brief = payload.brief as Record<string, unknown> | null;
+    if (!brief || ["title", "description", "audience", "problem", "scope", "constraints", "metrics", "template"].some((key) => typeof brief[key] !== "string") ||
+        !Array.isArray(brief.sources) || brief.sources.some((item) => !item || typeof item.name !== "string" || typeof item.content !== "string") ||
+        typeof payload.content !== "string" || !Array.isArray(payload.provenance)) throw new Error("PRD 草稿字段损坏，请下载备份后检查");
+  },
   initialPayload: () => ({ brief: { title: "未命名 PRD", description: "", audience: "", problem: "", scope: "", constraints: "", metrics: "", template: "", sources: [] }, content: "", provenance: [] }),
   title: (payload) => String((payload.brief as { title?: string })?.title || "未命名 PRD"),
   load: () => import("./resource-editor"),

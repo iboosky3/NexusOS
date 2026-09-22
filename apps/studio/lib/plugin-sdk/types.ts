@@ -32,6 +32,7 @@ export interface StudioPlugin {
   capabilities: { id: string; label: string; prepareInput?(selection: unknown): ResourcePayload }[];
   agent?: AgentProfile;
   acceptsArtifacts?: string[];
+  validateDraft?(payload: ResourcePayload): void;
   initialPayload(): ResourcePayload;
   title(payload: ResourcePayload): string;
   load(): Promise<{ default: ComponentType<ResourceEditorProps> }>;

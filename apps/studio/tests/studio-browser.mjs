@@ -84,7 +84,7 @@ try {
   design.content = [{ type: "Heading", props: { id: "browser-heading", label: "欢迎使用", detail: "", target: "", tone: "green", left: [], right: [] } }];
   await code.fill(JSON.stringify(design, null, 2));
   await page.getByRole("button", { name: "应用代码", exact: true }).click();
-  assert.equal(await page.evaluate(() => Object.keys(sessionStorage).some((key) => key.startsWith("nexus-studio:code:"))), false);
+  assert.equal(await page.evaluate(() => Object.keys(localStorage).some((key) => key.startsWith("nexus:drafts:v1:nexus-studio%3Acode"))), false);
   await page.getByRole("combobox", { name: "Agent 能力" }).selectOption("component");
   await page.getByRole("textbox", { name: "给 Agent 的指令" }).fill("修改标题");
   await page.getByRole("button", { name: "发送（保存上下文并生成提案）" }).click();
