@@ -338,12 +338,14 @@ export function ResourceWorkspace() {
         {contributedViews.filter((view) => enabled(view.pluginId)).map((view) => <button key={view.id} onClick={() => setSide(view.id)}>{view.icon} {view.label}</button>)}
       </>}
     </div>}
-    assistant={<div className={s.assistant}><PanelHeading>{plugin ? `${plugin.name} Agent` : "Agent"}</PanelHeading>
+    assistant={<div className={s.assistant}><PanelHeading>{plugin ? plugin.capabilities.length ? `${plugin.name} Agent` : plugin.name : "Agent"}</PanelHeading>
       <p>{active ? `上下文：${plugin?.title(active.payload)} · r${active.base.revision}` : "打开资源后开始对话"}</p>
-      {selection !== null && <details><summary>当前选择</summary><pre>{JSON.stringify(selection, null, 2)}</pre></details>}
-      <select aria-label="Agent 能力" value={capability || plugin?.capabilities[0]?.id || ""} onChange={(event) => setCapability(event.target.value)}>{plugin?.capabilities.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select>
-      <textarea aria-label="给 Agent 的指令" value={instruction} onChange={(event) => setInstruction(event.target.value)} placeholder="描述目标；修改先生成提案，由你确认后应用" />
-      <button disabled={busy || !instruction.trim() || !plugin || !enabled(plugin.id)} onClick={() => void perform(async () => { await invoke(); setSide("tasks"); })}>发送（保存上下文并生成提案）</button>
+      {plugin && !plugin.capabilities.length ? <p>此插件目前提供手工编辑与版本化交接，不提供 AI 能力。</p> : <>
+        {selection !== null && <details><summary>当前选择</summary><pre>{JSON.stringify(selection, null, 2)}</pre></details>}
+        <select aria-label="Agent 能力" value={capability || plugin?.capabilities[0]?.id || ""} onChange={(event) => setCapability(event.target.value)}>{plugin?.capabilities.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select>
+        <textarea aria-label="给 Agent 的指令" value={instruction} onChange={(event) => setInstruction(event.target.value)} placeholder="描述目标；修改先生成提案，由你确认后应用" />
+        <button disabled={busy || !instruction.trim() || !plugin || !enabled(plugin.id)} onClick={() => void perform(async () => { await invoke(); setSide("tasks"); })}>发送（保存上下文并生成提案）</button>
+      </>}
     </div>}>
     <EditorTabs tabs={openTabs.flatMap((id) => {
       const session = sessions[id];

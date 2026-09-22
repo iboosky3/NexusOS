@@ -503,3 +503,5 @@ digest 对规范化序列化内容及引用媒体的内容摘要计算，排除�
 2026-09-21 当前证据：`/studio` 实验入口已有独立资源、版本 CAS、保存幂等回执、经既有 Resolver/Skill/Runtime 的 Invocation、批准后写入和版本化交接。生命周期竞态/清理超时、媒体实际解码、来源区块人工修改保护已有自动测试；真实浏览器配合隔离 API 与确定性模型已跑通保存、刷新草稿、Agent 批准、截图交接、双窗口冲突和插件启停。旧 `StudioWorkspace` 仍是兼容入口，旧任务统一、第三插件完整 UI、旧数据迁移/备份恢复及默认入口切换尚未完成。测试与提交以[实施记录](../development/agent-plugin-workbench-implementation.md)为准，**不能由上述基础测试推断全部风险已解决**。
 
 2026-09-22 增量证据：新资源工作台已补持久草稿、未确认保存请求恢复、插件产物生产／消费扩展点和中央交接预览。冲突后重算提案并再次人工确认；PRD 内容呈现与来源区块处理归插件。实际提交和测试见[实施记录](../development/agent-plugin-workbench-implementation.md)。两个宿主尚未合一，来源区块人工编辑的三方合并、完整真实模型与新数据备份恢复仍未完成；不做旧数据兼容的最新决定覆盖早期迁移条目。
+
+2026-09-22 原型编辑器试验：`nexus.grapes-prototype` 为独立、默认关闭的手工插件，原型资源与 Puck 分离；两者均通过版本化 `nexus.prototype.snapshot` v1 交给 PRD。GrapesJS 试验以插件自有项目 JSON、截图摘要和安全校验为边界，当前只支持单页、点击插入与样式定位。是否替代 Puck 尚无结论；浏览器验收及剩余缺口见[实施记录](../development/agent-plugin-workbench-implementation.md)。
