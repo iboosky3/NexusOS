@@ -2,24 +2,15 @@
 
 from __future__ import annotations
 
-import hashlib
 import json
 from collections.abc import Sequence
 from typing import Any
 from uuid import uuid4
 
 from nexusos.prd.store import ConflictError, NotFoundError, PrdStore, now
+from nexusos.studio.integrity import canonical as canonical
+from nexusos.studio.integrity import digest as digest
 from nexusos.studio.plugins import PLUGINS, plugin_for
-
-
-def canonical(value: Any) -> str:
-    return json.dumps(
-        value, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False
-    )
-
-
-def digest(value: Any) -> str:
-    return hashlib.sha256(canonical(value).encode()).hexdigest()
 
 
 class StudioStore:

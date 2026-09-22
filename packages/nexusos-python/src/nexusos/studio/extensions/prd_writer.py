@@ -4,6 +4,7 @@ from copy import deepcopy
 
 from nexusos.prd.schemas import AssistantReply
 from nexusos.studio.domain_payloads import PrdPayload, prd_proposal
+from nexusos.studio.extensions.prd_handoff import consumer
 from nexusos.studio.extensions.prd_workflow import (
     DRAFT,
     REVIEW_ONLY,
@@ -26,6 +27,7 @@ def clarify_proposal(value: dict, source: dict, inputs: dict) -> dict:
 
 plugin = DomainPlugin(
     id="nexus.prd-writer",
+    artifact_consumers=(consumer,),
     resource_type="nexus.prd",
     payload_model=PrdPayload,
     actions=(

@@ -7,6 +7,7 @@ from pydantic import Field
 from nexusos.prd.schemas import ComponentSuggestionReply
 from nexusos.prd.schemas_base import StrictModel
 from nexusos.studio.domain_payloads import PrototypePayload, prototype_proposal
+from nexusos.studio.extensions.prototype_artifact import producer
 from nexusos.studio.plugin_contract import AgentCapability, AnalysisReply, DomainPlugin
 
 
@@ -66,6 +67,7 @@ def component_proposal(value: dict, source: dict, inputs: dict) -> dict:
 
 plugin = DomainPlugin(
     id="nexus.prototype-designer",
+    artifact_producer=producer,
     resource_type="nexus.prototype",
     payload_model=PrototypePayload,
     actions=(

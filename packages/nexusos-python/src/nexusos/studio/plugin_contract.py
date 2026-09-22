@@ -59,6 +59,21 @@ class AgentCapability:
 
 
 @dataclass(frozen=True)
+class ArtifactProducer:
+    artifact_type: str
+    schema_version: int
+    prepare: Callable[[dict, Callable[[str], dict]], dict]
+    hydrate: Callable[[dict, Callable[[dict], str]], dict]
+
+
+@dataclass(frozen=True)
+class ArtifactConsumer:
+    artifact_type: str
+    schema_version: int
+    propose: Callable[[dict, dict, dict], dict]
+
+
+@dataclass(frozen=True)
 class DomainPlugin:
     id: str
     resource_type: str
@@ -69,6 +84,9 @@ class DomainPlugin:
     default_enabled: bool = True
     protected_fields: tuple[str, ...] = ()
     prepare_proposal: Callable[[dict, dict], dict] | None = None
+
+    artifact_producer: ArtifactProducer | None = None
+    artifact_consumers: tuple[ArtifactConsumer, ...] = ()
 
     @property
     def capabilities(self) -> tuple[str, ...]:
