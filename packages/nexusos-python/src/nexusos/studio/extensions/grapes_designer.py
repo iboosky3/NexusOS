@@ -43,14 +43,25 @@ def validate_project(raw: str) -> None:
                     or key.lower().startswith("on")
                 ):
                     raise ValueError("GRAPES_PROJECT_UNSAFE：不允许脚本与事件属性")
-                if key.lower() in {"src", "href", "srcset", "poster", "xlink:href"} and (
+                if key.lower() in {
+                    "src",
+                    "href",
+                    "srcset",
+                    "poster",
+                    "xlink:href",
+                    "action",
+                    "formaction",
+                } and (
                     not isinstance(item, str)
-                    or not item.startswith(
-                        (
-                            "#",
-                            "data:image/png;base64,",
-                            "data:image/jpeg;base64,",
-                            "data:image/webp;base64,",
+                    or (
+                        item != ""
+                        and not item.startswith(
+                            (
+                                "#",
+                                "data:image/png;base64,",
+                                "data:image/jpeg;base64,",
+                                "data:image/webp;base64,",
+                            )
                         )
                     )
                 ):

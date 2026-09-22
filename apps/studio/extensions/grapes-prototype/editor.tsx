@@ -2,6 +2,13 @@
 
 import { useEffect, useRef, useState } from "react";
 import grapesjs, { type Editor } from "grapesjs";
+import webpagePreset from "grapesjs-preset-webpage";
+import basicBlocks from "grapesjs-blocks-basic";
+import formBlocks from "grapesjs-plugin-forms";
+import exportZip from "grapesjs-plugin-export";
+import styleBackground from "grapesjs-style-bg";
+import postCssParser from "grapesjs-parser-postcss";
+import tooltip from "grapesjs-tooltip";
 import "grapesjs/dist/css/grapes.min.css";
 import type { ResourceEditorProps, ResourcePayload } from "@/lib/plugin-sdk/types";
 import { capture } from "./capture";
@@ -27,7 +34,7 @@ function pageCode(instance: Editor) {
 }
 
 export default function GrapesPrototypeEditor({ resource, disabled, onChange, onSave, onPublish, onError }: ResourceEditorProps) {
-  const mount = useRef<HTMLDivElement>(null);
+  const canvasMount = useRef<HTMLDivElement>(null);
   const editor = useRef<Editor | null>(null);
   const payload = useRef(resource.payload as Payload);
   const change = useRef(onChange);
@@ -39,47 +46,56 @@ export default function GrapesPrototypeEditor({ resource, disabled, onChange, on
   const [device, setDevice] = useState("桌面");
   const [pages, setPages] = useState<PageInfo[]>([]);
   const [selectedPage, setSelectedPage] = useState("");
-  const [hasSelection, setHasSelection] = useState(false);
-  const [canUndo, setCanUndo] = useState(false);
-  const [canRedo, setCanRedo] = useState(false);
-  const [preview, setPreview] = useState(false);
-  const [outline, setOutline] = useState(false);
-  const [code, setCode] = useState(false);
-  const [markup, setMarkup] = useState("");
 
   useEffect(() => {
-    if (!mount.current) return;
+    if (!canvasMount.current) return;
     let active = true;
     let loading = true;
     const instance = grapesjs.init({
-      container: mount.current, height: "600px", width: "auto", storageManager: false,
-      fromElement: false, showOffsets: true, selectorManager: { componentFirst: true, appendTo: `#grapes-selectors-${resource.id}` },
-      panels: { defaults: [] },
+      container: canvasMount.current, height: "700px", width: "auto", storageManager: false,
+      fromElement: false, showOffsets: true, selectorManager: { componentFirst: true },
+      plugins: [
+        postCssParser,
+        (current) => webpagePreset(current, { modalImportTitle: "导入网页", textCleanCanvas: "清空当前页面？", showStylesOnChange: true }),
+        (current) => basicBlocks(current, { blocks: ["column1", "column2", "column3", "column3-7", "text", "link"], category: "官方基础组件" }),
+        (current) => formBlocks(current, { category: "官方表单组件" }),
+        exportZip,
+        styleBackground,
+        tooltip,
+      ],
       assetManager: { upload: false, showUrlInput: false, multiUpload: false, embedAsBase64: false,
         uploadFile: async (event) => {
           const files = event.dataTransfer?.files || (event.target as HTMLInputElement | null)?.files;
           for (const file of Array.from(files || [])) await importImage(file);
         } },
-      blockManager: { appendTo: `#grapes-blocks-${resource.id}` },
-      layerManager: { appendTo: `#grapes-layers-${resource.id}` },
-      traitManager: { appendTo: `#grapes-traits-${resource.id}` },
       canvas: { styles: [], scripts: [] },
-      deviceManager: { devices: [{ name: "桌面", width: "960px" }, { name: "平板", width: "768px" }, { name: "手机", width: "390px" }] },
-      styleManager: { appendTo: `#grapes-styles-${resource.id}`, sectors: [
+      blockManager: { appendTo: "#gjs-blocks" },
+      layerManager: { appendTo: "#gjs-layers" },
+      traitManager: { appendTo: "#gjs-traits" },
+      styleManager: { appendTo: "#gjs-styles", sectors: [
         { name: "布局与定位", open: true, buildProps: ["display", "flex-direction", "justify-content", "align-items", "gap", "grid-template-columns", "position", "top", "right", "bottom", "left", "z-index"] },
         { name: "尺寸与间距", open: true, buildProps: ["width", "height", "min-width", "min-height", "max-width", "max-height", "margin", "padding"] },
         { name: "文字", open: false, buildProps: ["font-family", "font-size", "font-weight", "color", "text-align", "line-height", "letter-spacing", "text-decoration"] },
         { name: "背景与边框", open: false, buildProps: ["background-color", "opacity", "border", "border-radius", "box-shadow"] },
       ] },
+      panels: {
+        defaults: [
+          { id: "options", appendTo: "#gjs-options" },
+          { id: "views", appendTo: "#gjs-right-views" },
+        ],
+      },
+      deviceManager: { devices: [{ name: "Desktop", width: "960px" }, { name: "Tablet", width: "768px" }, { name: "Mobile portrait", width: "390px" }] },
     });
     editor.current = instance;
+    instance.Panels.removeButton("options", "gjs-open-import-webpage");
+    instance.Panels.removeButton("options", "clear");
+    instance.Commands.add("gjs-open-import-webpage", () => setProblem("当前资源不接受原始 HTML 导入，请使用安全组件设计页面。"));
+    instance.Commands.add("core:canvas-clear", () => setProblem("请通过左侧组件重新设计当前页面，原型资源不支持一键清空。"));
     installBlocks(instance);
     const refresh = () => {
       if (!active) return;
       setPages(pagesOf(instance));
       setSelectedPage(instance.Pages.getSelected()?.getId() || "");
-      setHasSelection(Boolean(instance.getSelected()));
-      setCanUndo(instance.UndoManager.hasUndo()); setCanRedo(instance.UndoManager.hasRedo());
     };
     instance.on("component:selected component:deselected page page:add page:remove page:update page:select", refresh);
     instance.on("update", () => {
@@ -107,13 +123,6 @@ export default function GrapesPrototypeEditor({ resource, disabled, onChange, on
         confirmed: false, screenshot: "", screenshotProjectDigest: "", pageSnapshots: [],
       } : {}) });
     } catch (error) { fail(error); }
-  }
-  function clearCanvas() {
-    if (!editor.current || !window.confirm("清空当前页面的全部组件和样式？其它页面会保留，已确认截图将失效。")) return;
-    editor.current.getWrapper()?.components().reset();
-    editor.current.Css.getAll().reset();
-    edit({ projectJson: JSON.stringify(editor.current.getProjectData()) });
-    setHasSelection(false); setNotice("当前页面已清空，请保存草稿。");
   }
   function addPage() {
     const instance = editor.current; if (!instance || pages.length >= MAX_PAGES) return;
@@ -187,43 +196,29 @@ export default function GrapesPrototypeEditor({ resource, disabled, onChange, on
     <div className={s.meta}>
       <label>原型名称<input aria-label="自由原型名称" disabled={disabled || busy} value={String(resource.payload.title)} onChange={(event) => edit({ title: event.target.value })} /></label>
       <label>页面与交互说明<textarea aria-label="自由原型说明" disabled={disabled || busy} value={String(resource.payload.description)} onChange={(event) => edit({ description: event.target.value })} /></label>
-      <p>组件可拖入画布；选中后可设置样式、图层、属性和选择器。最多 4 页可一并交接给 PRD。</p>
-      <div className={s.actions}>
-        <button disabled={disabled || busy || !ready} onClick={() => void saveDraft()}>保存草稿</button>
-        <button disabled={disabled || busy || !ready} onClick={clearCanvas}>一键清空画布</button>
-        <button disabled={disabled || busy || !ready} onClick={() => void confirm()}>确认并发布快照</button>
-        <button disabled={disabled || busy || !canUndo} onClick={() => editor.current?.UndoManager.undo()}>撤销</button>
-        <button disabled={disabled || busy || !canRedo} onClick={() => editor.current?.UndoManager.redo()}>重做</button>
-        <button disabled={disabled || busy || !hasSelection} onClick={() => editor.current?.runCommand("core:copy")}>复制组件</button>
-        <button disabled={disabled || busy || !ready} onClick={() => editor.current?.runCommand("core:paste")}>粘贴组件</button>
-        <button disabled={disabled || busy || !hasSelection} onClick={() => editor.current?.getSelected()?.addStyle({ position: "absolute", left: "40px", top: "40px" })}>自由定位选中组件</button>
-        <label>画布宽度<select aria-label="自由原型画布宽度" value={device} onChange={(event) => { setDevice(event.target.value); editor.current?.setDevice(event.target.value); }}>
-          <option>桌面</option><option>平板</option><option>手机</option>
-        </select></label>
-        <button disabled={!ready} aria-pressed={preview} onClick={() => { if (!editor.current) return; if (preview) editor.current.stopCommand("core:preview"); else editor.current.runCommand("core:preview"); setPreview(!preview); }}>预览</button>
-        <button disabled={!ready} aria-pressed={outline} onClick={() => { if (!editor.current) return; if (outline) editor.current.stopCommand("core:component-outline"); else editor.current.runCommand("core:component-outline"); setOutline(!outline); }}>组件边界</button>
-        <button disabled={!ready} aria-pressed={code} onClick={() => { if (editor.current) { const output = pageCode(editor.current); setMarkup(`${output.html}\n\n<style>\n${output.css}\n</style>`); } setCode(!code); }}>查看代码</button>
-        <button disabled={!ready} onClick={exportPage}>导出当前页 HTML</button>
-        <button disabled={!ready} onClick={exportProject}>导出工程 JSON</button>
+      <div className={s.toolbar}>
+        <button className={s.iconButton} aria-label="保存草稿" title="保存草稿" disabled={disabled || busy || !ready} onClick={() => void saveDraft()}><span aria-hidden="true">↥</span></button>
+        <button className={s.iconButton} aria-label="确认并发布快照" title="确认并发布快照" disabled={disabled || busy || !ready} onClick={() => void confirm()}><span aria-hidden="true">✓</span></button>
+        <span className={s.toolbarDivider} aria-hidden="true" />
+        <button className={s.iconButton} aria-label="导出当前页 HTML" title="导出当前页 HTML" disabled={!ready} onClick={exportPage}><span aria-hidden="true">&lt;/&gt;</span></button>
+        <button className={s.iconButton} aria-label="导出当前页 ZIP" title="导出当前页 ZIP" disabled={!ready} onClick={() => editor.current?.runCommand("gjs-export-zip")}><span aria-hidden="true">⇩</span></button>
+        <button className={s.iconButton} aria-label="导出工程 JSON" title="导出工程 JSON" disabled={!ready} onClick={exportProject}><span aria-hidden="true">{"{}"}</span></button>
       </div>
-      <div className={s.actions} aria-label="原型页面">
+      <div className={s.pagebar} aria-label="原型页面">
         <label>页面<select aria-label="自由原型页面" value={selectedPage} onChange={(event) => editor.current?.Pages.select(event.target.value)}>{pages.map((page) => <option key={page.id} value={page.id}>{page.name}</option>)}</select></label>
-        <button disabled={disabled || busy || !ready || pages.length >= MAX_PAGES} onClick={addPage}>新建页面</button>
-        <button disabled={disabled || busy || !ready} onClick={renamePage}>重命名页面</button>
-        <button disabled={disabled || busy || pages.length <= 1} onClick={removePage}>删除页面</button>
+        <button className={s.iconButton} aria-label="新建页面" title="新建页面" disabled={disabled || busy || !ready || pages.length >= MAX_PAGES} onClick={addPage}><span aria-hidden="true">＋</span></button>
+        <button className={s.iconButton} aria-label="重命名页面" title="重命名页面" disabled={disabled || busy || !ready} onClick={renamePage}><span aria-hidden="true">✎</span></button>
+        <button className={s.iconButton} aria-label="删除页面" title="删除页面" disabled={disabled || busy || pages.length <= 1} onClick={removePage}><span aria-hidden="true">⌫</span></button>
         <label>本页交互说明<input aria-label="本页交互说明" disabled={disabled || busy || !ready} value={currentPage?.description || ""} placeholder="留空时使用原型说明" onChange={(event) => editor.current?.Pages.getSelected()?.set("description", event.target.value)} /></label>
       </div>
-      {code && <textarea className={s.code} aria-label="原型 HTML 与 CSS" readOnly value={markup} />}
       {problem && <p role="alert">{problem}</p>}{notice && <p role="status">{notice}</p>}
     </div>
-    <div className={s.workspace}>
-      <aside className={s.palette} aria-label="自由原型组件库"><h3>组件库</h3><div id={`grapes-blocks-${resource.id}`} />
-        <h3>图片素材</h3><input type="file" aria-label="上传原型图片" accept="image/png,image/jpeg,image/webp" disabled={disabled || busy} onChange={(event) => { void importImage(event.target.files?.[0]); event.target.value = ""; }} />
-        <button disabled={!ready} onClick={openAssets}>打开素材库</button></aside>
-      <div ref={mount} className={s.canvas} aria-label="GrapesJS 画布" />
-      <aside className={s.inspector} aria-label="自由原型属性"><h3>图层</h3><div id={`grapes-layers-${resource.id}`} />
-        <h3>属性</h3><div id={`grapes-traits-${resource.id}`} /><h3>选择器与状态</h3><div id={`grapes-selectors-${resource.id}`} />
-        <h3>样式与定位</h3><div id={`grapes-styles-${resource.id}`} /></aside>
+    <div className={s.canvas} aria-label="GrapesJS 画布">
+      <div className={s.editorLayout}>
+        <aside className={s.leftPanel} aria-label="组件与图层"><div id="gjs-blocks" /><div id="gjs-layers" /></aside>
+        <main className={s.stage}><div className={s.gjsTopbar} id="gjs-options" /><div ref={canvasMount} className={s.gjsCanvas} /></main>
+        <aside className={s.rightPanel} aria-label="组件属性"><div id="gjs-right-views" /><div id="gjs-traits" /><div id="gjs-styles" /></aside>
+      </div>
     </div>
   </section>;
 }

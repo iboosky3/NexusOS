@@ -51,6 +51,20 @@
   border-color: #c7dbcf;
   background: #dfeee5;
 }
+.toolbar button[aria-label], .inspector header button[aria-label] {
+  display: inline-grid;
+  width: 32px;
+  min-width: 32px;
+  place-items: center;
+  padding: 5px;
+  font-size: 16px;
+  line-height: 1;
+}
+.toolbar button[aria-label] span, .inspector header button[aria-label] span {
+  transform: translateY(-1px);
+}
+.toolbarActions button[aria-label="一键清空画布"] { color: #9b4a3d; }
+.toolbarActions button[aria-label="一键清空画布"]:hover { color: #84382d; background: #fff0ec; }
 .toolbar select { border-color: #d7e0da; background: white; }
 .body {
   display: grid;

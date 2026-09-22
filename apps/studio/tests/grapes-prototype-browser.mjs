@@ -13,6 +13,17 @@ async function api(path, method = "GET", data) {
   assert.ok(response.ok, await response.clone().text());
   return response.json();
 }
+async function dragBlock(title) {
+  const block = page.locator(`.gjs-block[title="${title}"]`).first();
+  if (!await block.isVisible()) await page.locator('.gjs-pn-btn[title="Open Blocks"]').click();
+  await block.scrollIntoViewIfNeeded();
+  const sourceBox = await block.boundingBox();
+  const targetBox = await page.locator(".gjs-cv-canvas").boundingBox();
+  await page.mouse.move(sourceBox.x + sourceBox.width / 2, sourceBox.y + sourceBox.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(targetBox.x + 230, targetBox.y + 180, { steps: 20 });
+  await page.mouse.up();
+}
 try {
   const workspace = await api("", "POST", { title: "GrapesJS 浏览器试验", clientRequestId: crypto.randomUUID() });
   await api(`/${workspace.id}/configuration`, "PATCH", { expectedRevision: 1, plugins: [...workspace.plugins, "nexus.grapes-prototype"], layouts: {} });
@@ -26,6 +37,12 @@ try {
   await block.waitFor();
   await block.click();
   await page.frameLocator("iframe.gjs-frame").getByText("页面标题").waitFor();
+  await dragBlock("Text");
+  await page.frameLocator("iframe.gjs-frame").getByText("Insert your text here").waitFor();
+  await dragBlock("Form");
+  await page.frameLocator("iframe.gjs-frame").locator("form").waitFor();
+  await dragBlock("Tooltip");
+  await page.frameLocator("iframe.gjs-frame").locator("[data-tooltip]").waitFor();
   await editor.getByLabel("自由原型说明").fill("用户进入首页并查看标题。");
   await editor.getByRole("button", { name: "保存草稿" }).click();
   await page.getByRole("status").filter({ hasText: "已保存 r2" }).waitFor();
@@ -34,21 +51,23 @@ try {
   await page.reload();
   await page.frameLocator("iframe.gjs-frame").getByText("页面标题").waitFor();
   await page.frameLocator("iframe.gjs-frame").getByText("页面标题").click();
-  await page.locator(".gjs-layer").first().locator(".gjs-layer-caret").first().click();
-  await page.locator(".gjs-layer-title").filter({ hasText: "Text" }).first().click({ timeout: 3000 });
   await editor.getByRole("button", { name: "自由定位选中组件" }).click({ timeout: 3000 });
   await editor.getByRole("button", { name: "保存草稿" }).click();
   await page.getByRole("status").filter({ hasText: "已保存 r3" }).waitFor();
   assert.match((await api(`/${workspace.id}/resources/${source.id}`)).payload.projectJson, /absolute/);
-  await editor.getByLabel("自由原型画布宽度").selectOption("平板");
+  await editor.getByLabel("自由原型画布宽度").selectOption({ label: "平板" });
   await editor.getByRole("button", { name: "查看代码" }).click();
   assert.match(await editor.getByLabel("原型 HTML 与 CSS").inputValue(), /页面标题/);
   const download = page.waitForEvent("download");
   await editor.getByRole("button", { name: "导出工程 JSON" }).click();
   assert.match((await download).suggestedFilename(), /\.json$/);
+  const zipDownload = page.waitForEvent("download");
+  await editor.getByRole("button", { name: "导出当前页 ZIP" }).click();
+  assert.match((await zipDownload).suggestedFilename(), /\.zip$/);
   page.once("dialog", (dialog) => dialog.accept("详情"));
   await editor.getByRole("button", { name: "新建页面" }).click();
   await editor.getByLabel("自由原型页面").selectOption({ label: "详情" });
+  await page.locator('.gjs-pn-btn[title="Open Blocks"]').click();
   await block.click();
   await page.frameLocator("iframe.gjs-frame").getByText("页面标题").waitFor();
   await editor.getByRole("button", { name: "撤销" }).click();
@@ -86,6 +105,6 @@ try {
   const resources = await api(`/${workspace.id}/resources`);
   assert.equal(resources.filter((item) => item.resourceType === "nexus.grapes-prototype").length, 2);
   assert.deepEqual(errors, []);
-  console.log("PASS: opt-in GrapesJS plugin, block insertion, versioned save/reopen, absolute positioning, clean screenshot, PRD handoff and plugin-owned creation");
+  console.log("PASS: official Webpage Preset, native block drag, multi-page save/reopen, assets, export, screenshots, PRD handoff and plugin-owned creation");
 } catch (error) { console.error(page.url(), errors, (await page.locator("body").innerText()).slice(0, 3000)); throw error; }
 finally { await browser.close(); }

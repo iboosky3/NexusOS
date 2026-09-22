@@ -110,6 +110,7 @@ def test_duplicate_or_oversized_page_snapshots_rejected():
         '{"pages":[{"script":"alert(1)"}]}',
         '{"pages":[{"attributes":{"onload":"alert(1)"}}]}',
         '{"pages":[{"attributes":{"src":"https://evil.invalid/a.png"}}]}',
+        '{"pages":[{"attributes":{"action":"https://evil.invalid/post"}}]}',
         '{"pages":[{"content":"<iframe src=evil>"}]}',
         '{"styles":[{"style":{"background":"url(https://evil.invalid/a.png)"}}]}',
         '{"pages":',

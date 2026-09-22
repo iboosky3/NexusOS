@@ -1,14 +1,40 @@
-.root { min-width: 0; }
+.root { min-width: 0; color: #24352d; }
 .meta { display: grid; gap: 12px; margin-bottom: 12px; }
 .meta label { display: grid; gap: 5px; }
 .meta input, .meta textarea, .meta select { padding: 8px; font: inherit; }
 .meta textarea { min-height: 65px; resize: vertical; }
 .meta p { margin: 0; }
-.actions { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
-.actions button { min-height: 36px; }
-.actions label { min-width: 160px; }
+.toolbar, .pagebar { display: flex; gap: 6px; align-items: flex-end; flex-wrap: wrap; }
+.toolbar button, .pagebar button { min-height: 34px; border: 1px solid #b8cabe; border-radius: 6px; background: #f7faf7; color: #244c3c; padding: 5px 9px; }
+.toolbar button:hover, .pagebar button:hover { border-color: #79a98a; background: #e9f2ec; }
+.toolbar button:focus-visible, .pagebar button:focus-visible { outline: 2px solid #5e9a76; outline-offset: 1px; }
+.toolbar button:disabled, .pagebar button:disabled { cursor: not-allowed; opacity: .45; }
+.toolbar button:first-child, .toolbar button:nth-child(2) { background: #197358; border-color: #197358; color: #fff; }
+.toolbar button:first-child:hover, .toolbar button:nth-child(2):hover { background: #155f49; }
+.iconButton { display: inline-grid; width: 34px; min-width: 34px; place-items: center; font-size: 16px; line-height: 1; }
+.iconButton span { display: inline-block; transform: translateY(-1px); }
+.toolbarDivider { width: 1px; height: 24px; margin: 0 3px; background: #d8e3db; }
+.pagebar label { min-width: 160px; }
 .code { width: 100%; min-height: 220px; font: 12px/1.5 monospace; white-space: pre; }
-.canvas { min-height: 600px; width: 100%; border: 1px solid #dce3de; }
+.canvas { min-height: 700px; height: 700px; width: 100%; border: 1px solid #cbd8cf; background: #eef3ef; overflow: hidden; }
+
+.canvas :global(.gjs-editor) { min-height: 700px; }
+
+.editorLayout { display: grid; grid-template-columns: 220px minmax(0, 1fr) 280px; height: 700px; }
+.leftPanel, .rightPanel { min-width: 0; overflow: auto; background: #f7faf7; }
+.leftPanel { border-right: 1px solid #cbd8cf; }
+.rightPanel { border-left: 1px solid #cbd8cf; }
+.stage { min-width: 0; display: grid; grid-template-rows: 42px minmax(0, 1fr); background: #dfe8e1; }
+.gjsTopbar { min-height: 42px; display: flex; align-items: center; padding: 0 8px; background: #fff; border-bottom: 1px solid #cbd8cf; }
+.gjsCanvas { min-height: 0; overflow: auto; }
+.leftPanel :global(.gjs-blocks-c), .rightPanel :global(.gjs-sm-sectors), .rightPanel :global(.gjs-trt-traits) { padding: 8px; }
+.leftPanel :global(.gjs-block) { width: calc(50% - 6px); margin: 3px; border: 1px solid #cbd8cf; border-radius: 4px; background: #fff; color: #315445; }
+.leftPanel :global(.gjs-block:hover), .leftPanel :global(.gjs-block.gjs-four-color-h) { border-color: #197358; box-shadow: 0 0 0 1px #197358; }
+.leftPanel :global(.gjs-title), .rightPanel :global(.gjs-sm-sector-title), .rightPanel :global(.gjs-trt-traits) { color: #315445; background: #edf4ee; border-color: #d4e0d6; }
+.rightPanel :global(.gjs-field), .rightPanel :global(select), .rightPanel :global(input) { border-color: #b8cabe; }
+.gjsTopbar :global(.gjs-pn-buttons) { display: flex; gap: 4px; }
+.gjsTopbar :global(.gjs-pn-btn) { color: #315445; border-radius: 4px; }
+.gjsTopbar :global(.gjs-pn-btn.gjs-pn-active) { color: #197358; background: #e5f0e7; }
 
 .workspace { display: grid; grid-template-columns: 180px minmax(0, 1fr) 240px; gap: 8px; min-height: 620px; }
 .palette, .inspector { min-width: 0; max-height: 640px; overflow: auto; background: #f5f8f5; border: 1px solid #dce3de; padding: 8px; }
@@ -17,5 +43,5 @@
 .palette input[type="file"] { max-width: 100%; font-size: 12px; }
 .palette button { margin-top: 8px; }
 .inspector :global(.gjs-sm-sector) { font-size: 12px; }
-@media (max-width: 1000px) { .workspace { grid-template-columns: 140px minmax(0,1fr); } .inspector { grid-column: 1 / -1; max-height: 300px; } }
-@media (max-width: 650px) { .workspace { grid-template-columns: 1fr; } .palette { max-height: 180px; } }
+@media (max-width: 1000px) { .editorLayout { grid-template-columns: 170px minmax(0, 1fr) 230px; } }
+@media (max-width: 700px) { .editorLayout { grid-template-columns: 150px minmax(0, 1fr); } .rightPanel { grid-column: 1 / -1; height: 280px; border-left: 0; border-top: 1px solid #cbd8cf; } }
