@@ -2,8 +2,13 @@
 
 from __future__ import annotations
 
+import hashlib
+import os
+import stat
+import tempfile
 from collections.abc import Mapping
 from pathlib import Path
+from threading import Lock
 from typing import Any
 
 import yaml
@@ -15,6 +20,10 @@ class SkillManifestError(ValueError):
     """Raised when a skill package violates the NexusOS manifest contract."""
 
 
+class SkillEditConflict(ValueError):
+    """The instruction file changed since the editor loaded it."""
+
+
 class FileSkillRepository:
     """Index manifests eagerly and load package bodies on selection."""
 
@@ -22,6 +31,7 @@ class FileSkillRepository:
         self._root = Path(root)
         self._locations: dict[str, Path] = {}
         self._summaries: dict[str, SkillSummary] = {}
+        self._edit_lock = Lock()
         self.refresh()
 
     def refresh(self) -> None:
@@ -50,6 +60,12 @@ class FileSkillRepository:
         except KeyError as exc:
             raise KeyError(f"unknown skill: {skill_id}") from exc
 
+    def manifest_source(self, skill_id: str) -> str:
+        try:
+            return (self._locations[skill_id] / "skill.yaml").read_text(encoding="utf-8")
+        except KeyError as exc:
+            raise KeyError(f"unknown skill: {skill_id}") from exc
+
     def load(self, skill_id: str) -> SkillPackage:
         """Load instructions and optional resources for one selected skill."""
 
@@ -60,7 +76,7 @@ class FileSkillRepository:
 
         manifest = self._read_manifest(package_root / "skill.yaml")
         spec = self._mapping(manifest, "spec")
-        instructions_path = package_root / str(spec.get("instructions", "instructions.md"))
+        instructions_path = self._instructions_path(package_root, spec)
         if not instructions_path.is_file():
             raise SkillManifestError(f"missing instructions for skill {skill_id}")
 
@@ -72,6 +88,54 @@ class FileSkillRepository:
             examples=self._read_optional_directory(package_root / "examples"),
             references=self._read_optional_directory(package_root / "references"),
         )
+
+    @staticmethod
+    def digest(instructions: str) -> str:
+        return hashlib.sha256(instructions.encode("utf-8")).hexdigest()
+
+    def update_instructions(self, skill_id: str, instructions: str, expected_digest: str) -> str:
+        """Save a registered skill's Markdown with optimistic concurrency."""
+
+        if not instructions.strip() or len(instructions.encode("utf-8")) > 65536:
+            raise ValueError("Skill 原文不能为空且不能超过 64 KB")
+        try:
+            package_root = self._locations[skill_id]
+        except KeyError as exc:
+            raise KeyError(f"unknown skill: {skill_id}") from exc
+        spec = self._mapping(self._read_manifest(package_root / "skill.yaml"), "spec")
+        path = self._instructions_path(package_root, spec)
+        with self._edit_lock:
+            current = path.read_text(encoding="utf-8")
+            if self.digest(current) != expected_digest:
+                raise SkillEditConflict("Skill 原文已被其他编辑修改，请重新加载后再保存")
+            with tempfile.NamedTemporaryFile(
+                mode="w",
+                encoding="utf-8",
+                dir=path.parent,
+                prefix=f".{path.name}.",
+                delete=False,
+            ) as handle:
+                temporary = Path(handle.name)
+                try:
+                    handle.write(instructions)
+                    handle.flush()
+                    os.fsync(handle.fileno())
+                except BaseException:
+                    temporary.unlink(missing_ok=True)
+                    raise
+            try:
+                os.chmod(temporary, stat.S_IMODE(path.stat().st_mode))
+                os.replace(temporary, path)
+            finally:
+                temporary.unlink(missing_ok=True)
+        return self.digest(instructions)
+
+    @staticmethod
+    def _instructions_path(package_root: Path, spec: Mapping[str, Any]) -> Path:
+        path = (package_root / str(spec.get("instructions", "instructions.md"))).resolve()
+        if not path.is_relative_to(package_root.resolve()):
+            raise SkillManifestError("Skill 原文路径必须位于其注册目录内")
+        return path
 
     @staticmethod
     def _read_manifest(path: Path) -> Mapping[str, Any]:

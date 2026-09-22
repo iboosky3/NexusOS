@@ -117,6 +117,7 @@ export function usePrdStudio(initialTab?: "prototype") {
     | "capabilities"
     | "settings"
     | `agent:${string}`
+    | `skill:${string}`
   >(initialTab ? [initialTab] : ["brief", "prototype", "document"], initialTab || "brief");
   const [editing, setEditing] = useState(false);
   const [instruction, setInstruction] = useState("");

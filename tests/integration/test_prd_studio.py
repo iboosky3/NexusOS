@@ -38,6 +38,49 @@ class StudioGateway(AuthoringGateway):
 
 
 class StudioTests(unittest.TestCase):
+    def test_skill_detail_and_edit_api(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            package = root / "skills" / "demo"
+            package.mkdir(parents=True)
+            (package / "skill.yaml").write_text(
+                """apiVersion: nexusos/v1
+kind: Skill
+metadata: {name: demo, version: 1.0.0}
+spec:
+  description: Demo Skill
+  capabilities: [test]
+  instructions: instructions.md
+""",
+                encoding="utf-8",
+            )
+            (package / "instructions.md").write_text("Original", encoding="utf-8")
+            app = create_app(root=root, prd_store=self.store, model_gateway=self.gateway)
+            with TestClient(app) as client:
+                path = "/v1/prd/capabilities/skills/demo"
+                loaded = client.get(path)
+                self.assertEqual(loaded.status_code, 200, loaded.text)
+                self.assertEqual(loaded.json()["instructions"], "Original")
+                self.assertIn("metadata: {name: demo", loaded.json()["manifest"])
+                saved = client.put(
+                    path,
+                    json={
+                        "instructions": "Updated",
+                        "expected_digest": loaded.json()["digest"],
+                    },
+                )
+                self.assertEqual(saved.status_code, 200, saved.text)
+                self.assertEqual(client.get(path).json()["instructions"], "Updated")
+                stale = client.put(
+                    path,
+                    json={
+                        "instructions": "Lost update",
+                        "expected_digest": loaded.json()["digest"],
+                    },
+                )
+                self.assertEqual(stale.status_code, 409)
+                self.assertEqual(client.get("/v1/prd/capabilities/skills/unknown").status_code, 404)
+
     def setUp(self):
         directory = self.enterContext(tempfile.TemporaryDirectory())
         self.store = PrdStore(Path(directory) / "studio.sqlite3")

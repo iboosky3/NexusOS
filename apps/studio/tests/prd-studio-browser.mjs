@@ -17,7 +17,7 @@ try {
   await rail.getByRole('button', { name: 'Agent', exact: true }).click();
   await page.getByRole('list', { name: 'Agent 插件' }).getByRole('button', { name: /PRD 编写/ }).click();
   const detail = page.getByRole('article', { name: 'PRD 编写 Agent 详情' });
-  await detail.getByRole('heading', { name: '智能体架构图' }).waitFor();
+  await detail.getByRole('heading', { name: '智能体协作图' }).waitFor();
   await detail.getByText('系统架构师', { exact: true }).waitFor();
   await detail.getByRole('button', { name: '运行 / 打开工作台' }).click();
   await page.getByRole('heading', { name: '需求简报' }).waitFor();

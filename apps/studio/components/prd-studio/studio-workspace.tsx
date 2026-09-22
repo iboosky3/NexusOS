@@ -14,6 +14,7 @@ import { useWorkbenchExtensions } from "@/lib/workbench-extensions";
 import { builtinRegistry } from "@/extensions/builtin";
 import { studioPlugins } from "@/extensions/studio-plugins";
 import { AgentDirectory, AgentDetail } from "@/components/workbench/agent-catalog";
+import { SkillDirectory, SkillDetail, type SkillSummary } from "@/components/workbench/skill-catalog";
 import { prototypeDesigner } from "@/extensions/prototype-designer/manifest";
 import { grapesPrototypeLegacy } from "@/extensions/grapes-prototype/manifest";
 import type { Capability } from "@/components/workbench/capability-browser";
@@ -39,11 +40,6 @@ import {
 import { createComponentId } from "@/lib/browser-crypto";
 import s from "@/components/prd-studio/studio.module.css";
 
-const CapabilityBrowser = dynamic(() =>
-  import("@/components/workbench/capability-browser").then(
-    (module) => module.CapabilityBrowser,
-  ),
-);
 const PrdWriter = dynamic(prdWriter.load, { loading: () => <p>正在加载 PRD 编写插件…</p> });
 const GrapesPrototype = dynamic(grapesPrototypeLegacy.load, { ssr: false, loading: () => <p>正在加载自由原型插件…</p> });
 const BrowserDesignPreview = dynamic(() => import("@/extensions/prototype-designer/preview"), { ssr: false });
@@ -115,7 +111,7 @@ export function StudioWorkspace({ mode = "prd" }: { mode?: "prd" | "prototype" }
   }
   const [catalog, setCatalog] = useState<{
     agents: Capability[];
-    skills: Capability[];
+    skills: SkillSummary[];
   }>({ agents: [], skills: [] });
   const [catalogError, setCatalogError] = useState("");
   const [focusChat, setFocusChat] = useState(0);
@@ -215,7 +211,7 @@ export function StudioWorkspace({ mode = "prd" }: { mode?: "prd" | "prototype" }
   useEffect(() => {
     const save = (event: KeyboardEvent) => {
       if ((event.ctrlKey || event.metaKey) && event.key === "s") {
-        if (w.tab === "grapes") return;
+        if (w.tab === "grapes" || w.tab?.startsWith("skill:")) return;
         event.preventDefault();
         if (!locked) void w.perform(w.save);
       }
@@ -507,9 +503,8 @@ export function StudioWorkspace({ mode = "prd" }: { mode?: "prd" | "prototype" }
           <AgentDirectory plugins={availableAgents} enabled={(id) => extensions.ready && builtinRegistry.enabled(id, extensions.enabled)}
             onOpen={(definition) => w.setTab(`agent:${definition.id}`)} />
         ) : side === "skills" ? (
-          <CapabilityBrowser kind="skills" {...catalog}
-            used={w.job?.steps.flatMap((step) => [step.agent_id, ...step.skill_ids])}
-            error={catalogError} />
+          <SkillDirectory skills={catalog.skills} error={catalogError}
+            onOpen={(id) => w.setTab(`skill:${id}`)} />
         ) : (
           <>
             <PanelHeading>项目资源</PanelHeading>
@@ -627,7 +622,9 @@ export function StudioWorkspace({ mode = "prd" }: { mode?: "prd" | "prototype" }
       }
     >
       {w.openTabs.length > 0 && <EditorTabs
-        tabs={w.openTabs.flatMap((id) => tabs.filter((tab) => tab.id === id))
+        tabs={w.openTabs.flatMap((id) => id.startsWith("skill:")
+          ? [{ id, label: `${id.slice(6)} · Skill`, icon: "✧" }]
+          : tabs.filter((tab) => tab.id === id))
           .map((tab) =>
             tab.id === "document"
               ? { ...tab, label: `${w.brief.title || "未命名"}.md` }
@@ -689,6 +686,8 @@ export function StudioWorkspace({ mode = "prd" }: { mode?: "prd" | "prototype" }
         {selectedAgent && <AgentDetail plugin={selectedAgent}
           enabled={extensions.ready && builtinRegistry.enabled(selectedAgent.id, extensions.enabled)}
           onRun={() => openPlugin(selectedAgent.id)} />}
+        {w.openTabs.filter((id) => id.startsWith("skill:")).map((id) =>
+          <div key={id} hidden={w.tab !== id}><SkillDetail id={id.slice(6)} /></div>)}
         {!activePluginEnabled && w.tab !== "prototype" && w.tab !== "document" && <section className={s.empty}>
           <h2>{extensions.ready ? `${activeOwner?.name}插件未启用` : "正在读取插件配置…"}</h2>
           <p>已保存内容和当前文档草稿不会删除。启用插件后可继续编辑。</p>

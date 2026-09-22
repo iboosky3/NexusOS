@@ -11,6 +11,8 @@ import type { ResourcePayload, StudioPlugin, StudioResource } from "@/lib/plugin
 import { Workbench, EditorTabs, PanelHeading } from "./workbench";
 import { PluginErrorBoundary } from "./plugin-error-boundary";
 import { AgentDirectory, AgentDetail } from "./agent-catalog";
+import { SkillDirectory, SkillDetail, type SkillSummary } from "./skill-catalog";
+import { prdApi } from "@/lib/prd-api";
 import { InvocationFlow, type InvocationTrace } from "./invocation-flow";
 import { browserDrafts } from "@/lib/workspace/browser-drafts";
 import { resourceDraft, type SaveSubmission } from "@/lib/workspace/resource-draft";
@@ -53,6 +55,16 @@ export function ResourceWorkspace() {
   const uncertainSaves = useRef(new Map<string, SaveSubmission>());
   const saves = useRef(new Map<string, Promise<StudioResource>>());
   const [side, setSide] = useState("resources");
+  const [skills, setSkills] = useState<SkillSummary[]>([]);
+  const [skillError, setSkillError] = useState("");
+  useEffect(() => {
+    if (side !== "skills") return;
+    let active = true;
+    void prdApi<{ skills: SkillSummary[] }>("capabilities")
+      .then((result) => { if (active) { setSkills(result.skills); setSkillError(""); } })
+      .catch((reason) => { if (active) setSkillError(reason instanceof Error ? reason.message : String(reason)); });
+    return () => { active = false; };
+  }, [side]);
   const [sidebarFocus, setSidebarFocus] = useState(0);
   function showView(id: string) { setSide(id); setSidebarFocus((value) => value + 1); }
   const activeView = contributedViews.find((view) => view.id === side);
@@ -69,6 +81,7 @@ export function ResourceWorkspace() {
   const { tab, openTabs, setTab, closeTab } = useEditorTabs<string>([], "");
   const active = tab ? sessions[tab] : undefined;
   const selectedAgent = tab?.startsWith("agent:") ? studioPlugins.find((item) => item.id === tab.slice(6) && item.agent) : undefined;
+  const selectedSkill = tab?.startsWith("skill:") ? tab.slice(6) : undefined;
   const selectedRun = tab?.startsWith("run:") ? invocations.find((item) => item.id === tab.slice(4)) : undefined;
   const selectedHandoff = tab?.startsWith("handoff:") ? handoffs.find((item) => item.id === tab.slice(8)) : undefined;
   const handoffTarget = selectedHandoff && sessions[selectedHandoff.targetId];
@@ -302,11 +315,12 @@ export function ResourceWorkspace() {
       { label: "文件", commands: commands.filter((command) => !("menu" in command) || command.menu === "file") },
       { label: "视图", commands: commands.filter((command) => "menu" in command && command.menu === "view") },
     ]}
-    views={[{ id: "resources", label: "资源", icon: "▤" }, { id: "agents", label: "Agent", icon: "◇" }, { id: "plugins", label: "插件", icon: "⊞" }, { id: "handoffs", label: "交接", icon: "⇄" }, { id: "tasks", label: "任务", icon: "◷" }]}
+    views={[{ id: "resources", label: "资源", icon: "▤" }, { id: "agents", label: "Agent", icon: "◇" }, { id: "skills", label: "Skill", icon: "✧" }, { id: "plugins", label: "插件", icon: "⊞" }, { id: "handoffs", label: "交接", icon: "⇄" }, { id: "tasks", label: "任务", icon: "◷" }]}
     sidebarFocusToken={sidebarFocus} activeView={side} onView={(id) => { setSide(id); const view = contributedViews.find((item) => item.id === id); if (view && host) void perform(() => host.activate(view.pluginId)); }} status={active ? dirty(active) ? "本地草稿 · 待保存" : `已保存 r${active.base.revision}` : "空工作区"}
     sidebar={<div className={s.sidebar}>
-      <PanelHeading>{side === "agents" ? "Agent 插件" : side === "plugins" ? "工作区插件" : side === "handoffs" ? "版本化交接" : side === "tasks" ? "任务记录" : activeView?.label || "资源"}</PanelHeading>
+      <PanelHeading>{side === "agents" ? "Agent 插件" : side === "skills" ? "Skill 清单" : side === "plugins" ? "工作区插件" : side === "handoffs" ? "版本化交接" : side === "tasks" ? "任务记录" : activeView?.label || "资源"}</PanelHeading>
       {side === "agents" ? <AgentDirectory plugins={studioPlugins} enabled={enabled} onOpen={(definition) => setTab(`agent:${definition.id}`)} />
+      : side === "skills" ? <SkillDirectory skills={skills} error={skillError} onOpen={(id) => setTab(`skill:${id}`)} />
       : View && activeView && enabled(activeView.pluginId) ? <PluginErrorBoundary key={activeView.id} pluginId={activeView.pluginId}>
         <View resources={Object.values(sessions).filter((session) => session.base.resourceType === activeView.resourceType).map((session) => ({ ...session.base, payload: session.payload }))} onOpen={(resource) => setTab(resource.id)} />
       </PluginErrorBoundary> : side === "plugins" ? studioPlugins.map((definition) => <section key={definition.id}><strong>{definition.name}</strong><p>{host?.state(definition.id) || "registered"}</p>
@@ -355,7 +369,8 @@ export function ResourceWorkspace() {
       const run = id.startsWith("run:") ? invocations.find((item) => item.id === id.slice(4)) : undefined;
       if (run) return [{ id, icon: "◇", label: `工作流 · ${run.request.instruction.slice(0, 20)}` }];
       const definition = id.startsWith("agent:") ? studioPlugins.find((item) => item.id === id.slice(6) && item.agent) : undefined;
-      return definition ? [{ id, icon: definition.icon, label: `${definition.name} · Agent` }] : [];
+      if (definition) return [{ id, icon: definition.icon, label: `${definition.name} · Agent` }];
+      return id.startsWith("skill:") ? [{ id, icon: "✧", label: `${id.slice(6)} · Skill` }] : [];
     })}
       value={tab} onChange={setTab} closableIds={openTabs} onClose={(id) => { closeTab(id); setClosed((previous) => [...previous.filter((value) => value !== id), id]); }} />
     {error && <div role="alert" className={s.error}>{error}<button onClick={() => setError("")}>关闭</button></div>}
@@ -363,7 +378,7 @@ export function ResourceWorkspace() {
     {active && <DraftRecovery candidates={draftCandidates} disabled={busy || dirty(active)} onRestore={(candidate) => void perform(() => restoreDraft(candidate))} onDiscard={(candidate) => { void perform(async () => { browserDrafts().discard(draftKey(workspace!.id, active.base.id), candidate); reloadCandidates(); }); }} />}
     {notice && <div role="status" className={s.notice}>{notice}<button onClick={() => setNotice("")}>关闭</button></div>}
     <div className={s.editors}>
-      {!active && !selectedAgent && !selectedRun && !selectedHandoff && <section className={s.empty}><h2>组合插件，开始工作</h2><p>关闭标签不会删除资源或取消任务。</p>{commands.slice(1).map((command) => <button key={command.id} disabled={command.disabled} onClick={command.run}>{command.label}</button>)}</section>}
+      {!active && !selectedAgent && !selectedSkill && !selectedRun && !selectedHandoff && <section className={s.empty}><h2>组合插件，开始工作</h2><p>关闭标签不会删除资源或取消任务。</p>{commands.slice(1).map((command) => <button key={command.id} disabled={command.disabled} onClick={command.run}>{command.label}</button>)}</section>}
       {selectedHandoff && <HandoffPreview key={selectedHandoff.id} workspace={workspace.id} transfer={selectedHandoff}
         artifact={artifacts.find((item) => item.id === selectedHandoff.artifactId)} current={handoffTarget?.base}
         targetTitle={handoffTarget && handoffPlugin ? handoffPlugin.title(handoffTarget.payload) : selectedHandoff.targetId}
@@ -384,6 +399,8 @@ export function ResourceWorkspace() {
       {selectedAgent && <AgentDetail plugin={selectedAgent} enabled={enabled(selectedAgent.id)} busy={busy || !host} onRun={() => {
         if (host) void perform(() => host.execute(selectedAgent.agent!.launchCommand));
       }} />}
+      {openTabs.filter((id) => id.startsWith("skill:")).map((id) =>
+        <div key={id} hidden={tab !== id}><SkillDetail id={id.slice(6)} /></div>)}
       {Object.entries(sessions).map(([id, session]) => {
         const definition = owner(session.base); const Editor = definition && editors.get(definition.id);
         if (!Editor || !definition) return id === tab ? <section key={id}><p>缺少资源编辑插件：{session.base.resourceType} · r{session.base.revision}</p><details><summary>查看只读资源数据</summary><pre>{JSON.stringify(session.payload, null, 2)}</pre></details></section> : null;

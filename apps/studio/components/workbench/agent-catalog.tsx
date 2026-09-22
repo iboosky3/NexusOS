@@ -41,9 +41,14 @@ export function AgentDetail({ plugin, enabled, busy = false, onRun }: {
       </div>
     </header>
     <section><h2>使用方法</h2><ol>{profile.usage.map((step) => <li key={step}>{step}</li>)}</ol></section>
-    <section><h2>智能体架构图</h2><p className={s.hint}>这是插件声明的流程；本次运行的实际 Agent、版本和步骤以运行记录为准。</p>
-      <ol className={s.graph}>{profile.stages.map((stage) => <li key={stage.id}>
-        <strong>{stage.label}</strong><p>{stage.purpose}</p>{stage.capability && <small>所需能力：{stage.capability}</small>}
+    <section><h2>智能体协作图</h2><p className={s.hint}>这是插件声明的协作流程；本次实际选中的 Agent、版本和步骤以运行记录为准。</p>
+      <div className={s.agentNode}><strong>{plugin.name}</strong><small>主 Agent · 组织流程与交接</small></div>
+      <ol className={s.collaboration}>{profile.stages.map((stage) => <li key={stage.id}>
+        <div className={s.stageNode}><strong>{stage.label}</strong><p>{stage.purpose}</p>{stage.capability && <small>所需能力：{stage.capability}</small>}</div>
+        {stage.participant && <div className={s.participantNode}>
+          <small>{profile.selection === "capability" ? "候选子 Agent / 角色" : "参与子 Agent / 角色"}</small>
+          <strong>{stage.participant.label}</strong><span>{stage.participant.description}</span>
+        </div>}
       </li>)}</ol>
     </section>
     <section><h2>子 Agent 与参与角色</h2>

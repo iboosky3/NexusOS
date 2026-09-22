@@ -9,6 +9,7 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel, Field
 
 from nexusos.agents import FileAgentRegistry
 from nexusos.models import ChatMessage, ModelRequest
@@ -28,10 +29,17 @@ from nexusos.prd.schemas import (
 from nexusos.prd.store import ConflictError, NotFoundError, PrdStore
 from nexusos.prd.workflow import PrdWorkflow
 from nexusos.skills import FileSkillRepository
+from nexusos.skills.repository import SkillEditConflict
+
+
+class SkillInstructionsUpdate(BaseModel):
+    instructions: str = Field(min_length=1, max_length=65536)
+    expected_digest: str = Field(pattern=r"^[0-9a-f]{64}$")
 
 
 def create_prd_router(store: PrdStore, workflow: PrdWorkflow) -> APIRouter:
     router = APIRouter(prefix="/v1/prd", tags=["PRD workspace"])
+    skill_repository = FileSkillRepository(workflow.root / "skills")
 
     def document(document_id: str) -> dict[str, Any]:
         try:
@@ -47,15 +55,43 @@ def create_prd_router(store: PrdStore, workflow: PrdWorkflow) -> APIRouter:
 
     @router.get("/capabilities")
     async def capabilities() -> dict[str, Any]:
+        skill_repository.refresh()
         return {
             "agents": [
                 asdict(agent) for agent in FileAgentRegistry(workflow.root / "agents").list()
             ],
-            "skills": [
-                asdict(skill)
-                for skill in FileSkillRepository(workflow.root / "skills").list_summaries()
-            ],
+            "skills": [asdict(skill) for skill in skill_repository.list_summaries()],
         }
+
+    @router.get("/capabilities/skills/{skill_id}")
+    async def skill_detail(skill_id: str) -> dict[str, Any]:
+        skill_repository.refresh()
+        try:
+            package = skill_repository.load(skill_id)
+        except KeyError as exc:
+            raise HTTPException(404, "Skill 不存在") from exc
+        return {
+            "summary": asdict(package.summary),
+            "instructions": package.instructions,
+            "manifest": skill_repository.manifest_source(skill_id),
+            "digest": skill_repository.digest(package.instructions),
+            "input_schema": dict(package.input_schema),
+            "output_schema": dict(package.output_schema),
+        }
+
+    @router.put("/capabilities/skills/{skill_id}")
+    async def save_skill(skill_id: str, payload: SkillInstructionsUpdate) -> dict[str, Any]:
+        try:
+            skill_repository.update_instructions(
+                skill_id, payload.instructions, payload.expected_digest
+            )
+        except KeyError as exc:
+            raise HTTPException(404, "Skill 不存在") from exc
+        except SkillEditConflict as exc:
+            raise HTTPException(409, str(exc)) from exc
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from exc
+        return await skill_detail(skill_id)
 
     @router.post("/assistant")
     async def assist(payload: AssistantRequest) -> dict[str, Any]:
